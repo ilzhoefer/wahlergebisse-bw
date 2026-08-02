@@ -24,12 +24,15 @@ docker compose up -d db
 
 bun install
 bun run db:migrate   # apply the schema to your local Postgres
+bun run db:seed      # load reference data (cities, party families, election types)
 bun run dev -- --open
 ```
 
 Other useful scripts: `bun run check` (type-check), `bun run lint` / `bun run format`
 (Prettier + ESLint), `bun run db:generate` (create a new migration after changing
-`src/lib/server/db/schema.ts`), `bun run db:studio` (browse the local database).
+`src/lib/server/db/schema.ts`), `bun run db:studio` (browse the local database), `bun run db:seed`
+(idempotent — re-run any time to refresh reference data; source CSVs live in
+`src/lib/server/db/seed/data/`).
 
 To regenerate the typed GraphQL client (`src/lib/generated-client/`) after changing
 `src/lib/server/graphql/index.ts`'s query/mutation fields: start `bun run dev`, then hit
