@@ -4,7 +4,7 @@
 	const labels: Record<string, string> = { de: 'DE', en: 'EN' };
 </script>
 
-<div class="flex gap-1 text-xs">
+<div class="flex gap-1 rounded-lg bg-white/95 p-1 text-xs shadow-lg">
 	{#each locales as locale (locale)}
 		<button
 			type="button"

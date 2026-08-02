@@ -8,7 +8,7 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<div class="fixed top-2 right-2 z-50">
+<div class="fixed bottom-2 left-2 z-50">
 	<LanguageSwitcher />
 </div>
 
