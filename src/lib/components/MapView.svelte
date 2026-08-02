@@ -157,3 +157,12 @@
 </script>
 
 <div bind:this={container} class="h-full w-full"></div>
+
+<style>
+	/* The LanguageSwitcher is fixed to the same top-right viewport corner as this control (by
+	   design — that's the conventional spot for a language switcher). Push the control down so
+	   the two don't overlap. */
+	:global(.maplibregl-ctrl-top-right .maplibregl-ctrl) {
+		margin-top: 3rem !important;
+	}
+</style>
