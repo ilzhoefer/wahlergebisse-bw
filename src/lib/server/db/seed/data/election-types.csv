@@ -1,0 +1,11 @@
+election_type,election_description
+1,Europawahl
+2,Bundestagswahl
+3,Landtagswahl
+4,Regionalwahl
+5,Kreistagswahl
+6,Gemeinderatswahl
+7,Bürgermeisterwahl
+8,Ortschaftsratswahl
+9,Bürgerentscheid
+10,Andere
