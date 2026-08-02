@@ -2,6 +2,11 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { crawlRun } from '$lib/server/db/schema';
 import { runCrawl } from '$lib/server/scraper/runCrawl';
+import {
+	mergeProgressTick,
+	type ProgressState,
+	type ProgressTick
+} from '$lib/server/scraper/client';
 import { acquireTaskLock, releaseTaskLock } from '$lib/server/task-lock';
 
 export interface CrawlState {
@@ -11,6 +16,9 @@ export interface CrawlState {
 	status: 'running' | 'done' | 'error';
 	log: string[];
 	error: string | null;
+	/** ISO timestamp; lets the client render/tick a "running for"/"completed in" duration. */
+	startedAt: string;
+	progress: ProgressState;
 }
 
 const MAX_LOG_LINES = 500;
@@ -71,21 +79,29 @@ export async function startCrawl(params: {
 		electionType: params.electionTypeId,
 		status: 'running',
 		log: [],
-		error: null
+		error: null,
+		startedAt: row.startedAt.toISOString(),
+		progress: {}
 	};
 	notify();
 
-	const log = (message: string) => {
+	const log = (message: string, progress?: ProgressTick) => {
 		if (!current) return;
-		current.log.push(message);
-		if (current.log.length > MAX_LOG_LINES) current.log.shift();
+		// A pure progress tick (empty message — see pollingStations.ts/results.ts's per-station ticks)
+		// updates only the structured progress, skipping the log array and the DB write so a large
+		// city's hundreds of stations don't flood Postgres with one UPDATE per tick.
+		if (message) {
+			current.log.push(message);
+			if (current.log.length > MAX_LOG_LINES) current.log.shift();
+			// Drizzle query builders are lazy thenables — they only actually execute once something calls
+			// .then()/.catch()/is awaited. A bare `void db.update(...)` here would silently never run.
+			db.update(crawlRun)
+				.set({ log: current.log.join('\n'), currentStep: message })
+				.where(eq(crawlRun.id, row.id))
+				.catch(() => {});
+		}
+		if (progress) current.progress = mergeProgressTick(current.progress, progress);
 		notify();
-		// Drizzle query builders are lazy thenables — they only actually execute once something calls
-		// .then()/.catch()/is awaited. A bare `void db.update(...)` here would silently never run.
-		db.update(crawlRun)
-			.set({ log: current.log.join('\n'), currentStep: message })
-			.where(eq(crawlRun.id, row.id))
-			.catch(() => {});
 	};
 
 	// Fire-and-forget: the HTTP request that triggered this returns immediately, progress is polled via SSE.

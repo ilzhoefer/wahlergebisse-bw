@@ -87,7 +87,13 @@ export async function updateElectionDates(
 	onlyDate?: string
 ) {
 	for (const [i, city] of cityList.entries()) {
-		log(`[${i + 1}/${cityList.length}] ${city.name ?? city.rs}: Wahltermine abrufen`);
+		const cityLabel = city.name ?? String(city.rs);
+		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
+			level: 'city',
+			index: i + 1,
+			total: cityList.length,
+			label: cityLabel
+		});
 		let dates = await getElectionDates(city.ags);
 		if (onlyDate) dates = dates.filter((d) => d === onlyDate);
 

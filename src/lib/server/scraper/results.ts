@@ -14,6 +14,7 @@ import {
 	formatDateForUrl,
 	fetchWithFallback,
 	fallbackOnNotFound,
+	progressEvery,
 	type Logger
 } from './client';
 
@@ -230,7 +231,13 @@ export async function getResultsCity(
 	log: Logger
 ) {
 	for (const [i, city] of cityList.entries()) {
-		log(`[${i + 1}/${cityList.length}] ${city.name ?? city.rs}: Ergebnisse abrufen`);
+		const cityLabel = city.name ?? String(city.rs);
+		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Ergebnisse abrufen`, {
+			level: 'city',
+			index: i + 1,
+			total: cityList.length,
+			label: cityLabel
+		});
 
 		const [relevantElection] = await db
 			.select({ electionId: elections.electionId })
@@ -285,12 +292,21 @@ export async function getResultsCity(
 			}
 		}
 
+		const tickEvery = progressEvery(relevantPs.length);
 		for (const [j, ps] of relevantPs.entries()) {
 			// A single city (e.g. Stuttgart) can have hundreds of polling stations, each requiring its own
 			// HTTP request — without this, the admin UI's progress log would show nothing but the initial
 			// "Ergebnisse abrufen" line for however long that takes.
 			if (j > 0 && j % 25 === 0) {
 				log(`${city.name ?? city.rs}: Wahlbezirk ${j}/${relevantPs.length} verarbeitet`);
+			}
+			if (j % tickEvery === 0 || j === relevantPs.length - 1) {
+				log('', {
+					level: 'station',
+					index: j + 1,
+					total: relevantPs.length,
+					label: `Wahlbezirk ${j + 1}/${relevantPs.length}`
+				});
 			}
 			for (const votetype of relevantVotetypes) {
 				if (skipProcessed) {

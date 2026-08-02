@@ -1,6 +1,42 @@
 const BASE = 'https://wahlergebnisse.komm.one/lb/produktion';
 
-export type Logger = (message: string) => void;
+/**
+ * A tick reports "index/total" progress at one nesting level of a crawl (the 8 sequential steps in
+ * `runCrawl.ts`, the municipality being processed within a step, or the polling station within a
+ * municipality). Emitted alongside — not instead of — the plain text log line.
+ */
+export interface ProgressTick {
+	level: 'step' | 'city' | 'station';
+	index: number;
+	total: number;
+	label: string;
+}
+
+/**
+ * `message` is the human-readable log line (unchanged from before). `progress`, when present, updates
+ * the structured progress display; most call sites never pass it and behave exactly as before.
+ */
+export type Logger = (message: string, progress?: ProgressTick) => void;
+
+export interface ProgressState {
+	step?: ProgressTick;
+	city?: ProgressTick;
+	station?: ProgressTick;
+}
+
+const PROGRESS_LEVELS: ProgressTick['level'][] = ['step', 'city', 'station'];
+
+/**
+ * A tick at a shallower level (e.g. a new step starting) invalidates any more-granular level's
+ * progress from the previous step/city — otherwise a leftover "Wahlbezirk 480/500" bar would linger
+ * on screen after the crawl has moved on to a step that has no polling-station loop at all.
+ */
+export function mergeProgressTick(progress: ProgressState, tick: ProgressTick): ProgressState {
+	const next: ProgressState = { ...progress, [tick.level]: tick };
+	const levelIndex = PROGRESS_LEVELS.indexOf(tick.level);
+	for (const deeper of PROGRESS_LEVELS.slice(levelIndex + 1)) delete next[deeper];
+	return next;
+}
 
 /** Zero-pads an `ags` (Amtlicher Gemeindeschlüssel) to 8 digits, matching the R scraper's `%08d`. */
 export function padAgs(ags: number): string {
@@ -48,6 +84,11 @@ export async function fetchWithFallback<T>(
 	const primary = await fetchJson<T>(primaryUrl);
 	if (!shouldFallback(primary)) return primary;
 	return fetchJson<T>(fallbackUrl);
+}
+
+/** Caps a loop to ~50 progress ticks regardless of size, so a 500-station city doesn't flood the SSE stream. */
+export function progressEvery(total: number): number {
+	return Math.max(1, Math.floor(total / 50));
 }
 
 export const fallbackOnContentNull = <T>(r: FetchResult<T>) => r.content === null;
