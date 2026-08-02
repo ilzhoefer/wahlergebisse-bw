@@ -8,6 +8,7 @@ import {
 	fetchWithFallback,
 	fallbackOnContentNull,
 	fallbackOnNotOk,
+	progressEvery,
 	type Logger
 } from './client';
 
@@ -67,11 +68,22 @@ export async function getPollingStationElectionCity(
 		}
 	}
 
+	const tickEvery = progressEvery(wahlbezirke.length);
 	for (const [i, wahlbezirk] of wahlbezirke.entries()) {
 		// Same rationale as the periodic log in results.ts: a large city's polling-station overview can
-		// have hundreds of entries, each needing its own metadata request.
+		// have hundreds of entries, each needing its own metadata request. The progress tick is throttled
+		// separately (and more finely) than the text log line so the bar still feels live without
+		// flooding the SSE stream or the persisted log.
 		if (i > 0 && i % 25 === 0) {
 			log(`rs=${rs}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
+		}
+		if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
+			log('', {
+				level: 'station',
+				index: i + 1,
+				total: wahlbezirke.length,
+				label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
+			});
 		}
 		const match = /[^_]+$/.exec(wahlbezirk.link.id);
 		const psId = match ? Number(match[0]) : NaN;
@@ -121,7 +133,13 @@ export async function getPollingStationsElection(
 	log: Logger
 ) {
 	for (const [i, city] of cityList.entries()) {
-		log(`[${i + 1}/${cityList.length}] ${city.name ?? city.rs}: Wahlbezirke abrufen`);
+		const cityLabel = city.name ?? String(city.rs);
+		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
+			level: 'city',
+			index: i + 1,
+			total: cityList.length,
+			label: cityLabel
+		});
 
 		const [relevantElection] = await db
 			.select({ electionId: elections.electionId })

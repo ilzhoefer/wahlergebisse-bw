@@ -57,7 +57,6 @@
 	"admin_crawl_date_label": "Election date",
 	"admin_crawl_date_placeholder": "No dates known yet — please refresh",
 	"admin_crawl_date_refresh_button": "Refresh dates",
-	"admin_crawl_date_refresh_running": "Fetching available dates …",
 	"admin_crawl_date_refresh_done": "Found {count} dates.",
 	"admin_crawl_date_refresh_error_generic": "Could not refresh the dates.",
 	"admin_crawl_electiontype_label": "Election type",
@@ -71,7 +70,16 @@
 	"admin_status_running": "running",
 	"admin_status_done": "done",
 	"admin_status_error": "error",
-	"admin_status_current": "Election type {type} on {date} — {status}",
-	"admin_status_last_run": "Last crawl: election type {type} on {date} — {status}",
-	"admin_status_none": "No crawl has run yet."
+	"admin_status_meta": "{type} · {date}",
+	"admin_status_duration_running": "running for {duration}",
+	"admin_status_duration_done": "completed in {duration}",
+	"admin_status_duration_error": "failed after {duration}",
+	"admin_status_level_step": "Step",
+	"admin_status_level_city": "Municipality",
+	"admin_status_level_station": "Polling station",
+	"admin_status_log_show": "Show log",
+	"admin_status_log_hide": "Hide log",
+	"admin_status_log_waiting": "Waiting for output …",
+	"admin_status_none": "No crawl has run yet.",
+	"admin_status_none_hint": "Pick a date and election type above to get started."
 }

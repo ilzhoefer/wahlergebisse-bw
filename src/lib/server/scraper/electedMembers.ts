@@ -36,7 +36,13 @@ export async function getElectedMembers(
 	log: Logger
 ) {
 	for (const [i, city] of cityList.entries()) {
-		log(`[${i + 1}/${cityList.length}] ${city.name ?? city.rs}: gewählte Mitglieder abrufen`);
+		const cityLabel = city.name ?? String(city.rs);
+		log(`[${i + 1}/${cityList.length}] ${cityLabel}: gewählte Mitglieder abrufen`, {
+			level: 'city',
+			index: i + 1,
+			total: cityList.length,
+			label: cityLabel
+		});
 
 		const [relevantElection] = await db
 			.select()

@@ -57,7 +57,6 @@
 	"admin_crawl_date_label": "Wahldatum",
 	"admin_crawl_date_placeholder": "Keine Termine bekannt — bitte aktualisieren",
 	"admin_crawl_date_refresh_button": "Termine aktualisieren",
-	"admin_crawl_date_refresh_running": "Termine werden abgerufen …",
 	"admin_crawl_date_refresh_done": "{count} Termine gefunden.",
 	"admin_crawl_date_refresh_error_generic": "Termine konnten nicht aktualisiert werden.",
 	"admin_crawl_electiontype_label": "Wahlart",
@@ -71,7 +70,16 @@
 	"admin_status_running": "läuft",
 	"admin_status_done": "abgeschlossen",
 	"admin_status_error": "Fehler",
-	"admin_status_current": "Wahlart {type} am {date} — {status}",
-	"admin_status_last_run": "Letzter Crawl: Wahlart {type} am {date} — {status}",
-	"admin_status_none": "Noch kein Crawl durchgeführt."
+	"admin_status_meta": "{type} · {date}",
+	"admin_status_duration_running": "läuft seit {duration}",
+	"admin_status_duration_done": "abgeschlossen in {duration}",
+	"admin_status_duration_error": "fehlgeschlagen nach {duration}",
+	"admin_status_level_step": "Schritt",
+	"admin_status_level_city": "Gemeinde",
+	"admin_status_level_station": "Wahlbezirk",
+	"admin_status_log_show": "Protokoll anzeigen",
+	"admin_status_log_hide": "Protokoll ausblenden",
+	"admin_status_log_waiting": "Warte auf erste Ausgabe …",
+	"admin_status_none": "Noch kein Crawl durchgeführt.",
+	"admin_status_none_hint": "Wähle oben ein Datum und eine Wahlart aus, um zu starten."
 }

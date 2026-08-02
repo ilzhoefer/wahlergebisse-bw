@@ -2,6 +2,11 @@ import { desc } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { cities, elections } from '$lib/server/db/schema';
 import { updateElectionDates, setElectionType } from '$lib/server/scraper/elections';
+import {
+	mergeProgressTick,
+	type ProgressState,
+	type ProgressTick
+} from '$lib/server/scraper/client';
 import { acquireTaskLock, releaseTaskLock } from '$lib/server/task-lock';
 
 export interface DateDiscoveryState {
@@ -9,7 +14,11 @@ export interface DateDiscoveryState {
 	log: string[];
 	dates: string[];
 	error: string | null;
+	startedAt: string;
+	progress: ProgressState;
 }
+
+const TOTAL_STEPS = 2;
 
 const MAX_LOG_LINES = 500;
 
@@ -46,22 +55,36 @@ export async function startDateDiscovery(): Promise<
 		return { started: false, reason: 'already_running' };
 	}
 
-	current = { status: 'running', log: [], dates: [], error: null };
+	current = {
+		status: 'running',
+		log: [],
+		dates: [],
+		error: null,
+		startedAt: new Date().toISOString(),
+		progress: {}
+	};
 	notify();
 
-	const log = (message: string) => {
+	const log = (message: string, progress?: ProgressTick) => {
 		if (!current) return;
-		current.log.push(message);
-		if (current.log.length > MAX_LOG_LINES) current.log.shift();
+		if (message) {
+			current.log.push(message);
+			if (current.log.length > MAX_LOG_LINES) current.log.shift();
+		}
+		if (progress) current.progress = mergeProgressTick(current.progress, progress);
 		notify();
 	};
+	const stepTick = (label: string, index: number) =>
+		log(label, { level: 'step', index, total: TOTAL_STEPS, label });
 
 	void (async () => {
 		try {
 			const cityList = (await db.select().from(cities)).flatMap((c) =>
 				c.ags === null ? [] : [{ rs: c.rs, ags: c.ags, name: c.name }]
 			);
+			stepTick('Wahltermine abrufen', 1);
 			await updateElectionDates(db, cityList, log);
+			stepTick('Wahlarten zuordnen', 2);
 			await setElectionType(db, log);
 
 			const rows = await db

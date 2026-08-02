@@ -33,35 +33,45 @@ export interface CrawlParams {
  * they're used) rather than exposed as admin-configurable toggles, since nothing in the source ever
  * varied them.
  */
+// Fixed step count for progress reporting — the Stuttgart-mapping step always runs (as a no-op log
+// line when there's no district data for the date), so the total is constant regardless of branch.
+const TOTAL_STEPS = 8;
+
 export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
+	let step = 0;
+	const stepTick = (label: string) => {
+		step += 1;
+		log(label, { level: 'step', index: step, total: TOTAL_STEPS, label });
+	};
+
 	// A city without an `ags` can't be looked up against the komm.one API at all — skip it defensively
 	// rather than crashing the whole crawl (every real, populated city has one).
 	const cityList = (await db.select().from(cities)).flatMap((c) =>
 		c.ags === null ? [] : [{ rs: c.rs, ags: c.ags, name: c.name }]
 	);
 
-	log('Wahltermine aktualisieren');
+	stepTick('Wahltermine aktualisieren');
 	await updateElectionDates(db, cityList, log, params.date);
 
-	log('Wahlarten zuordnen');
+	stepTick('Wahlarten zuordnen');
 	await setElectionType(db, log);
 
-	log('Wahlbezirke abrufen');
+	stepTick('Wahlbezirke abrufen');
 	await getPollingStationsElection(db, cityList, params.electionTypeId, params.date, true, log);
 
-	log('Ergebnisse abrufen');
+	stepTick('Ergebnisse abrufen');
 	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log);
 
-	log('Parteifamilien zuordnen');
+	stepTick('Parteifamilien zuordnen');
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 
-	log('Aggregate berechnen');
+	stepTick('Aggregate berechnen');
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
 
+	stepTick('Stuttgart-Wahlkreiszuordnung aktualisieren');
 	if (params.electionTypeId === 2 || params.electionTypeId === 3) {
 		const districtRows = STUTTGART_DISTRICTS[params.date];
 		if (districtRows) {
-			log('Stuttgart-Wahlkreiszuordnung aktualisieren');
 			await updateMappingStuttgart(db, districtRows, params.date, params.electionTypeId, log);
 		} else {
 			log(
@@ -70,7 +80,7 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 		}
 	}
 
-	log('Gewählte Mitglieder abrufen');
+	stepTick('Gewählte Mitglieder abrufen');
 	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log);
 
 	log('Crawl abgeschlossen');
