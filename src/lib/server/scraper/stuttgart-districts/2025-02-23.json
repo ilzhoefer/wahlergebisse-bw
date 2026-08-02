@@ -1,0 +1,1592 @@
+[
+	{
+		"AWBEZ_T": "006-11",
+		"BWBEZ_T": "006-61",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-20",
+		"BWBEZ_T": "006-70",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-23",
+		"BWBEZ_T": "006-73",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "009-08",
+		"BWBEZ_T": "009-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "001-01",
+		"BWBEZ_T": "001-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-03",
+		"BWBEZ_T": "001-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-04",
+		"BWBEZ_T": "001-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-05",
+		"BWBEZ_T": "001-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-06",
+		"BWBEZ_T": "001-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-07",
+		"BWBEZ_T": "001-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-08",
+		"BWBEZ_T": "001-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-10",
+		"BWBEZ_T": "001-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-02",
+		"BWBEZ_T": "001-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "003-01",
+		"BWBEZ_T": "003-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-04",
+		"BWBEZ_T": "003-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-06",
+		"BWBEZ_T": "003-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-07",
+		"BWBEZ_T": "003-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-08",
+		"BWBEZ_T": "003-58",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "003-14",
+		"BWBEZ_T": "003-64",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-18",
+		"BWBEZ_T": "003-68",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-19",
+		"BWBEZ_T": "003-69",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-09",
+		"BWBEZ_T": "006-59",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-10",
+		"BWBEZ_T": "006-60",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-15",
+		"BWBEZ_T": "006-65",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-16",
+		"BWBEZ_T": "006-66",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-17",
+		"BWBEZ_T": "006-67",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-19",
+		"BWBEZ_T": "006-69",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-21",
+		"BWBEZ_T": "006-71",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-22",
+		"BWBEZ_T": "006-72",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-24",
+		"BWBEZ_T": "006-74",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-26",
+		"BWBEZ_T": "006-76",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-27",
+		"BWBEZ_T": "006-77",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "007-03",
+		"BWBEZ_T": "007-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "007-04",
+		"BWBEZ_T": "007-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "007-01",
+		"BWBEZ_T": "007-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "008-01",
+		"BWBEZ_T": "008-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "008-03",
+		"BWBEZ_T": "008-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "008-04",
+		"BWBEZ_T": "008-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "008-05",
+		"BWBEZ_T": "008-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "008-06",
+		"BWBEZ_T": "008-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "009-01",
+		"BWBEZ_T": "009-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "009-04",
+		"BWBEZ_T": "009-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "009-05",
+		"BWBEZ_T": "009-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "009-03",
+		"BWBEZ_T": "009-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "010-02",
+		"BWBEZ_T": "010-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-03",
+		"BWBEZ_T": "010-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-05",
+		"BWBEZ_T": "010-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-06",
+		"BWBEZ_T": "010-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-12",
+		"BWBEZ_T": "010-62",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "012-02",
+		"BWBEZ_T": "012-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-04",
+		"BWBEZ_T": "012-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-05",
+		"BWBEZ_T": "012-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-06",
+		"BWBEZ_T": "012-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-07",
+		"BWBEZ_T": "012-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-08",
+		"BWBEZ_T": "012-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-09",
+		"BWBEZ_T": "012-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-10",
+		"BWBEZ_T": "012-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-12",
+		"BWBEZ_T": "012-62",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-13",
+		"BWBEZ_T": "012-63",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-14",
+		"BWBEZ_T": "012-64",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-01",
+		"BWBEZ_T": "012-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "013-01",
+		"BWBEZ_T": "013-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "013-03",
+		"BWBEZ_T": "013-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "013-04",
+		"BWBEZ_T": "013-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "013-05",
+		"BWBEZ_T": "013-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "013-07",
+		"BWBEZ_T": "013-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "013-08",
+		"BWBEZ_T": "013-58",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "014-01",
+		"BWBEZ_T": "014-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "014-02",
+		"BWBEZ_T": "014-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "015-01",
+		"BWBEZ_T": "015-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "015-02",
+		"BWBEZ_T": "015-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "015-04",
+		"BWBEZ_T": "015-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "016-01",
+		"BWBEZ_T": "016-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "016-03",
+		"BWBEZ_T": "016-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "016-04",
+		"BWBEZ_T": "016-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "016-05",
+		"BWBEZ_T": "016-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "016-06",
+		"BWBEZ_T": "016-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "016-02",
+		"BWBEZ_T": "016-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-02",
+		"BWBEZ_T": "017-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-04",
+		"BWBEZ_T": "017-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-06",
+		"BWBEZ_T": "017-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-07",
+		"BWBEZ_T": "017-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-10",
+		"BWBEZ_T": "017-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "018-01",
+		"BWBEZ_T": "018-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "018-03",
+		"BWBEZ_T": "018-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "019-01",
+		"BWBEZ_T": "019-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "020-01",
+		"BWBEZ_T": "020-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-19",
+		"BWBEZ_T": "020-69",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-03",
+		"BWBEZ_T": "020-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "022-02",
+		"BWBEZ_T": "022-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-03",
+		"BWBEZ_T": "022-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-06",
+		"BWBEZ_T": "022-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-10",
+		"BWBEZ_T": "022-60",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-11",
+		"BWBEZ_T": "022-61",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-12",
+		"BWBEZ_T": "022-62",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-14",
+		"BWBEZ_T": "022-64",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-04",
+		"BWBEZ_T": "022-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-01",
+		"BWBEZ_T": "023-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-06",
+		"BWBEZ_T": "023-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-08",
+		"BWBEZ_T": "023-58",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-09",
+		"BWBEZ_T": "023-59",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-13",
+		"BWBEZ_T": "023-63",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "006-05",
+		"BWBEZ_T": "006-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-25",
+		"BWBEZ_T": "006-75",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "017-01",
+		"BWBEZ_T": "017-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "021-03",
+		"BWBEZ_T": "021-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "021-01",
+		"BWBEZ_T": "021-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "023-11",
+		"BWBEZ_T": "023-61",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "006-03",
+		"BWBEZ_T": "006-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "021-02",
+		"BWBEZ_T": "021-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-03",
+		"BWBEZ_T": "003-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-05",
+		"BWBEZ_T": "003-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-01",
+		"BWBEZ_T": "006-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "011-01",
+		"BWBEZ_T": "011-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "011-02",
+		"BWBEZ_T": "011-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "011-03",
+		"BWBEZ_T": "011-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "011-04",
+		"BWBEZ_T": "011-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "015-03",
+		"BWBEZ_T": "015-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "018-05",
+		"BWBEZ_T": "018-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "019-07",
+		"BWBEZ_T": "019-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "019-04",
+		"BWBEZ_T": "019-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "019-05",
+		"BWBEZ_T": "019-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-13",
+		"BWBEZ_T": "003-63",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "003-02",
+		"BWBEZ_T": "003-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-16",
+		"BWBEZ_T": "003-66",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-10",
+		"BWBEZ_T": "003-60",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-09",
+		"BWBEZ_T": "003-59",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "006-18",
+		"BWBEZ_T": "006-68",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-14",
+		"BWBEZ_T": "006-64",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-13",
+		"BWBEZ_T": "006-63",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-12",
+		"BWBEZ_T": "006-62",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-07",
+		"BWBEZ_T": "006-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-04",
+		"BWBEZ_T": "006-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-02",
+		"BWBEZ_T": "006-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "007-02",
+		"BWBEZ_T": "007-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "008-02",
+		"BWBEZ_T": "008-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "009-09",
+		"BWBEZ_T": "009-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "009-02",
+		"BWBEZ_T": "009-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "009-06",
+		"BWBEZ_T": "009-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "009-07",
+		"BWBEZ_T": "009-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "010-08",
+		"BWBEZ_T": "010-58",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-11",
+		"BWBEZ_T": "010-61",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-09",
+		"BWBEZ_T": "010-59",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-01",
+		"BWBEZ_T": "010-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-10",
+		"BWBEZ_T": "010-60",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-04",
+		"BWBEZ_T": "010-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "010-07",
+		"BWBEZ_T": "010-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "012-03",
+		"BWBEZ_T": "012-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "013-06",
+		"BWBEZ_T": "013-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "013-02",
+		"BWBEZ_T": "013-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "014-03",
+		"BWBEZ_T": "014-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "017-11",
+		"BWBEZ_T": "017-61",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-12",
+		"BWBEZ_T": "017-62",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-09",
+		"BWBEZ_T": "017-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-08",
+		"BWBEZ_T": "017-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "018-04",
+		"BWBEZ_T": "018-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "018-02",
+		"BWBEZ_T": "018-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "019-03",
+		"BWBEZ_T": "019-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "020-04",
+		"BWBEZ_T": "020-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-18",
+		"BWBEZ_T": "020-68",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-16",
+		"BWBEZ_T": "020-66",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-06",
+		"BWBEZ_T": "020-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-11",
+		"BWBEZ_T": "020-61",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-12",
+		"BWBEZ_T": "020-62",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-13",
+		"BWBEZ_T": "020-63",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-14",
+		"BWBEZ_T": "020-64",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-15",
+		"BWBEZ_T": "020-65",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "022-13",
+		"BWBEZ_T": "022-63",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-01",
+		"BWBEZ_T": "022-51",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-08",
+		"BWBEZ_T": "022-58",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-07",
+		"BWBEZ_T": "022-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-12",
+		"BWBEZ_T": "023-62",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-10",
+		"BWBEZ_T": "023-60",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-07",
+		"BWBEZ_T": "023-57",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-03",
+		"BWBEZ_T": "023-53",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-04",
+		"BWBEZ_T": "023-54",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-05",
+		"BWBEZ_T": "023-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-02",
+		"BWBEZ_T": "023-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "023-14",
+		"BWBEZ_T": "023-64",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "006-08",
+		"BWBEZ_T": "006-58",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "017-03",
+		"BWBEZ_T": "017-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "017-05",
+		"BWBEZ_T": "017-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-11",
+		"BWBEZ_T": "012-61",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "013-09",
+		"BWBEZ_T": "013-59",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "020-02",
+		"BWBEZ_T": "020-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "003-17",
+		"BWBEZ_T": "003-67",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-11",
+		"BWBEZ_T": "003-61",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "003-12",
+		"BWBEZ_T": "003-62",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "020-17",
+		"BWBEZ_T": "020-67",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-05",
+		"BWBEZ_T": "020-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "022-09",
+		"BWBEZ_T": "022-59",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "022-05",
+		"BWBEZ_T": "022-55",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "003-15",
+		"BWBEZ_T": "003-65",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "006-06",
+		"BWBEZ_T": "006-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "019-06",
+		"BWBEZ_T": "019-56",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "002-11",
+		"BWBEZ_T": "002-61",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-02",
+		"BWBEZ_T": "002-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-03",
+		"BWBEZ_T": "002-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-12",
+		"BWBEZ_T": "002-62",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-04",
+		"BWBEZ_T": "002-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-01",
+		"BWBEZ_T": "002-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-05",
+		"BWBEZ_T": "002-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-06",
+		"BWBEZ_T": "002-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-08",
+		"BWBEZ_T": "002-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-09",
+		"BWBEZ_T": "002-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-10",
+		"BWBEZ_T": "002-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "002-07",
+		"BWBEZ_T": "002-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-01",
+		"BWBEZ_T": "004-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-02",
+		"BWBEZ_T": "004-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-03",
+		"BWBEZ_T": "004-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-04",
+		"BWBEZ_T": "004-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-06",
+		"BWBEZ_T": "004-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-07",
+		"BWBEZ_T": "004-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-08",
+		"BWBEZ_T": "004-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-09",
+		"BWBEZ_T": "004-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-10",
+		"BWBEZ_T": "004-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-11",
+		"BWBEZ_T": "004-61",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-13",
+		"BWBEZ_T": "004-63",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-15",
+		"BWBEZ_T": "004-65",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-17",
+		"BWBEZ_T": "004-67",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-18",
+		"BWBEZ_T": "004-68",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-19",
+		"BWBEZ_T": "004-69",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-20",
+		"BWBEZ_T": "004-70",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-06",
+		"BWBEZ_T": "005-56",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-07",
+		"BWBEZ_T": "005-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-08",
+		"BWBEZ_T": "005-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-15",
+		"BWBEZ_T": "005-65",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-18",
+		"BWBEZ_T": "005-68",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-19",
+		"BWBEZ_T": "005-69",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-21",
+		"BWBEZ_T": "005-71",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-04",
+		"BWBEZ_T": "005-54",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-01",
+		"BWBEZ_T": "005-51",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-22",
+		"BWBEZ_T": "005-72",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-20",
+		"BWBEZ_T": "005-70",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-05",
+		"BWBEZ_T": "005-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-02",
+		"BWBEZ_T": "005-52",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-03",
+		"BWBEZ_T": "005-53",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-09",
+		"BWBEZ_T": "005-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-14",
+		"BWBEZ_T": "005-64",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-16",
+		"BWBEZ_T": "005-66",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-17",
+		"BWBEZ_T": "005-67",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-11",
+		"BWBEZ_T": "005-61",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-13",
+		"BWBEZ_T": "005-63",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-10",
+		"BWBEZ_T": "005-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-12",
+		"BWBEZ_T": "005-62",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-25",
+		"BWBEZ_T": "005-75",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "001-09",
+		"BWBEZ_T": "001-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "019-02",
+		"BWBEZ_T": "019-52",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "4"
+	},
+	{
+		"AWBEZ_T": "004-05",
+		"BWBEZ_T": "004-55",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "005-23",
+		"BWBEZ_T": "005-73",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-12",
+		"BWBEZ_T": "004-62",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-16",
+		"BWBEZ_T": "004-66",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "004-14",
+		"BWBEZ_T": "004-64",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	},
+	{
+		"AWBEZ_T": "020-08",
+		"BWBEZ_T": "020-58",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-23",
+		"BWBEZ_T": "020-73",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-09",
+		"BWBEZ_T": "020-59",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-07",
+		"BWBEZ_T": "020-57",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "012-15",
+		"BWBEZ_T": "012-65",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-10",
+		"BWBEZ_T": "020-60",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "013-11",
+		"BWBEZ_T": "013-61",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "013-10",
+		"BWBEZ_T": "013-60",
+		"BWKNUM_T": "259",
+		"LWKNUM_T": "3"
+	},
+	{
+		"AWBEZ_T": "020-20",
+		"BWBEZ_T": "020-70",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-21",
+		"BWBEZ_T": "020-71",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "020-22",
+		"BWBEZ_T": "020-72",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "2"
+	},
+	{
+		"AWBEZ_T": "005-24",
+		"BWBEZ_T": "005-74",
+		"BWKNUM_T": "258",
+		"LWKNUM_T": "1"
+	}
+]

@@ -1,0 +1,38 @@
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Legacy R/Shiny stack (see CLAUDE.md) — kept only until the SvelteKit rewrite fully replaces it
+.Rproj.user/
+*.Rproj
+*.RData
+*.Rhistory
+pg_backup
+SQL/pg_backup
+SQL/.pg_backup_old.sql
+R-Code/Database/election_result.csv
+Docker/volumes/ephemeral/
+Docker/.env
+# Paraglide
+src/lib/paraglide
+project.inlang/cache/

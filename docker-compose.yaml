@@ -1,0 +1,52 @@
+# Local development/testing only. The deployed image is built and published by
+# .github/workflows/publish-image.yml — this file is not the deployment artifact.
+
+services:
+  db:
+    image: postgres:17
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=election
+      - POSTGRES_DB=election
+      - POSTGRES_PASSWORD=election
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U election']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4
+    depends_on:
+      - db
+    ports:
+      - '8888:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.de
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+
+  # Builds and runs the same image published by publish-image.yml, for testing the container build
+  # itself locally. This does NOT replace `bun run dev` for day-to-day development (no hot reload —
+  # rebuild with `docker compose up --build app` after code changes). Migrations still need to be
+  # applied once via `bun run db:migrate` from the host (against the `db` service's exposed port)
+  # before the app can serve any data — this container doesn't run migrations on startup.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://election:election@db:5432/election
+      - ADMIN_PASSWORD=changeme
+      - SESSION_SECRET=changeme
+    ports:
+      - '3000:3000'
+
+volumes:
+  db-data:

@@ -1,0 +1,16 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+/drizzle/
+
+# Legacy R/Shiny stack, being replaced by this SvelteKit app (see CLAUDE.md) — removed in a later cleanup pass
+/R-Code/
+/Docker/
+/SQL/
+/00_daten/

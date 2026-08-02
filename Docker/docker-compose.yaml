@@ -1,0 +1,91 @@
+version: '3.1'
+
+services:
+  db:
+    image: postgres:17
+    volumes:
+      - ${EPHEMERAL}/db:/var/lib/postgresql/data
+      - ../SQL/pg_backup:/docker_backup/backup.sql # Path to backup file
+      - ./create_db.sh:/create_db.sh
+    environment:
+      - POSTGRES_USER=election
+      - POSTGRES_DB=election
+      - POSTGRES_PASSWORD=${DB_PASS}
+    networks:
+      - database
+    restart: unless-stopped
+    entrypoint: ['/bin/bash', '/create_db.sh'] # Custom entrypoint for database recovery
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U election']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    volumes:
+      - ${EPHEMERAL}/db:/var/lib/pgadmin/data
+      - ./servers.json:/pgadmin4/servers.json
+    networks:
+      - database
+      - external
+    ports:
+      - '8888:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.de
+      PGADMIN_DEFAULT_PASSWORD: ${PG_ADMIN_PASS}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+
+  shiny:
+    image: shiny
+    build: ./shiny
+    networks:
+      - database
+      - external
+    environment:
+      - DB_PASS=${DB_PASS}
+    ports:
+      - 8080:8888
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  schemaspy:
+    image: schemaspy/schemaspy:snapshot
+    networks:
+      - database
+      - external
+    volumes:
+      - ../SQL/schemaspy/output:/output
+      - ../SQL/schemaspy/config:/config
+    container_name: 'schemaspy_local'
+    command:
+      [
+        '-t',
+        'pgsql',
+        '-host',
+        'db',
+        '-port',
+        '5432',
+        '-db',
+        'election',
+        '-u',
+        'election',
+        '-p',
+        '${DB_PASS}',
+        '-imageformat',
+        'svg'
+      ]
+
+    depends_on:
+      - db
+
+networks:
+  database:
+    driver: bridge
+    #external: true
+  external:
+    driver: bridge
+    #external: true

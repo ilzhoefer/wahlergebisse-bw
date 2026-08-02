@@ -1,0 +1,30 @@
+diff --git a/out/index.mjs b/out/index.mjs
+index 0f2d9b7..159c852 100644
+--- a/out/index.mjs
++++ b/out/index.mjs
+@@ -339,6 +339,10 @@ function createDistinctValuesFromSQLType(sqlType) {
+ 		value1: 1,
+ 		value2: 2
+ 	};
++	if (isBigIntLikeSQLTypeString(sqlType)) return {
++		value1: 1,
++		value2: 2
++	};
+ 	if (isFloatLikeSQLTypeString(sqlType)) return {
+ 		value1: 1.1,
+ 		value2: 2.2
+diff --git a/out/index.cjs b/out/index.cjs
+index 3d02fca..7cfc054 100644
+--- a/out/index.cjs
++++ b/out/index.cjs
+@@ -367,6 +367,10 @@ function createDistinctValuesFromSQLType(sqlType) {
+ 		value1: 1,
+ 		value2: 2
+ 	};
++	if (isBigIntLikeSQLTypeString(sqlType)) return {
++		value1: 1,
++		value2: 2
++	};
+ 	if (isFloatLikeSQLTypeString(sqlType)) return {
+ 		value1: 1.1,
+ 		value2: 2.2

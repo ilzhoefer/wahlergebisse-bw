@@ -1,0 +1,23 @@
+FROM r-base@sha256:2031e6723c29ab07ad875d8fba9fa60fb7111357d7268f28393353f64592b13d
+
+#RUN apk update
+#RUN apk add -v curl-dev libpq
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+   libcurl4-gnutls-dev \
+#   libssl-dev \
+#   libpq5\
+#   libpq-dev\
+    && rm -rf /var/lib/apl/lists/*
+
+#RUN install.r -d shiny shinyjqui shinydashboard shinyWidgets shinydashboardPlus shinyAce styler shinyEffects DT plotly rjson pool RPostgreSQL tidygeocoder dplyr tidyr 
+#RUN install.r -d leaflet
+RUN install.r pak
+RUN R -q -e 'pak::pkg_install(c("leaflet","shiny","shinyjqui","shinydashboard","shinyWidgets","shinydashboardPlus","shinyAce","styler","shinyEffects","DT","plotly","rjson","pool","RPostgreSQL","tidygeocoder","dplyr","tidyr"))'
+
+
+
+COPY . /usr/local/src/shiny
+WORKDIR /usr/local/src/shiny
+EXPOSE 8888
+CMD ["R", "-e", "shiny::runApp('.')"]
