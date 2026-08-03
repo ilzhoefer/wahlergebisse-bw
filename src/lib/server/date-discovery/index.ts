@@ -4,6 +4,8 @@ import { cities, elections } from '$lib/server/db/schema';
 import { updateElectionDates, setElectionType } from '$lib/server/scraper/elections';
 import {
 	mergeProgressTick,
+	createCityStatusTracker,
+	type CityStatus,
 	type ProgressState,
 	type ProgressTick
 } from '$lib/server/scraper/client';
@@ -16,6 +18,7 @@ export interface DateDiscoveryState {
 	error: string | null;
 	startedAt: string;
 	progress: ProgressState;
+	cityStatus: Record<number, CityStatus>;
 }
 
 const TOTAL_STEPS = 2;
@@ -55,13 +58,15 @@ export async function startDateDiscovery(): Promise<
 		return { started: false, reason: 'already_running' };
 	}
 
+	const cityStatusTracker = createCityStatusTracker();
 	current = {
 		status: 'running',
 		log: [],
 		dates: [],
 		error: null,
 		startedAt: new Date().toISOString(),
-		progress: {}
+		progress: {},
+		cityStatus: cityStatusTracker.status
 	};
 	notify();
 
@@ -71,7 +76,10 @@ export async function startDateDiscovery(): Promise<
 			current.log.push(message);
 			if (current.log.length > MAX_LOG_LINES) current.log.shift();
 		}
-		if (progress) current.progress = mergeProgressTick(current.progress, progress);
+		if (progress) {
+			current.progress = mergeProgressTick(current.progress, progress);
+			cityStatusTracker.apply(progress);
+		}
 		notify();
 	};
 	const stepTick = (label: string, index: number) =>
@@ -86,6 +94,7 @@ export async function startDateDiscovery(): Promise<
 			await updateElectionDates(db, cityList, log);
 			stepTick('Wahlarten zuordnen', 2);
 			await setElectionType(db, log);
+			cityStatusTracker.finish();
 
 			const rows = await db
 				.selectDistinct({ date: elections.date })
@@ -96,6 +105,7 @@ export async function startDateDiscovery(): Promise<
 				current.dates = rows.map((r) => r.date).filter((d): d is string => d !== null);
 			}
 		} catch (err) {
+			cityStatusTracker.finish();
 			const message = err instanceof Error ? err.message : String(err);
 			if (current) {
 				current.status = 'error';

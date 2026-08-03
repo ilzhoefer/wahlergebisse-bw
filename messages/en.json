@@ -81,5 +81,11 @@
 	"admin_status_log_hide": "Hide log",
 	"admin_status_log_waiting": "Waiting for output …",
 	"admin_status_none": "No crawl has run yet.",
-	"admin_status_none_hint": "Pick a date and election type above to get started."
+	"admin_status_none_hint": "Pick a date and election type above to get started.",
+
+	"admin_map_heading": "Municipality status",
+	"admin_map_status_pending": "To be processed",
+	"admin_map_status_in_progress": "In progress",
+	"admin_map_status_done": "Done",
+	"admin_map_status_skipped": "Skipped"
 }

@@ -37,11 +37,23 @@ export async function getElectedMembers(
 ) {
 	for (const [i, city] of cityList.entries()) {
 		const cityLabel = city.name ?? String(city.rs);
+		const citySkip = (message: string) =>
+			log(message, {
+				level: 'city',
+				index: i + 1,
+				total: cityList.length,
+				label: cityLabel,
+				rs: city.rs,
+				cityStatus: 'skipped'
+			});
+
 		log(`[${i + 1}/${cityList.length}] ${cityLabel}: gewählte Mitglieder abrufen`, {
 			level: 'city',
 			index: i + 1,
 			total: cityList.length,
-			label: cityLabel
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'in_progress'
 		});
 
 		const [relevantElection] = await db
@@ -56,11 +68,11 @@ export async function getElectedMembers(
 			);
 
 		if (!relevantElection) {
-			log(`${city.name ?? city.rs}: keine passende Wahl gefunden, überspringe`);
+			citySkip(`${cityLabel}: keine passende Wahl gefunden, überspringe`);
 			continue;
 		}
 		if (!relevantElection.resultId) {
-			log(`${city.name ?? city.rs}: keine result_id vorhanden, überspringe`);
+			citySkip(`${cityLabel}: keine result_id vorhanden, überspringe`);
 			continue;
 		}
 
@@ -75,13 +87,13 @@ export async function getElectedMembers(
 		// The R original hard stop()s on a persistent 404 here — too aggressive for a ~1100-city loop, so
 		// this just logs and moves to the next city instead, like every other loop in this module.
 		if (status === 404 || !content) {
-			log(`${city.name ?? city.rs}: Sitzverteilung nicht verfügbar, überspringe`);
+			citySkip(`${cityLabel}: Sitzverteilung nicht verfügbar, überspringe`);
 			continue;
 		}
 
 		const seats = content.Komponente.sitze?.tabelle;
 		if (!seats) {
-			log(`${city.name ?? city.rs}: keine Sitzdaten vorhanden, überspringe`);
+			citySkip(`${cityLabel}: keine Sitzdaten vorhanden, überspringe`);
 			continue;
 		}
 

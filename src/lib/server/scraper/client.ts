@@ -1,15 +1,24 @@
 const BASE = 'https://wahlergebnisse.komm.one/lb/produktion';
 
+/** A municipality's outcome within the step currently looping over it. */
+export type CityStatus = 'in_progress' | 'done' | 'skipped';
+
 /**
  * A tick reports "index/total" progress at one nesting level of a crawl (the 8 sequential steps in
  * `runCrawl.ts`, the municipality being processed within a step, or the polling station within a
  * municipality). Emitted alongside — not instead of — the plain text log line.
+ *
+ * `rs` and `cityStatus` are only ever set on `level: 'city'` ticks — they let a `CityStatusTracker`
+ * build a per-municipality status map keyed by `rs` for the admin map view, independently of the
+ * step/city/station "current position" display that `ProgressState` covers.
  */
 export interface ProgressTick {
 	level: 'step' | 'city' | 'station';
 	index: number;
 	total: number;
 	label: string;
+	rs?: number;
+	cityStatus?: CityStatus;
 }
 
 /**
@@ -36,6 +45,40 @@ export function mergeProgressTick(progress: ProgressState, tick: ProgressTick): 
 	const levelIndex = PROGRESS_LEVELS.indexOf(tick.level);
 	for (const deeper of PROGRESS_LEVELS.slice(levelIndex + 1)) delete next[deeper];
 	return next;
+}
+
+/**
+ * Turns the stream of city-level ticks into a running `rs -> CityStatus` map for the admin map view.
+ * A city tick only ever announces "this one's starting" or, on the few branches that bail out early,
+ * "this one's skipped" — nothing ever explicitly says "this one's done". So a city is inferred done the
+ * moment the *next* one starts (or the step advances past the last one), unless it was already flagged
+ * skipped. Shared between `crawl-runner` and `date-discovery` since both need the identical inference.
+ */
+export function createCityStatusTracker() {
+	const status: Record<number, CityStatus> = {};
+	let lastActiveRs: number | null = null;
+
+	function finishLastActive() {
+		if (lastActiveRs !== null && status[lastActiveRs] === 'in_progress') {
+			status[lastActiveRs] = 'done';
+		}
+	}
+
+	function apply(tick: ProgressTick) {
+		if (tick.level === 'step') {
+			finishLastActive();
+			lastActiveRs = null;
+			return;
+		}
+		if (tick.level !== 'city' || tick.rs === undefined) return;
+		if (tick.rs !== lastActiveRs) finishLastActive();
+		status[tick.rs] = tick.cityStatus ?? 'in_progress';
+		lastActiveRs = tick.cityStatus === 'skipped' ? null : tick.rs;
+	}
+
+	// Call once the crawl itself has finished (successfully or not) — there's no 9th step tick to
+	// otherwise flip the very last city out of 'in_progress'.
+	return { status, apply, finish: finishLastActive };
 }
 
 /** Zero-pads an `ags` (Amtlicher Gemeindeschlüssel) to 8 digits, matching the R scraper's `%08d`. */

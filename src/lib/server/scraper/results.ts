@@ -236,7 +236,9 @@ export async function getResultsCity(
 			level: 'city',
 			index: i + 1,
 			total: cityList.length,
-			label: cityLabel
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'in_progress'
 		});
 
 		const [relevantElection] = await db
@@ -251,7 +253,14 @@ export async function getResultsCity(
 			);
 
 		if (!relevantElection) {
-			log(`${city.name ?? city.rs}: keine passende Wahl gefunden, überspringe`);
+			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+				level: 'city',
+				index: i + 1,
+				total: cityList.length,
+				label: cityLabel,
+				rs: city.rs,
+				cityStatus: 'skipped'
+			});
 			continue;
 		}
 
@@ -287,7 +296,14 @@ export async function getResultsCity(
 					)
 				);
 			if (count === relevantPs.length * relevantVotetypes.length) {
-				log(`${city.name ?? city.rs}: bereits vollständig verarbeitet, überspringe`);
+				log(`${cityLabel}: bereits vollständig verarbeitet, überspringe`, {
+					level: 'city',
+					index: i + 1,
+					total: cityList.length,
+					label: cityLabel,
+					rs: city.rs,
+					cityStatus: 'skipped'
+				});
 				continue;
 			}
 		}

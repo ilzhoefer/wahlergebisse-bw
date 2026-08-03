@@ -4,6 +4,8 @@ import { crawlRun } from '$lib/server/db/schema';
 import { runCrawl } from '$lib/server/scraper/runCrawl';
 import {
 	mergeProgressTick,
+	createCityStatusTracker,
+	type CityStatus,
 	type ProgressState,
 	type ProgressTick
 } from '$lib/server/scraper/client';
@@ -19,6 +21,8 @@ export interface CrawlState {
 	/** ISO timestamp; lets the client render/tick a "running for"/"completed in" duration. */
 	startedAt: string;
 	progress: ProgressState;
+	/** `rs -> CityStatus`, for the admin map view; see `createCityStatusTracker`. */
+	cityStatus: Record<number, CityStatus>;
 }
 
 const MAX_LOG_LINES = 500;
@@ -73,6 +77,7 @@ export async function startCrawl(params: {
 		throw err;
 	}
 
+	const cityStatusTracker = createCityStatusTracker();
 	current = {
 		runId: row.id,
 		date: params.date,
@@ -81,7 +86,8 @@ export async function startCrawl(params: {
 		log: [],
 		error: null,
 		startedAt: row.startedAt.toISOString(),
-		progress: {}
+		progress: {},
+		cityStatus: cityStatusTracker.status
 	};
 	notify();
 
@@ -100,7 +106,10 @@ export async function startCrawl(params: {
 				.where(eq(crawlRun.id, row.id))
 				.catch(() => {});
 		}
-		if (progress) current.progress = mergeProgressTick(current.progress, progress);
+		if (progress) {
+			current.progress = mergeProgressTick(current.progress, progress);
+			cityStatusTracker.apply(progress);
+		}
 		notify();
 	};
 
@@ -108,12 +117,14 @@ export async function startCrawl(params: {
 	void (async () => {
 		try {
 			await runCrawl(db, { date: params.date, electionTypeId: params.electionTypeId }, log);
+			cityStatusTracker.finish();
 			if (current?.runId === row.id) current.status = 'done';
 			await db
 				.update(crawlRun)
 				.set({ status: 'done', finishedAt: new Date() })
 				.where(eq(crawlRun.id, row.id));
 		} catch (err) {
+			cityStatusTracker.finish();
 			const message = err instanceof Error ? err.message : String(err);
 			if (current?.runId === row.id) {
 				current.status = 'error';
