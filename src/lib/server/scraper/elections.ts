@@ -92,7 +92,9 @@ export async function updateElectionDates(
 			level: 'city',
 			index: i + 1,
 			total: cityList.length,
-			label: cityLabel
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'in_progress'
 		});
 		let dates = await getElectionDates(city.ags);
 		if (onlyDate) dates = dates.filter((d) => d === onlyDate);

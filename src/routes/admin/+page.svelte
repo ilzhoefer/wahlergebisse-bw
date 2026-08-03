@@ -5,10 +5,12 @@
 	import * as m from '$lib/paraglide/messages';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
+	import CrawlMap from '$lib/components/CrawlMap.svelte';
 
 	let { data }: { data: PageData } = $props();
 
 	type Status = 'running' | 'done' | 'error';
+	type CityStatus = 'in_progress' | 'done' | 'skipped';
 
 	interface ProgressTick {
 		level: 'step' | 'city' | 'station';
@@ -31,6 +33,7 @@
 		error: string | null;
 		startedAt: string;
 		progress: ProgressState;
+		cityStatus: Record<number, CityStatus>;
 	}
 
 	interface DateDiscoveryState {
@@ -40,6 +43,7 @@
 		error: string | null;
 		startedAt: string;
 		progress: ProgressState;
+		cityStatus: Record<number, CityStatus>;
 	}
 
 	let date = $state(data.lastRun?.date ?? data.knownDates[0] ?? '');
@@ -219,6 +223,7 @@
 				log: liveState.log,
 				error: liveState.error,
 				progress: liveState.progress,
+				cityStatus: liveState.cityStatus,
 				hasProgress: true
 			};
 		}
@@ -233,6 +238,7 @@
 				log: data.lastRun.log ? data.lastRun.log.split('\n') : [],
 				error: data.lastRun.error,
 				progress: {} as ProgressState,
+				cityStatus: {} as Record<number, CityStatus>,
 				hasProgress: false
 			};
 		}
@@ -436,6 +442,10 @@
 
 				{#if display.error}
 					<p class="text-sm text-red-600">{display.error}</p>
+				{/if}
+
+				{#if display.hasProgress}
+					<CrawlMap cityStatus={display.cityStatus} />
 				{/if}
 
 				<div>

@@ -81,5 +81,11 @@
 	"admin_status_log_hide": "Protokoll ausblenden",
 	"admin_status_log_waiting": "Warte auf erste Ausgabe …",
 	"admin_status_none": "Noch kein Crawl durchgeführt.",
-	"admin_status_none_hint": "Wähle oben ein Datum und eine Wahlart aus, um zu starten."
+	"admin_status_none_hint": "Wähle oben ein Datum und eine Wahlart aus, um zu starten.",
+
+	"admin_map_heading": "Gemeindestatus",
+	"admin_map_status_pending": "Ausstehend",
+	"admin_map_status_in_progress": "In Bearbeitung",
+	"admin_map_status_done": "Fertig",
+	"admin_map_status_skipped": "Übersprungen"
 }

@@ -138,7 +138,9 @@ export async function getPollingStationsElection(
 			level: 'city',
 			index: i + 1,
 			total: cityList.length,
-			label: cityLabel
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'in_progress'
 		});
 
 		const [relevantElection] = await db
@@ -153,7 +155,14 @@ export async function getPollingStationsElection(
 			);
 
 		if (!relevantElection) {
-			log(`${city.name ?? city.rs}: keine passende Wahl gefunden, überspringe`);
+			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+				level: 'city',
+				index: i + 1,
+				total: cityList.length,
+				label: cityLabel,
+				rs: city.rs,
+				cityStatus: 'skipped'
+			});
 			continue;
 		}
 
