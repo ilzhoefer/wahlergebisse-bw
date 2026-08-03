@@ -66,7 +66,10 @@ export function createCityStatusTracker() {
 
 	function apply(tick: ProgressTick) {
 		if (tick.level === 'step') {
-			finishLastActive();
+			// Each step re-loops over the full municipality list from scratch, so a status left over from
+			// the previous step (e.g. every city still green from "Wahlbezirke abrufen") would otherwise
+			// look like this step already processed them too. Clear the board on every step change.
+			for (const rs of Object.keys(status)) delete status[Number(rs)];
 			lastActiveRs = null;
 			return;
 		}

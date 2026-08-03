@@ -64,7 +64,7 @@
 
 <div class="space-y-2">
 	<h4 class="text-xs font-medium text-gray-500 uppercase">{m.admin_map_heading()}</h4>
-	<div class="h-72 overflow-hidden rounded-lg border border-gray-200">
+	<div class="h-[34rem] overflow-hidden rounded-lg border border-gray-200">
 		<MapView {geojson} {sourceKey} keyProperty="rs" {items} {formatPopup} />
 	</div>
 	<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
