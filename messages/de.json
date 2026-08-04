@@ -79,6 +79,7 @@
 	"admin_status_level_step": "Schritt",
 	"admin_status_level_city": "Gemeinde",
 	"admin_status_level_station": "Wahlbezirk",
+	"admin_status_level_family": "Parteifamilie",
 	"admin_status_log_show": "Protokoll anzeigen",
 	"admin_status_log_hide": "Protokoll ausblenden",
 	"admin_status_log_waiting": "Warte auf erste Ausgabe …",

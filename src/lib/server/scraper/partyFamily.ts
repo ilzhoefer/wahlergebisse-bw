@@ -30,8 +30,14 @@ export async function updatePartyFamily(
 
 	const partyFamilies = await db.select().from(party);
 
-	for (const family of partyFamilies) {
-		log(`Parteifamilie "${family.nameShort ?? family.partyFamilyId}" zuordnen`);
+	for (const [i, family] of partyFamilies.entries()) {
+		const familyLabel = family.nameShort ?? String(family.partyFamilyId);
+		log(`[${i + 1}/${partyFamilies.length}] Parteifamilie "${familyLabel}" zuordnen`, {
+			level: 'family',
+			index: i + 1,
+			total: partyFamilies.length,
+			label: familyLabel
+		});
 
 		const nameMatch = family.nameLong
 			? like(electionParty.nameLong, `%${family.nameLong}%`)
