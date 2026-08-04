@@ -19,7 +19,7 @@ interface UebersichtResponse {
 		zeilen: {
 			label: string;
 			statusString: string;
-			link: { id: string };
+			link?: { id: string };
 		}[];
 	};
 }
@@ -85,7 +85,7 @@ export async function getPollingStationElectionCity(
 				label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
 			});
 		}
-		const match = /[^_]+$/.exec(wahlbezirk.link.id);
+		const match = wahlbezirk.link ? /[^_]+$/.exec(wahlbezirk.link.id) : null;
 		const psId = match ? Number(match[0]) : NaN;
 		if (!Number.isFinite(psId)) continue;
 
