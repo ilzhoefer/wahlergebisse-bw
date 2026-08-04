@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import type { FeatureCollection } from 'geojson';
 	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
-	import { rsPrefix, STUTTGART_RS } from '$lib/map/rs';
+	import { rsPrefix, STUTTGART_RS, NO_ELECTION_RS } from '$lib/map/rs';
 	import type { MapMode, MapInformationMode } from '$lib/server/map/queries';
 	import { client } from '$lib/generated-client/client';
 	import { resolve } from '$app/paths';
@@ -239,7 +239,10 @@
 		item: RegionItem | undefined
 	): string | null {
 		const name = (properties.name as string) ?? (properties.AWBEZ_T as string) ?? '';
-		if (!item) return `<strong>${name}</strong>`;
+		if (keyProperty === 'rs' && NO_ELECTION_RS.has(Number(properties.rs))) {
+			return `<strong>${name}</strong><br/>${m.map_popup_keine_wahl()}`;
+		}
+		if (!item) return `<strong>${name}</strong><br/>${m.map_popup_keine_daten()}`;
 		if (selectedVisualMode === 'Wahlbeteiligung') {
 			const v = item.turnoutPercent as number | undefined;
 			return `<strong>${name}</strong><br/>${m.map_popup_wahlbeteiligung({ value: v?.toFixed(2) ?? '–' })}`;
