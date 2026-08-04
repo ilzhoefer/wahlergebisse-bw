@@ -1,6 +1,6 @@
 import type { db as DbType } from '$lib/server/db';
 import { cities } from '$lib/server/db/schema';
-import type { Logger } from './client';
+import { DEFAULT_PARALLEL, type Logger } from './client';
 import { updateElectionDates, setElectionType } from './elections';
 import { getPollingStationsElection } from './pollingStations';
 import { getResultsCity } from './results';
@@ -24,6 +24,8 @@ const STUTTGART_DISTRICTS: Record<string, StuttgartDistrictRow[]> = {
 export interface CrawlParams {
 	date: string;
 	electionTypeId: number;
+	/** How many cities the per-city steps process concurrently — see `maxParallelism` for the cap. */
+	parallel?: number;
 }
 
 /**
@@ -50,17 +52,27 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 		c.ags === null ? [] : [{ rs: c.rs, ags: c.ags, name: c.name }]
 	);
 
+	const parallel = params.parallel ?? DEFAULT_PARALLEL;
+
 	stepTick('Wahltermine aktualisieren');
-	await updateElectionDates(db, cityList, log, params.date);
+	await updateElectionDates(db, cityList, log, params.date, parallel);
 
 	stepTick('Wahlarten zuordnen');
 	await setElectionType(db, log);
 
 	stepTick('Wahlbezirke abrufen');
-	await getPollingStationsElection(db, cityList, params.electionTypeId, params.date, true, log);
+	await getPollingStationsElection(
+		db,
+		cityList,
+		params.electionTypeId,
+		params.date,
+		true,
+		log,
+		parallel
+	);
 
 	stepTick('Ergebnisse abrufen');
-	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log);
+	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log, parallel);
 
 	stepTick('Parteifamilien zuordnen');
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
@@ -84,7 +96,7 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	}
 
 	stepTick('Gewählte Mitglieder abrufen');
-	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log);
+	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
 
 	log('Crawl abgeschlossen');
 }

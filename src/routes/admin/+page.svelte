@@ -51,6 +51,9 @@
 	let electionTypeId = $state(
 		data.lastRun?.electionType ?? data.electionTypes[0]?.electionType ?? 0
 	);
+	// How many cities the crawl processes concurrently — network-bound work, so this isn't really "one
+	// per CPU core", but core count − 1 is still a legible cap on the input (see maxParallelism).
+	let parallel = $state(Math.min(4, data.maxParallel));
 	let starting = $state(false);
 	let startError = $state<string | null>(null);
 	let liveState = $state<CrawlState | null>(null);
@@ -188,7 +191,7 @@
 			const res = await fetch('/admin/crawl', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date, electionTypeId })
+				body: JSON.stringify({ date, electionTypeId, parallel })
 			});
 			const body = await res.json();
 			if (!body.started) startError = errorMessage(body.reason ?? '', 'crawl');
@@ -312,6 +315,18 @@
 							<option value={t.electionType}>{t.electionDescription ?? t.electionType}</option>
 						{/each}
 					</select>
+				</label>
+				<label class="text-sm text-gray-700">
+					{m.admin_crawl_parallel_label({ max: String(data.maxParallel) })}
+					<input
+						type="number"
+						bind:value={parallel}
+						min="1"
+						max={data.maxParallel}
+						step="1"
+						disabled={starting || isRunning}
+						class="mt-1 block w-20 rounded-lg border border-gray-300 p-1.5 text-sm"
+					/>
 				</label>
 				<button
 					type="button"

@@ -5,6 +5,7 @@ import { updateElectionDates, setElectionType } from '$lib/server/scraper/electi
 import {
 	mergeProgressTick,
 	createCityStatusTracker,
+	maxParallelism,
 	type CityStatus,
 	type ProgressState,
 	type ProgressTick
@@ -91,7 +92,9 @@ export async function startDateDiscovery(): Promise<
 				c.ags === null ? [] : [{ rs: c.rs, ags: c.ags, name: c.name }]
 			);
 			stepTick('Wahltermine abrufen', 1);
-			await updateElectionDates(db, cityList, log);
+			// No admin-facing control for this standalone action (unlike the crawl form) — a conservative
+			// fixed concurrency still speeds up the same ~1100-city loop `runCrawl`'s first step does.
+			await updateElectionDates(db, cityList, log, undefined, Math.min(4, maxParallelism()));
 			stepTick('Wahlarten zuordnen', 2);
 			await setElectionType(db, log);
 			cityStatusTracker.finish();

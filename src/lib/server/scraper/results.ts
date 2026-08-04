@@ -15,6 +15,8 @@ import {
 	fetchWithFallback,
 	fallbackOnNotFound,
 	progressEvery,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -221,6 +223,11 @@ export async function getResultsSinglePs(
  * Port of `get_results_city`. Stuttgart's Bundestag election (`electionTypeId === 2`) is the only case
  * where party composition can differ per polling station (multiple Wahlkreise) — everywhere else,
  * party data is only fetched once per city, on its first polling station, and stored without a `psId`.
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`); see `updateElectionDates`
+ * for why progress ticks use a shared "started so far" counter rather than the cityList array position.
+ * Within one city, polling stations still run sequentially — only Stuttgart has enough of them for it
+ * to matter, and city-level concurrency already parallelizes the other ~1100 single/few-station cities.
  */
 export async function getResultsCity(
 	db: Db,
@@ -228,13 +235,16 @@ export async function getResultsCity(
 	date: string,
 	electionTypeId: number,
 	skipProcessed: boolean,
-	log: Logger
+	log: Logger,
+	parallel = DEFAULT_PARALLEL
 ) {
-	for (const [i, city] of cityList.entries()) {
+	let started = 0;
+	await runWithConcurrency(cityList, parallel, async (city) => {
 		const cityLabel = city.name ?? String(city.rs);
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Ergebnisse abrufen`, {
+		const position = ++started;
+		log(`[${position}/${cityList.length}] ${cityLabel}: Ergebnisse abrufen`, {
 			level: 'city',
-			index: i + 1,
+			index: position,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,
@@ -255,13 +265,13 @@ export async function getResultsCity(
 		if (!relevantElection) {
 			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
 				level: 'city',
-				index: i + 1,
+				index: position,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
 				cityStatus: 'skipped'
 			});
-			continue;
+			return;
 		}
 
 		const relevantVotetypes = await db
@@ -298,13 +308,13 @@ export async function getResultsCity(
 			if (count === relevantPs.length * relevantVotetypes.length) {
 				log(`${cityLabel}: bereits vollständig verarbeitet, überspringe`, {
 					level: 'city',
-					index: i + 1,
+					index: position,
 					total: cityList.length,
 					label: cityLabel,
 					rs: city.rs,
 					cityStatus: 'skipped'
 				});
-				continue;
+				return;
 			}
 		}
 
@@ -312,17 +322,20 @@ export async function getResultsCity(
 		for (const [j, ps] of relevantPs.entries()) {
 			// A single city (e.g. Stuttgart) can have hundreds of polling stations, each requiring its own
 			// HTTP request — without this, the admin UI's progress log would show nothing but the initial
-			// "Ergebnisse abrufen" line for however long that takes.
-			if (j > 0 && j % 25 === 0) {
-				log(`${city.name ?? city.rs}: Wahlbezirk ${j}/${relevantPs.length} verarbeitet`);
-			}
-			if (j % tickEvery === 0 || j === relevantPs.length - 1) {
-				log('', {
-					level: 'station',
-					index: j + 1,
-					total: relevantPs.length,
-					label: `Wahlbezirk ${j + 1}/${relevantPs.length}`
-				});
+			// "Ergebnisse abrufen" line for however long that takes. Skipped for single-station cities (see
+			// pollingStations.ts's identical guard) since several of those may now be running concurrently.
+			if (relevantPs.length > 1) {
+				if (j > 0 && j % 25 === 0) {
+					log(`${cityLabel}: Wahlbezirk ${j}/${relevantPs.length} verarbeitet`);
+				}
+				if (j % tickEvery === 0 || j === relevantPs.length - 1) {
+					log('', {
+						level: 'station',
+						index: j + 1,
+						total: relevantPs.length,
+						label: `Wahlbezirk ${j + 1}/${relevantPs.length}`
+					});
+				}
 			}
 			for (const votetype of relevantVotetypes) {
 				if (skipProcessed) {
@@ -422,5 +435,14 @@ export async function getResultsCity(
 				}
 			}
 		}
-	}
+
+		log('', {
+			level: 'city',
+			index: position,
+			total: cityList.length,
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'done'
+		});
+	});
 }

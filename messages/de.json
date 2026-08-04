@@ -63,6 +63,7 @@
 	"admin_crawl_date_refresh_error_generic": "Termine konnten nicht aktualisiert werden.",
 	"admin_crawl_electiontype_label": "Wahlart",
 	"admin_crawl_electiontype_placeholder": "Keine Wahlart für dieses Datum bekannt",
+	"admin_crawl_parallel_label": "Parallelität (max. {max})",
 	"admin_crawl_start_button": "Crawl starten",
 	"admin_crawl_error_already_running": "Es läuft bereits ein Crawl oder eine Terminaktualisierung.",
 	"admin_crawl_error_missing_fields": "Datum und Wahlart erforderlich.",

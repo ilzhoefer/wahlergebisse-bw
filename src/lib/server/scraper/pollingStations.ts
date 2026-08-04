@@ -9,6 +9,8 @@ import {
 	fallbackOnContentNull,
 	fallbackOnNotOk,
 	progressEvery,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -73,17 +75,21 @@ export async function getPollingStationElectionCity(
 		// Same rationale as the periodic log in results.ts: a large city's polling-station overview can
 		// have hundreds of entries, each needing its own metadata request. The progress tick is throttled
 		// separately (and more finely) than the text log line so the bar still feels live without
-		// flooding the SSE stream or the persisted log.
-		if (i > 0 && i % 25 === 0) {
-			log(`rs=${rs}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
-		}
-		if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
-			log('', {
-				level: 'station',
-				index: i + 1,
-				total: wahlbezirke.length,
-				label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
-			});
+		// flooding the SSE stream or the persisted log. Skipped entirely for a single-station city (the
+		// common case) — with several cities now processed concurrently, a "Wahlbezirk 1/1" tick from
+		// every one of them would just fight over the shared station-level progress slot for no benefit.
+		if (wahlbezirke.length > 1) {
+			if (i > 0 && i % 25 === 0) {
+				log(`rs=${rs}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
+			}
+			if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
+				log('', {
+					level: 'station',
+					index: i + 1,
+					total: wahlbezirke.length,
+					label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
+				});
+			}
 		}
 		const match = wahlbezirk.link ? /[^_]+$/.exec(wahlbezirk.link.id) : null;
 		const psId = match ? Number(match[0]) : NaN;
@@ -123,6 +129,9 @@ export async function getPollingStationElectionCity(
 /**
  * Port of get_polling_stations_election. `date` is an ISO string here (the R original parses a
  * German-formatted date string; the admin form always supplies ISO, so no parsing is needed).
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`); see `updateElectionDates`
+ * for why progress ticks use a shared "started so far" counter rather than the cityList array position.
  */
 export async function getPollingStationsElection(
 	db: Db,
@@ -130,13 +139,16 @@ export async function getPollingStationsElection(
 	electionTypeId: number,
 	date: string,
 	skipProcessed: boolean,
-	log: Logger
+	log: Logger,
+	parallel = DEFAULT_PARALLEL
 ) {
-	for (const [i, city] of cityList.entries()) {
+	let started = 0;
+	await runWithConcurrency(cityList, parallel, async (city) => {
 		const cityLabel = city.name ?? String(city.rs);
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
+		const position = ++started;
+		log(`[${position}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
 			level: 'city',
-			index: i + 1,
+			index: position,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,
@@ -157,13 +169,13 @@ export async function getPollingStationsElection(
 		if (!relevantElection) {
 			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
 				level: 'city',
-				index: i + 1,
+				index: position,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
 				cityStatus: 'skipped'
 			});
-			continue;
+			return;
 		}
 
 		await getPollingStationElectionCity(
@@ -171,7 +183,16 @@ export async function getPollingStationsElection(
 			{ electionId: relevantElection.electionId, ags: city.ags, rs: city.rs, date, skipProcessed },
 			log
 		);
-	}
+
+		log('', {
+			level: 'city',
+			index: position,
+			total: cityList.length,
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'done'
+		});
+	});
 
 	// Belt-and-suspenders: any station with "Brief" in its name is postal, regardless of what the
 	// per-station metadata call determined.

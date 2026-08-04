@@ -7,6 +7,8 @@ import {
 	formatDateForUrl,
 	fetchWithFallback,
 	fallbackOnNotOk,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -85,12 +87,18 @@ export async function getElectionIds(
  * entirely. The R script (and the standalone "Termine aktualisieren" full-discovery call, which passes
  * no `onlyDate`) always re-fetches every city — appropriate there since it's actively looking for dates
  * it doesn't know about yet, but wasteful for a repeat crawl of an already-recorded date.
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`) — the log's `[n/total]`
+ * counter and each city's progress tick use a shared "cities started so far" counter rather than the
+ * cityList array position, so it still climbs 1..total in order even though cities may finish out of
+ * the order they started in.
  */
 export async function updateElectionDates(
 	db: Db,
 	cityList: { rs: number; ags: number; name: string | null }[],
 	log: Logger,
-	onlyDate?: string
+	onlyDate?: string,
+	parallel = DEFAULT_PARALLEL
 ) {
 	let alreadyRecorded: Set<number> | null = null;
 	if (onlyDate) {
@@ -101,27 +109,29 @@ export async function updateElectionDates(
 		alreadyRecorded = new Set(rows.map((r) => r.rs));
 	}
 
-	for (const [i, city] of cityList.entries()) {
+	let started = 0;
+	await runWithConcurrency(cityList, parallel, async (city) => {
 		const cityLabel = city.name ?? String(city.rs);
+		const position = ++started;
 
 		if (alreadyRecorded?.has(city.rs)) {
 			log(
-				`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermin ${onlyDate} bereits vorhanden, überspringe`,
+				`[${position}/${cityList.length}] ${cityLabel}: Wahltermin ${onlyDate} bereits vorhanden, überspringe`,
 				{
 					level: 'city',
-					index: i + 1,
+					index: position,
 					total: cityList.length,
 					label: cityLabel,
 					rs: city.rs,
 					cityStatus: 'skipped'
 				}
 			);
-			continue;
+			return;
 		}
 
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
+		log(`[${position}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
 			level: 'city',
-			index: i + 1,
+			index: position,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,
@@ -161,7 +171,16 @@ export async function updateElectionDates(
 					.onConflictDoNothing();
 			}
 		}
-	}
+
+		log('', {
+			level: 'city',
+			index: position,
+			total: cityList.length,
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'done'
+		});
+	});
 }
 
 /** Port of update_election_type — one UPDATE per (type, pattern) pair, only touching still-NULL rows. */

@@ -1,4 +1,39 @@
+import { cpus } from 'node:os';
+
 const BASE = 'https://wahlergebnisse.komm.one/lb/produktion';
+
+/**
+ * The crawl is network-bound (waiting on komm.one HTTP responses), not CPU-bound, so extra OS
+ * threads/cores wouldn't by themselves speed anything up — what helps is having more requests in
+ * flight at once. Core count is still a reasonable, legible cap for the "how many cities at once"
+ * control so a crawl can't be configured to hammer this machine (or the upstream API) unboundedly.
+ */
+export function maxParallelism(): number {
+	return Math.max(1, cpus().length - 1);
+}
+
+export const DEFAULT_PARALLEL = 1;
+
+/**
+ * Runs `worker` over `items` with at most `concurrency` calls in flight at once — a fixed pool of
+ * "workers" each pull the next item off a shared cursor as soon as they finish the previous one, so
+ * faster items don't sit blocked behind slower ones from earlier in the array.
+ */
+export async function runWithConcurrency<T>(
+	items: readonly T[],
+	concurrency: number,
+	worker: (item: T) => Promise<void>
+): Promise<void> {
+	const limit = Math.max(1, Math.min(Math.floor(concurrency) || 1, items.length || 1));
+	let cursor = 0;
+	async function runWorker() {
+		while (cursor < items.length) {
+			const item = items[cursor++];
+			await worker(item);
+		}
+	}
+	await Promise.all(Array.from({ length: limit }, runWorker));
+}
 
 /** A municipality's outcome within the step currently looping over it. */
 export type CityStatus = 'in_progress' | 'done' | 'skipped';
@@ -50,20 +85,14 @@ export function mergeProgressTick(progress: ProgressState, tick: ProgressTick): 
 
 /**
  * Turns the stream of city-level ticks into a running `rs -> CityStatus` map for the admin map view.
- * A city tick only ever announces "this one's starting" or, on the few branches that bail out early,
- * "this one's skipped" — nothing ever explicitly says "this one's done". So a city is inferred done the
- * moment the *next* one starts (or the step advances past the last one), unless it was already flagged
- * skipped. Shared between `crawl-runner` and `date-discovery` since both need the identical inference.
+ * Every step function explicitly emits a `cityStatus: 'done'` tick once a city's work actually
+ * finishes — required now that cities can be processed several at a time (`runWithConcurrency`), so
+ * "the next city starting" no longer reliably means "the previous one is done" (several may be
+ * in-flight simultaneously). Shared between `crawl-runner` and `date-discovery`.
  */
 export function createCityStatusTracker() {
 	const status: Record<number, CityStatus> = {};
-	let lastActiveRs: number | null = null;
-
-	function finishLastActive() {
-		if (lastActiveRs !== null && status[lastActiveRs] === 'in_progress') {
-			status[lastActiveRs] = 'done';
-		}
-	}
+	const activeRs = new Set<number>();
 
 	function apply(tick: ProgressTick) {
 		if (tick.level === 'step') {
@@ -71,18 +100,24 @@ export function createCityStatusTracker() {
 			// the previous step (e.g. every city still green from "Wahlbezirke abrufen") would otherwise
 			// look like this step already processed them too. Clear the board on every step change.
 			for (const rs of Object.keys(status)) delete status[Number(rs)];
-			lastActiveRs = null;
+			activeRs.clear();
 			return;
 		}
 		if (tick.level !== 'city' || tick.rs === undefined) return;
-		if (tick.rs !== lastActiveRs) finishLastActive();
-		status[tick.rs] = tick.cityStatus ?? 'in_progress';
-		lastActiveRs = tick.cityStatus === 'skipped' ? null : tick.rs;
+		const cityStatus = tick.cityStatus ?? 'in_progress';
+		status[tick.rs] = cityStatus;
+		if (cityStatus === 'in_progress') activeRs.add(tick.rs);
+		else activeRs.delete(tick.rs);
 	}
 
-	// Call once the crawl itself has finished (successfully or not) — there's no 9th step tick to
-	// otherwise flip the very last city out of 'in_progress'.
-	return { status, apply, finish: finishLastActive };
+	// Call once the crawl itself has finished (successfully or not) — a city whose worker was cut off
+	// mid-flight (e.g. an uncaught error) never gets its own 'done' tick, so flip any stragglers here.
+	function finish() {
+		for (const rs of activeRs) status[rs] = 'done';
+		activeRs.clear();
+	}
+
+	return { status, apply, finish };
 }
 
 /** Zero-pads an `ags` (Amtlicher Gemeindeschlüssel) to 8 digits, matching the R scraper's `%08d`. */

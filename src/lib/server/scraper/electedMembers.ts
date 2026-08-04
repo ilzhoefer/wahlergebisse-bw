@@ -7,6 +7,8 @@ import {
 	formatDateForUrl,
 	fetchWithFallback,
 	fallbackOnNotFound,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -27,29 +29,35 @@ interface SitzeResponse {
  * Port of `get_elected_members`. Uses `elections.result_id` (the Votemanager result ID) to build the
  * seats-table URL — this only works because `updateElectionDates` (unlike the R original) actually
  * persists `result_id`, see the Phase 3 plan findings.
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`); see `updateElectionDates`
+ * for why progress ticks use a shared "started so far" counter rather than the cityList array position.
  */
 export async function getElectedMembers(
 	db: Db,
 	cityList: { rs: number; ags: number; name: string | null }[],
 	date: string,
 	electionTypeId: number,
-	log: Logger
+	log: Logger,
+	parallel = DEFAULT_PARALLEL
 ) {
-	for (const [i, city] of cityList.entries()) {
+	let started = 0;
+	await runWithConcurrency(cityList, parallel, async (city) => {
 		const cityLabel = city.name ?? String(city.rs);
+		const position = ++started;
 		const citySkip = (message: string) =>
 			log(message, {
 				level: 'city',
-				index: i + 1,
+				index: position,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
 				cityStatus: 'skipped'
 			});
 
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: gewählte Mitglieder abrufen`, {
+		log(`[${position}/${cityList.length}] ${cityLabel}: gewählte Mitglieder abrufen`, {
 			level: 'city',
-			index: i + 1,
+			index: position,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,
@@ -69,11 +77,11 @@ export async function getElectedMembers(
 
 		if (!relevantElection) {
 			citySkip(`${cityLabel}: keine passende Wahl gefunden, überspringe`);
-			continue;
+			return;
 		}
 		if (!relevantElection.resultId) {
 			citySkip(`${cityLabel}: keine result_id vorhanden, überspringe`);
-			continue;
+			return;
 		}
 
 		const dateStr = formatDateForUrl(date);
@@ -88,13 +96,13 @@ export async function getElectedMembers(
 		// this just logs and moves to the next city instead, like every other loop in this module.
 		if (status === 404 || !content) {
 			citySkip(`${cityLabel}: Sitzverteilung nicht verfügbar, überspringe`);
-			continue;
+			return;
 		}
 
 		const seats = content.Komponente?.sitze?.tabelle;
 		if (!seats) {
 			citySkip(`${cityLabel}: keine Sitzdaten vorhanden, überspringe`);
-			continue;
+			return;
 		}
 
 		const relevantParties = await db
@@ -137,5 +145,14 @@ export async function getElectedMembers(
 				})
 				.onConflictDoNothing();
 		}
-	}
+
+		log('', {
+			level: 'city',
+			index: position,
+			total: cityList.length,
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'done'
+		});
+	});
 }

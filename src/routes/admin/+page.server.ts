@@ -2,6 +2,7 @@ import { desc } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { crawlRun, electionType, elections } from '$lib/server/db/schema';
+import { maxParallelism } from '$lib/server/crawl-runner';
 
 export const load: PageServerLoad = async () => {
 	const [lastRun] = await db.select().from(crawlRun).orderBy(desc(crawlRun.id)).limit(1);
@@ -30,6 +31,7 @@ export const load: PageServerLoad = async () => {
 		lastRun: lastRun ?? null,
 		electionTypes,
 		knownDates,
-		datesToTypes
+		datesToTypes,
+		maxParallel: maxParallelism()
 	};
 };
