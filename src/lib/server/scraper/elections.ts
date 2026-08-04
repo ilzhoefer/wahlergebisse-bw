@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import { elections, electionsVotetypes, electionType } from '$lib/server/db/schema';
 import {
@@ -79,6 +79,12 @@ export async function getElectionIds(
  * `elections` insert entirely, even though it fetches it), this port includes it — see the Phase 3
  * plan's "findings" section: `get_elected_members` needs it and the omission looks like an oversight,
  * not an intentional behavior.
+ *
+ * Deviation from the R original: when crawling a single known `onlyDate`, a city that already has an
+ * `elections` row for that date has nothing left to discover here, so its termine API call is skipped
+ * entirely. The R script (and the standalone "Termine aktualisieren" full-discovery call, which passes
+ * no `onlyDate`) always re-fetches every city — appropriate there since it's actively looking for dates
+ * it doesn't know about yet, but wasteful for a repeat crawl of an already-recorded date.
  */
 export async function updateElectionDates(
 	db: Db,
@@ -86,8 +92,33 @@ export async function updateElectionDates(
 	log: Logger,
 	onlyDate?: string
 ) {
+	let alreadyRecorded: Set<number> | null = null;
+	if (onlyDate) {
+		const rows = await db
+			.selectDistinct({ rs: elections.rs })
+			.from(elections)
+			.where(eq(elections.date, onlyDate));
+		alreadyRecorded = new Set(rows.map((r) => r.rs));
+	}
+
 	for (const [i, city] of cityList.entries()) {
 		const cityLabel = city.name ?? String(city.rs);
+
+		if (alreadyRecorded?.has(city.rs)) {
+			log(
+				`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermin ${onlyDate} bereits vorhanden, überspringe`,
+				{
+					level: 'city',
+					index: i + 1,
+					total: cityList.length,
+					label: cityLabel,
+					rs: city.rs,
+					cityStatus: 'skipped'
+				}
+			);
+			continue;
+		}
+
 		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
 			level: 'city',
 			index: i + 1,

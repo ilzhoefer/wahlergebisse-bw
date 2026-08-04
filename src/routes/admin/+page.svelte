@@ -13,7 +13,7 @@
 	type CityStatus = 'in_progress' | 'done' | 'skipped';
 
 	interface ProgressTick {
-		level: 'step' | 'city' | 'station';
+		level: 'step' | 'city' | 'station' | 'family';
 		index: number;
 		total: number;
 		label: string;
@@ -22,6 +22,7 @@
 		step?: ProgressTick;
 		city?: ProgressTick;
 		station?: ProgressTick;
+		family?: ProgressTick;
 	}
 
 	interface CrawlState {
@@ -152,6 +153,8 @@
 				return m.admin_status_level_city();
 			case 'station':
 				return m.admin_status_level_station();
+			case 'family':
+				return m.admin_status_level_family();
 		}
 	}
 
@@ -434,6 +437,15 @@
 								label={display.progress.station.label}
 								current={display.progress.station.index}
 								total={display.progress.station.total}
+								tone="running"
+							/>
+						{/if}
+						{#if display.progress.family}
+							<ProgressBar
+								kicker={levelKicker('family')}
+								label={display.progress.family.label}
+								current={display.progress.family.index}
+								total={display.progress.family.total}
 								tone="running"
 							/>
 						{/if}

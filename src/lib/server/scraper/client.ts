@@ -13,7 +13,7 @@ export type CityStatus = 'in_progress' | 'done' | 'skipped';
  * step/city/station "current position" display that `ProgressState` covers.
  */
 export interface ProgressTick {
-	level: 'step' | 'city' | 'station';
+	level: 'step' | 'city' | 'station' | 'family';
 	index: number;
 	total: number;
 	label: string;
@@ -31,9 +31,10 @@ export interface ProgressState {
 	step?: ProgressTick;
 	city?: ProgressTick;
 	station?: ProgressTick;
+	family?: ProgressTick;
 }
 
-const PROGRESS_LEVELS: ProgressTick['level'][] = ['step', 'city', 'station'];
+const PROGRESS_LEVELS: ProgressTick['level'][] = ['step', 'city', 'station', 'family'];
 
 /**
  * A tick at a shallower level (e.g. a new step starting) invalidates any more-granular level's

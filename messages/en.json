@@ -79,6 +79,7 @@
 	"admin_status_level_step": "Step",
 	"admin_status_level_city": "Municipality",
 	"admin_status_level_station": "Polling station",
+	"admin_status_level_family": "Party family",
 	"admin_status_log_show": "Show log",
 	"admin_status_log_hide": "Hide log",
 	"admin_status_log_waiting": "Waiting for output …",
