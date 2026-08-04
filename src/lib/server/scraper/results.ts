@@ -333,7 +333,8 @@ export async function getResultsCity(
 						level: 'station',
 						index: j + 1,
 						total: relevantPs.length,
-						label: `Wahlbezirk ${j + 1}/${relevantPs.length}`
+						label: `${cityLabel}: Wahlbezirk ${j + 1}/${relevantPs.length}`,
+						rs: city.rs
 					});
 				}
 			}

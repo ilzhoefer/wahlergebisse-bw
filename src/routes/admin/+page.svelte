@@ -17,11 +17,13 @@
 		index: number;
 		total: number;
 		label: string;
+		rs?: number;
 	}
 	interface ProgressState {
 		step?: ProgressTick;
 		city?: ProgressTick;
-		station?: ProgressTick;
+		/** Keyed by `rs` — one entry per city currently reporting station-level progress. */
+		stations: Record<number, ProgressTick>;
 		family?: ProgressTick;
 	}
 
@@ -243,7 +245,7 @@
 				durationMs: end - start,
 				log: data.lastRun.log ? data.lastRun.log.split('\n') : [],
 				error: data.lastRun.error,
-				progress: {} as ProgressState,
+				progress: { stations: {} } as ProgressState,
 				cityStatus: {} as Record<number, CityStatus>,
 				hasProgress: false
 			};
@@ -446,15 +448,15 @@
 								tone="running"
 							/>
 						{/if}
-						{#if display.progress.station}
+						{#each Object.entries(display.progress.stations) as [rs, tick] (rs)}
 							<ProgressBar
 								kicker={levelKicker('station')}
-								label={display.progress.station.label}
-								current={display.progress.station.index}
-								total={display.progress.station.total}
+								label={tick.label}
+								current={tick.index}
+								total={tick.total}
 								tone="running"
 							/>
-						{/if}
+						{/each}
 						{#if display.progress.family}
 							<ProgressBar
 								kicker={levelKicker('family')}

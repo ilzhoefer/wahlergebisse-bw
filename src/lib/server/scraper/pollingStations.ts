@@ -35,10 +35,17 @@ interface WahlraumResponse {
 /** Port of get_polling_station_election_city. */
 export async function getPollingStationElectionCity(
 	db: Db,
-	params: { electionId: number; ags: number; rs: number; date: string; skipProcessed: boolean },
+	params: {
+		electionId: number;
+		ags: number;
+		rs: number;
+		date: string;
+		skipProcessed: boolean;
+		cityLabel: string;
+	},
 	log: Logger
 ) {
-	const { electionId, ags, rs, date, skipProcessed } = params;
+	const { electionId, ags, rs, date, skipProcessed, cityLabel } = params;
 	const dateStr = formatDateForUrl(date);
 	const agsStr = padAgs(ags);
 
@@ -76,18 +83,20 @@ export async function getPollingStationElectionCity(
 		// have hundreds of entries, each needing its own metadata request. The progress tick is throttled
 		// separately (and more finely) than the text log line so the bar still feels live without
 		// flooding the SSE stream or the persisted log. Skipped entirely for a single-station city (the
-		// common case) — with several cities now processed concurrently, a "Wahlbezirk 1/1" tick from
-		// every one of them would just fight over the shared station-level progress slot for no benefit.
+		// common case) — with several cities now processed concurrently there's no point in a "1/1" bar.
+		// Tagged with `rs` (and the city name in the label) since several multi-station cities' bars can
+		// be live at the same time — see ProgressState.stations.
 		if (wahlbezirke.length > 1) {
 			if (i > 0 && i % 25 === 0) {
-				log(`rs=${rs}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
+				log(`${cityLabel}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
 			}
 			if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
 				log('', {
 					level: 'station',
 					index: i + 1,
 					total: wahlbezirke.length,
-					label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
+					label: `${cityLabel}: Wahlbezirk ${i + 1}/${wahlbezirke.length}`,
+					rs
 				});
 			}
 		}
@@ -180,7 +189,14 @@ export async function getPollingStationsElection(
 
 		await getPollingStationElectionCity(
 			db,
-			{ electionId: relevantElection.electionId, ags: city.ags, rs: city.rs, date, skipProcessed },
+			{
+				electionId: relevantElection.electionId,
+				ags: city.ags,
+				rs: city.rs,
+				date,
+				skipProcessed,
+				cityLabel
+			},
 			log
 		);
 

@@ -43,9 +43,10 @@ export type CityStatus = 'in_progress' | 'done' | 'skipped';
  * `runCrawl.ts`, the municipality being processed within a step, or the polling station within a
  * municipality). Emitted alongside — not instead of — the plain text log line.
  *
- * `rs` and `cityStatus` are only ever set on `level: 'city'` ticks — they let a `CityStatusTracker`
- * build a per-municipality status map keyed by `rs` for the admin map view, independently of the
- * step/city/station "current position" display that `ProgressState` covers.
+ * `rs` is set on every `level: 'city'` tick (for the `CityStatusTracker`'s per-municipality map, see
+ * below) and on every `level: 'station'` tick (so several cities' station-level bars — e.g. Stuttgart
+ * running alongside other multi-station cities under `parallel > 1` — can be told apart instead of
+ * overwriting one shared slot). `cityStatus` is only ever set on `level: 'city'` ticks.
  */
 export interface ProgressTick {
 	level: 'step' | 'city' | 'station' | 'family';
@@ -65,21 +66,40 @@ export type Logger = (message: string, progress?: ProgressTick) => void;
 export interface ProgressState {
 	step?: ProgressTick;
 	city?: ProgressTick;
-	station?: ProgressTick;
+	/** Keyed by `rs` — one entry per city currently reporting station-level progress, not just one. */
+	stations: Record<number, ProgressTick>;
 	family?: ProgressTick;
 }
 
-const PROGRESS_LEVELS: ProgressTick['level'][] = ['step', 'city', 'station', 'family'];
+export const EMPTY_PROGRESS: ProgressState = { stations: {} };
 
 /**
- * A tick at a shallower level (e.g. a new step starting) invalidates any more-granular level's
- * progress from the previous step/city — otherwise a leftover "Wahlbezirk 480/500" bar would linger
- * on screen after the crawl has moved on to a step that has no polling-station loop at all.
+ * A tick at a shallower level (e.g. a new step starting) invalidates deeper levels' progress from the
+ * previous step — otherwise a leftover "Wahlbezirk 480/500" bar would linger after the crawl moves on
+ * to a step with no polling-station loop at all. Station ticks are keyed by `rs` instead of replacing a
+ * single slot, since several cities can be mid-Wahlbezirke at once; a city's own entry is dropped once
+ * *that* city's tick says `done`/`skipped` — a different city starting must not touch it.
  */
 export function mergeProgressTick(progress: ProgressState, tick: ProgressTick): ProgressState {
+	if (tick.level === 'station') {
+		if (tick.rs === undefined) return progress;
+		return { ...progress, stations: { ...progress.stations, [tick.rs]: tick } };
+	}
+
 	const next: ProgressState = { ...progress, [tick.level]: tick };
-	const levelIndex = PROGRESS_LEVELS.indexOf(tick.level);
-	for (const deeper of PROGRESS_LEVELS.slice(levelIndex + 1)) delete next[deeper];
+	if (tick.level === 'step') {
+		next.city = undefined;
+		next.stations = {};
+		next.family = undefined;
+	} else if (
+		tick.level === 'city' &&
+		tick.rs !== undefined &&
+		(tick.cityStatus === 'done' || tick.cityStatus === 'skipped')
+	) {
+		const stations = { ...next.stations };
+		delete stations[tick.rs];
+		next.stations = stations;
+	}
 	return next;
 }
 

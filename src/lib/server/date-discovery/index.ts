@@ -6,6 +6,7 @@ import {
 	mergeProgressTick,
 	createCityStatusTracker,
 	maxParallelism,
+	EMPTY_PROGRESS,
 	type CityStatus,
 	type ProgressState,
 	type ProgressTick
@@ -66,7 +67,7 @@ export async function startDateDiscovery(): Promise<
 		dates: [],
 		error: null,
 		startedAt: new Date().toISOString(),
-		progress: {},
+		progress: EMPTY_PROGRESS,
 		cityStatus: cityStatusTracker.status
 	};
 	notify();

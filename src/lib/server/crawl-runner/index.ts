@@ -7,6 +7,7 @@ import {
 	createCityStatusTracker,
 	maxParallelism,
 	DEFAULT_PARALLEL,
+	EMPTY_PROGRESS,
 	type CityStatus,
 	type ProgressState,
 	type ProgressTick
@@ -97,7 +98,7 @@ export async function startCrawl(params: {
 		log: [],
 		error: null,
 		startedAt: row.startedAt.toISOString(),
-		progress: {},
+		progress: EMPTY_PROGRESS,
 		cityStatus: cityStatusTracker.status
 	};
 	notify();
