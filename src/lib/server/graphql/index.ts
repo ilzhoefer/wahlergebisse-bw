@@ -7,9 +7,11 @@ import {
 	getParties,
 	getMapInformation,
 	getMapInformationPs,
+	getRegionDetail,
 	possibleMapModes,
 	type MapMode,
-	type MapInformationMode
+	type MapInformationMode,
+	type RegionDetail
 } from '$lib/server/map/queries';
 import { turnoutColorScale, partyColorScale } from '$lib/server/map/colors';
 
@@ -131,6 +133,51 @@ const RegionDataRef = schemaBuilder.objectRef<RegionData>('RegionData').implemen
 	})
 });
 
+const RegionDetailPartyRowRef = schemaBuilder
+	.objectRef<RegionDetail['parties'][number]>('RegionDetailPartyRow')
+	.implement({
+		fields: (t) => ({
+			partyFamilyId: t.exposeInt('partyFamilyId'),
+			nameShort: t.exposeString('nameShort', { nullable: true }),
+			color: t.exposeString('color', { nullable: true }),
+			votePercent: t.exposeFloat('votePercent', { nullable: true }),
+			voteCount: t.exposeInt('voteCount', { nullable: true })
+		})
+	});
+
+const RegionDetailSeatGroupRef = schemaBuilder
+	.objectRef<NonNullable<RegionDetail['seats']>['groups'][number]>('RegionDetailSeatGroup')
+	.implement({
+		fields: (t) => ({
+			partyFamilyId: t.exposeInt('partyFamilyId', { nullable: true }),
+			nameShort: t.exposeString('nameShort', { nullable: true }),
+			color: t.exposeString('color', { nullable: true }),
+			seatCount: t.exposeInt('seatCount'),
+			candidateNames: t.stringList({ resolve: (parent) => parent.candidateNames })
+		})
+	});
+
+const RegionDetailSeatsRef = schemaBuilder
+	.objectRef<NonNullable<RegionDetail['seats']>>('RegionDetailSeats')
+	.implement({
+		fields: (t) => ({
+			total: t.exposeInt('total'),
+			groups: t.field({ type: [RegionDetailSeatGroupRef], resolve: (parent) => parent.groups })
+		})
+	});
+
+const RegionDetailRef = schemaBuilder.objectRef<RegionDetail>('RegionDetail').implement({
+	fields: (t) => ({
+		turnoutPercent: t.exposeFloat('turnoutPercent', { nullable: true }),
+		parties: t.field({ type: [RegionDetailPartyRowRef], resolve: (parent) => parent.parties }),
+		seats: t.field({
+			type: RegionDetailSeatsRef,
+			nullable: true,
+			resolve: (parent) => parent.seats
+		})
+	})
+});
+
 schemaBuilder.queryFields((t) => ({
 	electionTypes: t.field({
 		type: [ElectionTypeOptionRef],
@@ -211,6 +258,33 @@ schemaBuilder.queryFields((t) => ({
 			const keyOf = (r: (typeof filtered)[number]) =>
 				'districtId' in r ? String(r.districtId) : 'rs' in r ? String(r.rs) : null;
 			return buildResponse(keyField, mapInformation, filtered, keyOf, selectedParty);
+		}
+	}),
+	regionDetail: t.field({
+		type: RegionDetailRef,
+		args: {
+			electionType: t.arg.int({ required: true }),
+			date: t.arg.string({ required: true }),
+			mapMode: t.arg.string({ required: true }),
+			// String, not Int: rs runs up to 12 digits and overflows GraphQL's 32-bit Int (same reason
+			// RegionItem.key/keyOf are String-typed rather than Int elsewhere in this file).
+			regionKey: t.arg.string({ required: true }),
+			voteType: t.arg.string({ required: false })
+		},
+		resolve: (_root, args) => {
+			const votetypeFilter =
+				(args.electionType === 2 || args.electionType === 3) &&
+				args.voteType !== null &&
+				args.voteType !== undefined
+					? Number(args.voteType)
+					: null;
+			return getRegionDetail(db, {
+				selectedElectionType: args.electionType,
+				selectedDate: args.date,
+				selectedMapMode: args.mapMode as Exclude<MapMode, 'Wahlbezirk'>,
+				regionKey: Number(args.regionKey),
+				voteTypeFilter: votetypeFilter
+			});
 		}
 	})
 }));

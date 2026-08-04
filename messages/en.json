@@ -34,6 +34,16 @@
 	"map_popup_keine_daten": "No results for this election",
 	"map_popup_keine_wahl": "Unincorporated area – no elections are held here",
 
+	"map_breadcrumb_root": "Baden-Württemberg",
+	"map_panel_close": "Close",
+	"map_panel_loading": "Loading results …",
+	"map_panel_stimmen": "Votes",
+	"map_panel_sitze": "Seats",
+	"map_panel_sitzverteilung": "Seat distribution",
+	"map_panel_sitze_total": "{count} seats total",
+	"map_panel_unabhaengig": "Independent / other",
+	"map_panel_unbekannt": "Unknown",
+
 	"daten_title": "Data Export",
 	"daten_intro": "Select municipalities, an election, and the data types you want.",
 	"daten_gemeinden_legend": "Municipalities",

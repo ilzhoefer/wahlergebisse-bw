@@ -1460,6 +1460,47 @@ export const schema = {
 								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
 							}
 						]
+					},
+					{
+						name: 'regionDetail',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'RegionDetail', kind: 'OBJECT', ofType: null, __proto__: null }
+						},
+						args: [
+							{
+								name: 'date',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'mapMode',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'regionKey',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'voteType',
+								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
+							}
+						]
 					}
 				],
 				interfaces: []
@@ -1493,6 +1534,155 @@ export const schema = {
 					{
 						name: 'legend',
 						type: { kind: 'OBJECT', name: 'Legend', ofType: null, __proto__: null },
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'RegionDetail',
+				fields: [
+					{
+						name: 'parties',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: {
+										name: 'RegionDetailPartyRow',
+										kind: 'OBJECT',
+										ofType: null,
+										__proto__: null
+									}
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'seats',
+						type: { kind: 'OBJECT', name: 'RegionDetailSeats', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'turnoutPercent',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'RegionDetailPartyRow',
+				fields: [
+					{
+						name: 'color',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'nameShort',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'partyFamilyId',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'voteCount',
+						type: { kind: 'SCALAR', name: 'Int', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'votePercent',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'RegionDetailSeatGroup',
+				fields: [
+					{
+						name: 'candidateNames',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'color',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'nameShort',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'partyFamilyId',
+						type: { kind: 'SCALAR', name: 'Int', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'seatCount',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'RegionDetailSeats',
+				fields: [
+					{
+						name: 'groups',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: {
+										name: 'RegionDetailSeatGroup',
+										kind: 'OBJECT',
+										ofType: null,
+										__proto__: null
+									}
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'total',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
 						args: []
 					}
 				],

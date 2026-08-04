@@ -34,6 +34,16 @@
 	"map_popup_keine_daten": "Keine Ergebnisse für diese Wahl",
 	"map_popup_keine_wahl": "Gemeindefreies Gebiet – hier finden keine Wahlen statt",
 
+	"map_breadcrumb_root": "Baden-Württemberg",
+	"map_panel_close": "Schließen",
+	"map_panel_loading": "Lade Ergebnisse …",
+	"map_panel_stimmen": "Stimmen",
+	"map_panel_sitze": "Sitze",
+	"map_panel_sitzverteilung": "Sitzverteilung",
+	"map_panel_sitze_total": "{count} Sitze insgesamt",
+	"map_panel_unabhaengig": "Unabhängig / Sonstige",
+	"map_panel_unbekannt": "Unbekannt",
+
 	"daten_title": "Daten-Export",
 	"daten_intro": "Wählen Sie Gemeinden, eine Wahl und die gewünschten Datenarten aus.",
 	"daten_gemeinden_legend": "Gemeinden",
