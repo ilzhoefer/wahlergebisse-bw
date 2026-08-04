@@ -143,6 +143,27 @@
 		entries?: { name: string; color: string }[];
 	} | null>(null);
 
+	// Drives the position indicator on the gradient (turnout/party) legends: the value of whichever
+	// region is currently hovered, mapped onto the legend's min–max scale.
+	let hoveredItem = $state<RegionItem | undefined>(undefined);
+	function handleFeatureHover(item: RegionItem | undefined) {
+		hoveredItem = item;
+	}
+	const hoveredValue = $derived.by(() => {
+		if (!hoveredItem || !legend) return null;
+		if (legend.type === 'turnout') return (hoveredItem.turnoutPercent as number | null) ?? null;
+		if (legend.type === 'party' && !hoveredItem.notCompeting)
+			return (hoveredItem.votePercent as number | null) ?? null;
+		return null;
+	});
+	const hoveredMarkerPercent = $derived.by(() => {
+		if (hoveredValue === null || legend?.min === undefined || legend?.max === undefined)
+			return null;
+		const { min, max } = legend;
+		if (max === min) return 50;
+		return Math.min(100, Math.max(0, ((hoveredValue - min) / (max - min)) * 100));
+	});
+
 	$effect(() => {
 		const mode = effectiveMode;
 		const prefix = drill?.prefix;
@@ -271,113 +292,136 @@
 		{keyProperty}
 		{items}
 		onFeatureClick={handleFeatureClick}
+		onFeatureHover={handleFeatureHover}
 		{formatPopup}
 	/>
 
-	<div class="absolute top-4 left-4 z-10 w-64 space-y-3 rounded-lg bg-white/95 p-4 shadow-lg">
-		<div class="flex items-center justify-between">
-			<h1 class="text-lg font-semibold">{m.map_title()}</h1>
-			<a href={resolve('/daten')} class="text-sm text-blue-700 underline">{m.nav_daten_export()}</a>
-		</div>
+	<div class="absolute top-4 left-4 z-10 flex w-64 flex-col gap-3">
+		<div class="space-y-3 rounded-lg bg-white/95 p-4 shadow-lg">
+			<div class="flex items-center justify-between">
+				<h1 class="text-lg font-semibold">{m.map_title()}</h1>
+				<a href={resolve('/daten')} class="text-sm text-blue-700 underline"
+					>{m.nav_daten_export()}</a
+				>
+			</div>
 
-		<label class="block text-sm">
-			{m.map_wahlart_label()}
-			<select class="mt-1 w-full rounded border p-1" bind:value={selectedElectionType}>
-				{#each data.electionTypes as t (t.electionType)}
-					<option value={t.electionType}>{t.electionDescription}</option>
-				{/each}
-			</select>
-		</label>
-
-		<label class="block text-sm">
-			{m.map_wahldatum_label()}
-			<select class="mt-1 w-full rounded border p-1" bind:value={selectedDate}>
-				{#each datesForType as d (d)}
-					<option value={d}>{new Date(d).toLocaleDateString('de-DE')}</option>
-				{/each}
-			</select>
-		</label>
-
-		{#if isBundestagOrLandtag}
 			<label class="block text-sm">
-				{m.map_stimmtyp_label()}
-				<select class="mt-1 w-full rounded border p-1" bind:value={selectedVoteType}>
-					<option value="0">{m.map_erststimmen()}</option>
-					<option value="1">{m.map_zweitstimmen()}</option>
-				</select>
-			</label>
-		{/if}
-
-		<label class="block text-sm">
-			{m.map_kartengenauigkeit_label()}
-			<select class="mt-1 w-full rounded border p-1" bind:value={selectedMapMode}>
-				{#each modesForType?.possibleModes ?? [] as mode (mode)}
-					<option value={mode}>{mapModeLabel(mode)}</option>
-				{/each}
-			</select>
-		</label>
-
-		<label class="block text-sm">
-			{m.map_informationsmodus_label()}
-			<select class="mt-1 w-full rounded border p-1" bind:value={selectedVisualMode}>
-				{#each VISUAL_MODES as visualMode (visualMode)}
-					<option value={visualMode}>{visualModeLabel(visualMode)}</option>
-				{/each}
-			</select>
-		</label>
-
-		{#if selectedVisualMode === 'Hochburg'}
-			<label class="block text-sm">
-				{m.map_partei_label()}
-				<select class="mt-1 w-full rounded border p-1" bind:value={selectedParty}>
-					{#each parties as p (p.partyFamilyId)}
-						<option value={p.nameShort}>{p.nameShort}</option>
+				{m.map_wahlart_label()}
+				<select class="mt-1 w-full rounded border p-1" bind:value={selectedElectionType}>
+					{#each data.electionTypes as t (t.electionType)}
+						<option value={t.electionType}>{t.electionDescription}</option>
 					{/each}
 				</select>
 			</label>
-		{/if}
 
-		{#if drill}
-			<button class="text-sm text-blue-700 underline" onclick={() => (drill = null)}>
-				{m.map_back_to_mode({ mode: mapModeLabel(selectedMapMode) })}
-			</button>
-		{/if}
-	</div>
-
-	{#if legend}
-		<div class="absolute right-4 bottom-8 z-10 rounded-lg bg-white/95 p-3 text-sm shadow-lg">
-			{#if legend.type === 'turnout'}
-				<div class="mb-1 font-medium">{m.map_legend_wahlbeteiligung_title()}</div>
-				<div
-					class="h-3 w-40 rounded"
-					style="background: linear-gradient(to right, #f7fbff, #08306b)"
-				></div>
-				<div class="mt-1 flex justify-between">
-					<span>{legend.min?.toFixed(0)}</span><span>{legend.max?.toFixed(0)}</span>
-				</div>
-			{:else if legend.type === 'party'}
-				<div class="mb-1 font-medium">
-					{m.map_legend_ergebnis_title({ party: legend.partyName ?? '' })}
-				</div>
-				<div
-					class="h-3 w-40 rounded"
-					style={`background: linear-gradient(to right, white, ${legend.color})`}
-				></div>
-				<div class="mt-1 flex justify-between">
-					<span>{legend.min?.toFixed(0)}%</span><span>{legend.max?.toFixed(0)}%</span>
-				</div>
-			{:else if legend.type === 'parties'}
-				<div class="mb-1 font-medium">{visualModeLabel(selectedVisualMode)}</div>
-				<ul class="max-h-48 space-y-1 overflow-y-auto">
-					{#each legend.entries ?? [] as entry (entry.name)}
-						<li class="flex items-center gap-1.5">
-							<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {entry.color}"
-							></span>
-							<span>{entry.name}</span>
-						</li>
+			<label class="block text-sm">
+				{m.map_wahldatum_label()}
+				<select class="mt-1 w-full rounded border p-1" bind:value={selectedDate}>
+					{#each datesForType as d (d)}
+						<option value={d}>{new Date(d).toLocaleDateString('de-DE')}</option>
 					{/each}
-				</ul>
+				</select>
+			</label>
+
+			{#if isBundestagOrLandtag}
+				<label class="block text-sm">
+					{m.map_stimmtyp_label()}
+					<select class="mt-1 w-full rounded border p-1" bind:value={selectedVoteType}>
+						<option value="0">{m.map_erststimmen()}</option>
+						<option value="1">{m.map_zweitstimmen()}</option>
+					</select>
+				</label>
+			{/if}
+
+			<label class="block text-sm">
+				{m.map_kartengenauigkeit_label()}
+				<select class="mt-1 w-full rounded border p-1" bind:value={selectedMapMode}>
+					{#each modesForType?.possibleModes ?? [] as mode (mode)}
+						<option value={mode}>{mapModeLabel(mode)}</option>
+					{/each}
+				</select>
+			</label>
+
+			<label class="block text-sm">
+				{m.map_informationsmodus_label()}
+				<select class="mt-1 w-full rounded border p-1" bind:value={selectedVisualMode}>
+					{#each VISUAL_MODES as visualMode (visualMode)}
+						<option value={visualMode}>{visualModeLabel(visualMode)}</option>
+					{/each}
+				</select>
+			</label>
+
+			{#if selectedVisualMode === 'Hochburg'}
+				<label class="block text-sm">
+					{m.map_partei_label()}
+					<select class="mt-1 w-full rounded border p-1" bind:value={selectedParty}>
+						{#each parties as p (p.partyFamilyId)}
+							<option value={p.nameShort}>{p.nameShort}</option>
+						{/each}
+					</select>
+				</label>
+			{/if}
+
+			{#if drill}
+				<button class="text-sm text-blue-700 underline" onclick={() => (drill = null)}>
+					{m.map_back_to_mode({ mode: mapModeLabel(selectedMapMode) })}
+				</button>
 			{/if}
 		</div>
-	{/if}
+
+		{#if legend}
+			<div class="rounded-lg bg-white/95 p-3 text-sm shadow-lg">
+				{#if legend.type === 'turnout'}
+					<div class="mb-1 font-medium">{m.map_legend_wahlbeteiligung_title()}</div>
+					<div class="relative h-3 w-full rounded">
+						<div
+							class="h-full w-full rounded"
+							style="background: linear-gradient(to right, #f7fbff, #08306b)"
+						></div>
+						{#if hoveredMarkerPercent !== null}
+							<div
+								class="pointer-events-none absolute top-[-3px] h-[calc(100%+6px)] w-0.5 -translate-x-1/2 bg-red-600"
+								style="left: {hoveredMarkerPercent}%"
+								title={hoveredValue?.toFixed(1)}
+							></div>
+						{/if}
+					</div>
+					<div class="mt-1 flex justify-between">
+						<span>{legend.min?.toFixed(0)}</span><span>{legend.max?.toFixed(0)}</span>
+					</div>
+				{:else if legend.type === 'party'}
+					<div class="mb-1 font-medium">
+						{m.map_legend_ergebnis_title({ party: legend.partyName ?? '' })}
+					</div>
+					<div class="relative h-3 w-full rounded">
+						<div
+							class="h-full w-full rounded"
+							style={`background: linear-gradient(to right, white, ${legend.color})`}
+						></div>
+						{#if hoveredMarkerPercent !== null}
+							<div
+								class="pointer-events-none absolute top-[-3px] h-[calc(100%+6px)] w-0.5 -translate-x-1/2 bg-red-600"
+								style="left: {hoveredMarkerPercent}%"
+								title={hoveredValue?.toFixed(1)}
+							></div>
+						{/if}
+					</div>
+					<div class="mt-1 flex justify-between">
+						<span>{legend.min?.toFixed(0)}%</span><span>{legend.max?.toFixed(0)}%</span>
+					</div>
+				{:else if legend.type === 'parties'}
+					<div class="mb-1 font-medium">{visualModeLabel(selectedVisualMode)}</div>
+					<ul class="max-h-48 space-y-1 overflow-y-auto">
+						{#each legend.entries ?? [] as entry (entry.name)}
+							<li class="flex items-center gap-1.5">
+								<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {entry.color}"
+								></span>
+								<span>{entry.name}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </div>
