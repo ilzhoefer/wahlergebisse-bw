@@ -194,6 +194,15 @@ async function updateElectionTypeByPattern(db: Db, type: number, pattern: string
  * Port of set_election_type. The cascade's exact ordering and cumulative "only touch still-unclassified
  * rows" behavior is load-bearing — see the Phase 3 plan's findings. Type IDs are looked up by
  * description at runtime, exactly like the R original — never hardcoded.
+ *
+ * One deliberate deviation from the R original: the `Neuwahl`/`Stichwahl` overrides below map to
+ * `Bürgermeisterwahl`, not `Gemeinderatswahl` as in `new_data_functions.R`. Baden-Württemberg's
+ * Gemeinderatswahl is proportional and never has a runoff or standalone repeat vote — every bare
+ * "Neuwahl"/"Stichwahl" election name (no other qualifier) found in the live data turned out to be a
+ * companion `elections` row, same `rs`+`date`, for an election already correctly named
+ * "Bürgermeisterwahl"/"Oberbürgermeisterwahl" — i.e. a second-round or repeat mayoral election that the
+ * source API just didn't bother re-labelling. The R original's mapping was a pre-existing bug, not an
+ * intentional choice; see the investigation that found it for the full evidence.
  */
 export async function setElectionType(db: Db, log: Logger) {
 	const types = await db.select().from(electionType);
@@ -221,13 +230,17 @@ export async function setElectionType(db: Db, log: Logger) {
 		['Oberbürgermeister', 'Bürgermeisterwahl'],
 		['OB', 'Bürgermeisterwahl'],
 		['BM', 'Bürgermeisterwahl'],
+		// Must run before `Gemeind`/`GR` below — a bare "Stichwahl - Gemeinde X"/"Neuwahl - Gemeinde X"
+		// (no other qualifier) would otherwise get claimed by `Gemeind` first (it's just the city's
+		// administrative type, "Gemeinde" vs "Stadt", not a signal about election type at all) before ever
+		// reaching these two.
+		['Neuwahl', 'Bürgermeisterwahl'],
+		['Stichwahl', 'Bürgermeisterwahl'],
 		['Kreisräte', 'Kreistagswahl'],
 		['OR', 'Ortschaftsratswahl'],
 		['Gemeind', 'Gemeinderatswahl'],
 		['GR', 'Gemeinderatswahl'],
-		['Orts', 'Ortschaftsratswahl'],
-		['Neuwahl', 'Gemeinderatswahl'],
-		['Stichwahl', 'Gemeinderatswahl']
+		['Orts', 'Ortschaftsratswahl']
 	];
 	for (const [pattern, description] of overrides) {
 		const type = typeIdFor(description);
