@@ -41,9 +41,20 @@
 			properties: Record<string, unknown>,
 			item: RegionItem | undefined
 		) => string | null;
+		/** Fires with the hovered feature's matching item, or `undefined` on hover-out — lets the
+		 * legend show where the hovered region sits on a scaled (gradient) legend. */
+		onFeatureHover?: (item: RegionItem | undefined) => void;
 	}
 
-	let { geojson, sourceKey, keyProperty, items, onFeatureClick, formatPopup }: Props = $props();
+	let {
+		geojson,
+		sourceKey,
+		keyProperty,
+		items,
+		onFeatureClick,
+		formatPopup,
+		onFeatureHover
+	}: Props = $props();
 
 	let container: HTMLDivElement;
 	let map: MapLibreMap | undefined;
@@ -88,10 +99,12 @@
 			const text = formatPopup?.(feature.properties ?? {}, item);
 			if (text) popup.setLngLat(e.lngLat).setHTML(text).addTo(map);
 			else popup.remove();
+			onFeatureHover?.(item);
 		});
 		map.on('mouseleave', FILL_LAYER, () => {
 			if (map) map.getCanvas().style.cursor = '';
 			popup.remove();
+			onFeatureHover?.(undefined);
 		});
 
 		map.on('load', () => rebuildSource());

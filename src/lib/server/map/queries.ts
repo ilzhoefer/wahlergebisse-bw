@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import {
 	elections,
@@ -94,18 +94,33 @@ export function possibleMapModes(typeId: number): {
 	return { possibleModes, selectedMode };
 }
 
-/** Port of shiny_get_parties. */
+/**
+ * Port of shiny_get_parties, ordered by each party's total vote count across the whole of
+ * Baden-Württemberg — highest state-wide performance first — so the Hochburg dropdown leads with
+ * the parties users are most likely to look for instead of arbitrary ballot order. Region-level
+ * rollup rows exist at Gemeinde/Kreis/Regierungsbezirk grain in the same table (see the module doc
+ * on getMapInformation); a Regierungsbezirk row's `rs` is its 2-digit prefix zero-padded out to 11
+ * digits (mirrors update_aggregate_party / rsPrefix), i.e. `rs % 1e9 = 0` picks out exactly the 4
+ * Regierungsbezirk-level rows — already a sum over every Gemeinde in Baden-Württemberg.
+ */
 export async function getParties(db: Db, date: string, electionTypeId: number) {
 	const rows = await db
-		.selectDistinct({ nameShort: party.nameShort, partyFamilyId: party.partyFamilyId })
+		.select({
+			nameShort: party.nameShort,
+			partyFamilyId: party.partyFamilyId,
+			voteCount: sql<number>`coalesce(sum(${electionResultAggregatePartyRegion.voteCount}), 0)`
+		})
 		.from(electionResultAggregatePartyRegion)
 		.innerJoin(party, eq(electionResultAggregatePartyRegion.partyFamilyId, party.partyFamilyId))
 		.where(
 			and(
 				eq(electionResultAggregatePartyRegion.electionType, electionTypeId),
-				eq(electionResultAggregatePartyRegion.date, date)
+				eq(electionResultAggregatePartyRegion.date, date),
+				sql`${electionResultAggregatePartyRegion.rs} % 1000000000 = 0`
 			)
-		);
+		)
+		.groupBy(party.nameShort, party.partyFamilyId)
+		.orderBy(desc(sql`coalesce(sum(${electionResultAggregatePartyRegion.voteCount}), 0)`));
 	return rows;
 }
 
