@@ -50,10 +50,23 @@
 		cityStatus: Record<number, CityStatus>;
 	}
 
-	let date = $state(data.lastRun?.date ?? data.knownDates[0] ?? '');
 	let electionTypeId = $state(
 		data.lastRun?.electionType ?? data.electionTypes[0]?.electionType ?? 0
 	);
+	// For Bürgermeisterwahl/Bürgerentscheid (see citySpecificTypes), the city is picked first and the
+	// date dropdown is scoped to that city — every other Wahlart shares one statewide date, so there's no
+	// city to pick and the date dropdown is just scoped to the Wahlart. `initialCityRs` restores the
+	// previous run's city (if any) by finding which city's date list contains its date — crawl_run itself
+	// doesn't store rs, so this is the only way to recover it after a reload.
+	function initialCityRs(): number | null {
+		const lastType = data.lastRun?.electionType;
+		const lastDate = data.lastRun?.date;
+		if (lastType === undefined || lastDate === undefined) return null;
+		const cityList = data.cityDatesByType[lastType] ?? [];
+		return cityList.find((c) => c.dates.includes(lastDate))?.rs ?? null;
+	}
+	let selectedCityRs = $state<number | null>(initialCityRs());
+	let date = $state(data.lastRun?.date ?? '');
 	// How many cities the crawl processes concurrently — network-bound work, so this isn't really "one
 	// per CPU core", but core count − 1 is still a legible cap on the input (see maxParallelism).
 	let parallel = $state(Math.min(4, data.maxParallel));
@@ -97,7 +110,7 @@
 	const isDateRefreshRunning = $derived(dateDiscoveryState?.status === 'running');
 
 	// Once a "Termine aktualisieren" run finishes, its results are in `elections` — reload the page's
-	// server data (knownDates/datesToTypes) so the dropdowns reflect them.
+	// server data (typesToDates/cityDatesByType) so the dropdowns reflect them.
 	$effect(() => {
 		if (dateDiscoveryState?.status === 'done') invalidateAll();
 	});
@@ -111,21 +124,34 @@
 		if (liveState?.status === 'error') logExpanded = true;
 	});
 
-	// Which Wahlarten actually exist on the selected date, per data already loaded from `elections` —
-	// no live lookup needed. Falls back to showing every known type for a date with no classified
-	// elections yet (e.g. one just discovered but never crawled).
-	const typesForDate = $derived(data.datesToTypes[date] ?? null);
-	const filteredElectionTypes = $derived(
-		typesForDate
-			? data.electionTypes.filter((t) => typesForDate.includes(t.electionType))
-			: data.electionTypes
+	const isCitySpecific = $derived(data.citySpecificTypes.includes(electionTypeId));
+	const citiesForType = $derived(data.cityDatesByType[electionTypeId] ?? []);
+	const availableDates = $derived(
+		isCitySpecific
+			? (citiesForType.find((c) => c.rs === selectedCityRs)?.dates ?? [])
+			: (data.typesToDates[electionTypeId] ?? [])
 	);
 
-	// Keep the Wahlart selection valid as the date (and therefore the filtered list) changes.
+	// Keep the city selection valid as the Wahlart changes — reset to the first available city whenever
+	// switching to/within a city-specific Wahlart with a no-longer-valid (or no) city selected.
 	$effect(() => {
-		if (filteredElectionTypes.length === 0) return;
-		if (!filteredElectionTypes.some((t) => t.electionType === electionTypeId)) {
-			electionTypeId = filteredElectionTypes[0].electionType;
+		if (!isCitySpecific || citiesForType.length === 0) {
+			selectedCityRs = null;
+			return;
+		}
+		if (!citiesForType.some((c) => c.rs === selectedCityRs)) {
+			selectedCityRs = citiesForType[0].rs;
+		}
+	});
+
+	// Keep the date selection valid as the Wahlart (and, for city-specific types, the city) changes.
+	$effect(() => {
+		if (availableDates.length === 0) {
+			date = '';
+			return;
+		}
+		if (!availableDates.includes(date)) {
+			date = availableDates[0];
 		}
 	});
 
@@ -285,17 +311,46 @@
 			<h2 class="font-medium text-gray-900">{m.admin_crawl_start_heading()}</h2>
 			<div class="flex flex-wrap items-end gap-3">
 				<label class="text-sm text-gray-700">
+					{m.admin_crawl_electiontype_label()}
+					<select
+						bind:value={electionTypeId}
+						disabled={data.electionTypes.length === 0}
+						class="mt-1 block rounded-lg border border-gray-300 p-1.5 text-sm"
+					>
+						{#each data.electionTypes as t (t.electionType)}
+							<option value={t.electionType}>{t.electionDescription ?? t.electionType}</option>
+						{/each}
+					</select>
+				</label>
+				{#if isCitySpecific}
+					<label class="text-sm text-gray-700">
+						{m.admin_crawl_city_label()}
+						<select
+							bind:value={selectedCityRs}
+							disabled={citiesForType.length === 0}
+							class="mt-1 block rounded-lg border border-gray-300 p-1.5 text-sm"
+						>
+							{#if citiesForType.length === 0}
+								<option value={null}>{m.admin_crawl_city_placeholder()}</option>
+							{/if}
+							{#each citiesForType as c (c.rs)}
+								<option value={c.rs}>{c.name ?? c.rs}</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
+				<label class="text-sm text-gray-700">
 					{m.admin_crawl_date_label()}
 					<div class="mt-1 flex items-center gap-2">
 						<select
 							bind:value={date}
-							disabled={data.knownDates.length === 0}
+							disabled={availableDates.length === 0}
 							class="rounded-lg border border-gray-300 p-1.5 text-sm"
 						>
-							{#if data.knownDates.length === 0}
+							{#if availableDates.length === 0}
 								<option value="">{m.admin_crawl_date_placeholder()}</option>
 							{/if}
-							{#each data.knownDates as d (d)}
+							{#each availableDates as d (d)}
 								<option value={d}>{d}</option>
 							{/each}
 						</select>
@@ -308,21 +363,6 @@
 							{m.admin_crawl_date_refresh_button()}
 						</button>
 					</div>
-				</label>
-				<label class="text-sm text-gray-700">
-					{m.admin_crawl_electiontype_label()}
-					<select
-						bind:value={electionTypeId}
-						disabled={filteredElectionTypes.length === 0}
-						class="mt-1 block rounded-lg border border-gray-300 p-1.5 text-sm"
-					>
-						{#if filteredElectionTypes.length === 0}
-							<option value="">{m.admin_crawl_electiontype_placeholder()}</option>
-						{/if}
-						{#each filteredElectionTypes as t (t.electionType)}
-							<option value={t.electionType}>{t.electionDescription ?? t.electionType}</option>
-						{/each}
-					</select>
 				</label>
 				<label class="text-sm text-gray-700">
 					{m.admin_crawl_parallel_label({ max: String(data.maxParallel) })}
@@ -352,7 +392,7 @@
 						isRunning ||
 						isDateRefreshRunning ||
 						!date ||
-						filteredElectionTypes.length === 0}
+						(isCitySpecific && !selectedCityRs)}
 					class="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:opacity-50"
 				>
 					{#if starting}
