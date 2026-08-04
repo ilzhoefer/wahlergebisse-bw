@@ -107,13 +107,32 @@
 			onFeatureHover?.(undefined);
 		});
 
-		map.on('load', () => rebuildSource());
+		// Container sizing can still be settling (fonts/layout not yet final, a still-animating parent,
+		// etc.) when MapLibre reads its size at construction — if that happens to be a moment of zero or
+		// stale size, the canvas is born wrong and nothing after ever fixes it on its own (this is a
+		// well-known MapLibre/Mapbox GL gotcha, not specific to this component). Keep it honest for the
+		// whole lifetime of the component, not just once at startup.
+		const resizeObserver = new ResizeObserver(() => map?.resize());
+		resizeObserver.observe(container);
 
-		return () => map?.remove();
+		rebuildSource();
+
+		return () => {
+			resizeObserver.disconnect();
+			map?.remove();
+		};
 	});
 
 	function rebuildSource() {
-		if (!map || !map.isStyleLoaded()) return;
+		if (!map) return;
+		if (!map.isStyleLoaded()) {
+			// Rather than silently doing nothing and hoping some *other* future prop change happens to
+			// retrigger this (sourceKey may never change again after this first, too-early call), retry
+			// once the map has actually settled. `rebuildSource` always re-reads the current `sourceKey`/
+			// `geojson`/`items` props, so calling it again later is correct even if they changed meanwhile.
+			map.once('idle', rebuildSource);
+			return;
+		}
 		if (map.getLayer(LINE_LAYER)) map.removeLayer(LINE_LAYER);
 		if (map.getLayer(FILL_LAYER)) map.removeLayer(FILL_LAYER);
 		if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
