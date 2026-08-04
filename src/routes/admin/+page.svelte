@@ -22,7 +22,8 @@
 	interface ProgressState {
 		step?: ProgressTick;
 		city?: ProgressTick;
-		/** Keyed by `rs` — one entry per city currently reporting station-level progress. */
+		/** Keyed by concurrency slot (0-based) — one bar per worker currently doing station-level work,
+		 * always in the same slot regardless of which city that worker is currently on. */
 		stations: Record<number, ProgressTick>;
 		family?: ProgressTick;
 	}
@@ -56,6 +57,10 @@
 	// How many cities the crawl processes concurrently — network-bound work, so this isn't really "one
 	// per CPU core", but core count − 1 is still a legible cap on the input (see maxParallelism).
 	let parallel = $state(Math.min(4, data.maxParallel));
+	// Deletes this election's previously fetched data before re-crawling instead of skipping cities that
+	// already look complete — for when the upstream source data changed and needs to actually replace
+	// what's stored, not just fill in gaps.
+	let fullRun = $state(false);
 	let starting = $state(false);
 	let startError = $state<string | null>(null);
 	let liveState = $state<CrawlState | null>(null);
@@ -187,13 +192,14 @@
 	}
 
 	async function startCrawl() {
+		if (fullRun && !confirm(m.admin_crawl_fullrun_confirm())) return;
 		startError = null;
 		starting = true;
 		try {
 			const res = await fetch('/admin/crawl', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date, electionTypeId, parallel })
+				body: JSON.stringify({ date, electionTypeId, parallel, fullRun })
 			});
 			const body = await res.json();
 			if (!body.started) startError = errorMessage(body.reason ?? '', 'crawl');
@@ -330,6 +336,15 @@
 						class="mt-1 block w-20 rounded-lg border border-gray-300 p-1.5 text-sm"
 					/>
 				</label>
+				<label class="flex items-center gap-1.5 self-end pb-1.5 text-sm text-gray-700">
+					<input
+						type="checkbox"
+						bind:checked={fullRun}
+						disabled={starting || isRunning}
+						class="rounded border-gray-300"
+					/>
+					{m.admin_crawl_fullrun_label()}
+				</label>
 				<button
 					type="button"
 					onclick={startCrawl}
@@ -365,6 +380,9 @@
 					{m.admin_crawl_start_button()}
 				</button>
 			</div>
+			{#if fullRun}
+				<p class="text-xs text-amber-600">{m.admin_crawl_fullrun_hint()}</p>
+			{/if}
 
 			{#if dateDiscoveryState}
 				<div class="space-y-2 rounded-lg bg-gray-50 p-3">
@@ -448,7 +466,7 @@
 								tone="running"
 							/>
 						{/if}
-						{#each Object.entries(display.progress.stations) as [rs, tick] (rs)}
+						{#each Object.entries(display.progress.stations) as [slot, tick] (slot)}
 							<ProgressBar
 								kicker={levelKicker('station')}
 								label={tick.label}

@@ -8,6 +8,7 @@ import { updatePartyFamily } from './partyFamily';
 import { updateAggregateParty } from './aggregates';
 import { updateMappingStuttgart, type StuttgartDistrictRow } from './stuttgartMapping';
 import { getElectedMembers } from './electedMembers';
+import { resetElectionData } from './resetElectionData';
 
 import districts20210926 from './stuttgart-districts/2021-09-26.json';
 import districts20240609 from './stuttgart-districts/2024-06-09.json';
@@ -26,6 +27,9 @@ export interface CrawlParams {
 	electionTypeId: number;
 	/** How many cities the per-city steps process concurrently — see `maxParallelism` for the cap. */
 	parallel?: number;
+	/** When true, deletes this election's previously fetched data first (see `resetElectionData`)
+	 * instead of the default incremental "skip what's already there" behavior. */
+	fullRun?: boolean;
 }
 
 /**
@@ -53,6 +57,12 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	);
 
 	const parallel = params.parallel ?? DEFAULT_PARALLEL;
+
+	// Not counted as one of the 8 steps (keeps the step total constant regardless of this flag) — a
+	// one-off cleanup before the normal sequence starts, not a stage of it.
+	if (params.fullRun) {
+		await resetElectionData(db, params.date, params.electionTypeId, log);
+	}
 
 	stepTick('Wahltermine aktualisieren');
 	await updateElectionDates(db, cityList, log, params.date, parallel);

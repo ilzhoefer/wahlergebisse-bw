@@ -12,11 +12,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// Missing/invalid input falls through to startCrawl's own default+clamp rather than rejecting here —
 	// this field is a performance knob, not a required one.
 	const parallel = Number.isFinite(Number(body.parallel)) ? Number(body.parallel) : undefined;
+	const fullRun = body.fullRun === true;
 
 	if (!date || !Number.isFinite(electionTypeId)) {
 		return json({ started: false, reason: 'missing_fields' }, { status: 400 });
 	}
 
-	const result = await startCrawl({ date, electionTypeId, parallel });
+	const result = await startCrawl({ date, electionTypeId, parallel, fullRun });
 	return json(result);
 };

@@ -17,22 +17,28 @@ export const DEFAULT_PARALLEL = 1;
 /**
  * Runs `worker` over `items` with at most `concurrency` calls in flight at once — a fixed pool of
  * "workers" each pull the next item off a shared cursor as soon as they finish the previous one, so
- * faster items don't sit blocked behind slower ones from earlier in the array.
+ * faster items don't sit blocked behind slower ones from earlier in the array. `worker` receives its
+ * 0-based `slot` — stable for that worker's entire lifetime, regardless of which items it processes —
+ * so callers can report per-worker progress that stays in the same position instead of jumping around
+ * as different items happen to be in flight. `onSlotIdle` fires once a slot's worker has pulled the last
+ * item off the queue and has nothing left to do, so callers can clean up that slot's UI state.
  */
 export async function runWithConcurrency<T>(
 	items: readonly T[],
 	concurrency: number,
-	worker: (item: T) => Promise<void>
+	worker: (item: T, slot: number) => Promise<void>,
+	onSlotIdle?: (slot: number) => void
 ): Promise<void> {
 	const limit = Math.max(1, Math.min(Math.floor(concurrency) || 1, items.length || 1));
 	let cursor = 0;
-	async function runWorker() {
+	async function runWorker(slot: number) {
 		while (cursor < items.length) {
 			const item = items[cursor++];
-			await worker(item);
+			await worker(item, slot);
 		}
+		onSlotIdle?.(slot);
 	}
-	await Promise.all(Array.from({ length: limit }, runWorker));
+	await Promise.all(Array.from({ length: limit }, (_, slot) => runWorker(slot)));
 }
 
 /** A municipality's outcome within the step currently looping over it. */
@@ -43,10 +49,12 @@ export type CityStatus = 'in_progress' | 'done' | 'skipped';
  * `runCrawl.ts`, the municipality being processed within a step, or the polling station within a
  * municipality). Emitted alongside — not instead of — the plain text log line.
  *
- * `rs` is set on every `level: 'city'` tick (for the `CityStatusTracker`'s per-municipality map, see
- * below) and on every `level: 'station'` tick (so several cities' station-level bars — e.g. Stuttgart
- * running alongside other multi-station cities under `parallel > 1` — can be told apart instead of
- * overwriting one shared slot). `cityStatus` is only ever set on `level: 'city'` ticks.
+ * `rs` is set on every `level: 'city'` tick, for the `CityStatusTracker`'s per-municipality map below.
+ * `slot` is set on every `level: 'station'` tick instead — the concurrency worker (see
+ * `runWithConcurrency`) that produced it, stable for as long as that worker keeps picking up cities, so
+ * a station bar's position never moves even as the city behind it changes. `closed` marks a station
+ * tick whose worker has run out of cities for good (`onSlotIdle`) — its bar should disappear rather than
+ * keep showing whichever city it last processed. `cityStatus` is only ever set on `level: 'city'` ticks.
  */
 export interface ProgressTick {
 	level: 'step' | 'city' | 'station' | 'family';
@@ -55,6 +63,8 @@ export interface ProgressTick {
 	label: string;
 	rs?: number;
 	cityStatus?: CityStatus;
+	slot?: number;
+	closed?: boolean;
 }
 
 /**
@@ -66,7 +76,8 @@ export type Logger = (message: string, progress?: ProgressTick) => void;
 export interface ProgressState {
 	step?: ProgressTick;
 	city?: ProgressTick;
-	/** Keyed by `rs` — one entry per city currently reporting station-level progress, not just one. */
+	/** Keyed by concurrency slot (0-based) — one entry per worker currently doing station-level work,
+	 * always in the same slot regardless of which city that worker is currently on. */
 	stations: Record<number, ProgressTick>;
 	family?: ProgressTick;
 }
@@ -76,14 +87,21 @@ export const EMPTY_PROGRESS: ProgressState = { stations: {} };
 /**
  * A tick at a shallower level (e.g. a new step starting) invalidates deeper levels' progress from the
  * previous step — otherwise a leftover "Wahlbezirk 480/500" bar would linger after the crawl moves on
- * to a step with no polling-station loop at all. Station ticks are keyed by `rs` instead of replacing a
- * single slot, since several cities can be mid-Wahlbezirke at once; a city's own entry is dropped once
- * *that* city's tick says `done`/`skipped` — a different city starting must not touch it.
+ * to a step with no polling-station loop at all. Station ticks are keyed by `slot` instead of replacing
+ * a single field: a worker's tick just overwrites its own slot's previous entry (a new city starting in
+ * that slot naturally replaces the last one shown), and a `closed` tick removes that slot entirely once
+ * its worker has nothing left to do.
  */
 export function mergeProgressTick(progress: ProgressState, tick: ProgressTick): ProgressState {
 	if (tick.level === 'station') {
-		if (tick.rs === undefined) return progress;
-		return { ...progress, stations: { ...progress.stations, [tick.rs]: tick } };
+		if (tick.slot === undefined) return progress;
+		const stations = { ...progress.stations };
+		if (tick.closed) {
+			delete stations[tick.slot];
+		} else {
+			stations[tick.slot] = tick;
+		}
+		return { ...progress, stations };
 	}
 
 	const next: ProgressState = { ...progress, [tick.level]: tick };
@@ -91,14 +109,6 @@ export function mergeProgressTick(progress: ProgressState, tick: ProgressTick): 
 		next.city = undefined;
 		next.stations = {};
 		next.family = undefined;
-	} else if (
-		tick.level === 'city' &&
-		tick.rs !== undefined &&
-		(tick.cityStatus === 'done' || tick.cityStatus === 'skipped')
-	) {
-		const stations = { ...next.stations };
-		delete stations[tick.rs];
-		next.stations = stations;
 	}
 	return next;
 }

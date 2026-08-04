@@ -65,6 +65,8 @@ export async function startCrawl(params: {
 	electionTypeId: number;
 	/** How many cities to process concurrently; clamped to [1, maxParallelism()] regardless of input. */
 	parallel?: number;
+	/** Deletes this election's previously fetched data before re-crawling — see `resetElectionData`. */
+	fullRun?: boolean;
 }): Promise<{ started: true } | { started: false; reason: 'already_running' }> {
 	if (!acquireTaskLock()) {
 		return { started: false, reason: 'already_running' };
@@ -130,7 +132,12 @@ export async function startCrawl(params: {
 		try {
 			await runCrawl(
 				db,
-				{ date: params.date, electionTypeId: params.electionTypeId, parallel },
+				{
+					date: params.date,
+					electionTypeId: params.electionTypeId,
+					parallel,
+					fullRun: params.fullRun ?? false
+				},
 				log
 			);
 			cityStatusTracker.finish();

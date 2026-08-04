@@ -42,10 +42,11 @@ export async function getPollingStationElectionCity(
 		date: string;
 		skipProcessed: boolean;
 		cityLabel: string;
+		slot: number;
 	},
 	log: Logger
 ) {
-	const { electionId, ags, rs, date, skipProcessed, cityLabel } = params;
+	const { electionId, ags, rs, date, skipProcessed, cityLabel, slot } = params;
 	const dateStr = formatDateForUrl(date);
 	const agsStr = padAgs(ags);
 
@@ -82,23 +83,23 @@ export async function getPollingStationElectionCity(
 		// Same rationale as the periodic log in results.ts: a large city's polling-station overview can
 		// have hundreds of entries, each needing its own metadata request. The progress tick is throttled
 		// separately (and more finely) than the text log line so the bar still feels live without
-		// flooding the SSE stream or the persisted log. Skipped entirely for a single-station city (the
-		// common case) — with several cities now processed concurrently there's no point in a "1/1" bar.
-		// Tagged with `rs` (and the city name in the label) since several multi-station cities' bars can
-		// be live at the same time — see ProgressState.stations.
-		if (wahlbezirke.length > 1) {
-			if (i > 0 && i % 25 === 0) {
-				log(`${cityLabel}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
-			}
-			if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
-				log('', {
-					level: 'station',
-					index: i + 1,
-					total: wahlbezirke.length,
-					label: `${cityLabel}: Wahlbezirk ${i + 1}/${wahlbezirke.length}`,
-					rs
-				});
-			}
+		// flooding the SSE stream or the persisted log. The periodic text line is still skipped for a
+		// single-station city (no value there), but the tick itself always fires — tagged with `slot` (the
+		// concurrency worker's stable position, see ProgressState.stations) so every active worker keeps
+		// showing *something* in the same spot, rather than the bar count/order shifting as different
+		// cities happen to have more than one station at any given moment.
+		if (wahlbezirke.length > 1 && i > 0 && i % 25 === 0) {
+			log(`${cityLabel}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
+		}
+		if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
+			log('', {
+				level: 'station',
+				index: i + 1,
+				total: wahlbezirke.length,
+				label: `${cityLabel}: Wahlbezirk ${i + 1}/${wahlbezirke.length}`,
+				rs,
+				slot
+			});
 		}
 		const match = wahlbezirk.link ? /[^_]+$/.exec(wahlbezirk.link.id) : null;
 		const psId = match ? Number(match[0]) : NaN;
@@ -152,63 +153,69 @@ export async function getPollingStationsElection(
 	parallel = DEFAULT_PARALLEL
 ) {
 	let started = 0;
-	await runWithConcurrency(cityList, parallel, async (city) => {
-		const cityLabel = city.name ?? String(city.rs);
-		const position = ++started;
-		log(`[${position}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
-			level: 'city',
-			index: position,
-			total: cityList.length,
-			label: cityLabel,
-			rs: city.rs,
-			cityStatus: 'in_progress'
-		});
-
-		const [relevantElection] = await db
-			.select({ electionId: elections.electionId })
-			.from(elections)
-			.where(
-				and(
-					eq(elections.rs, city.rs),
-					eq(elections.date, date),
-					eq(elections.electionType, electionTypeId)
-				)
-			);
-
-		if (!relevantElection) {
-			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+	await runWithConcurrency(
+		cityList,
+		parallel,
+		async (city, slot) => {
+			const cityLabel = city.name ?? String(city.rs);
+			const position = ++started;
+			log(`[${position}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
 				level: 'city',
 				index: position,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
-				cityStatus: 'skipped'
+				cityStatus: 'in_progress'
 			});
-			return;
-		}
 
-		await getPollingStationElectionCity(
-			db,
-			{
-				electionId: relevantElection.electionId,
-				ags: city.ags,
+			const [relevantElection] = await db
+				.select({ electionId: elections.electionId })
+				.from(elections)
+				.where(
+					and(
+						eq(elections.rs, city.rs),
+						eq(elections.date, date),
+						eq(elections.electionType, electionTypeId)
+					)
+				);
+
+			if (!relevantElection) {
+				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+					level: 'city',
+					index: position,
+					total: cityList.length,
+					label: cityLabel,
+					rs: city.rs,
+					cityStatus: 'skipped'
+				});
+				return;
+			}
+
+			await getPollingStationElectionCity(
+				db,
+				{
+					electionId: relevantElection.electionId,
+					ags: city.ags,
+					rs: city.rs,
+					date,
+					skipProcessed,
+					cityLabel,
+					slot
+				},
+				log
+			);
+
+			log('', {
+				level: 'city',
+				index: position,
+				total: cityList.length,
+				label: cityLabel,
 				rs: city.rs,
-				date,
-				skipProcessed,
-				cityLabel
-			},
-			log
-		);
-
-		log('', {
-			level: 'city',
-			index: position,
-			total: cityList.length,
-			label: cityLabel,
-			rs: city.rs,
-			cityStatus: 'done'
-		});
-	});
+				cityStatus: 'done'
+			});
+		},
+		(slot) => log('', { level: 'station', index: 0, total: 0, label: '', slot, closed: true })
+	);
 
 	// Belt-and-suspenders: any station with "Brief" in its name is postal, regardless of what the
 	// per-station metadata call determined.
