@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import type { FeatureCollection } from 'geojson';
 	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
+	import ResultPanel, { type RegionDetailData } from '$lib/components/ResultPanel.svelte';
 	import { rsPrefix, STUTTGART_RS, NO_ELECTION_RS } from '$lib/map/rs';
 	import type { MapMode, MapInformationMode } from '$lib/server/map/queries';
 	import { client } from '$lib/generated-client/client';
@@ -99,15 +100,33 @@
 		);
 	});
 
-	// Drill-down: null means "show the dropdown-selected mode's full dataset". Set on click.
-	type Drill = { mode: MapMode; rsPrefixDigits?: 2 | 4; prefix?: string } | null;
-	let drill = $state<Drill>(null);
+	// Drill-down: a stack of levels clicked into, deepest last. Empty means "show the dropdown-selected
+	// mode's full dataset". `label` (the clicked region's own display name) drives the breadcrumb.
+	interface DrillLevel {
+		mode: MapMode;
+		rsPrefixDigits?: 2 | 4;
+		prefix?: string;
+		label: string;
+	}
+	let drillStack = $state<DrillLevel[]>([]);
+	const drill = $derived(drillStack.at(-1) ?? null);
+
+	// Click-opened result panel: full ranked results (+ real seat data, when scraped) for one region.
+	let panelOpen = $state(false);
+	let panelLoading = $state(false);
+	let panelRegionName = $state('');
+	let panelModeLabel = $state('');
+	let panelDetail = $state<RegionDetailData | null>(null);
+
 	$effect(() => {
-		// Any selector change resets an in-progress drill-down back to the top level of that mode.
+		// Any selector change resets an in-progress drill-down back to the top level of that mode, and
+		// closes the result panel — it would otherwise show a now-stale region for the new selection.
 		void selectedElectionType;
 		void selectedDate;
 		void selectedMapMode;
-		drill = null;
+		void selectedVoteType;
+		drillStack = [];
+		panelOpen = false;
 	});
 
 	const effectiveMode = $derived(drill?.mode ?? selectedMapMode);
@@ -252,15 +271,92 @@
 	});
 
 	function handleFeatureClick(properties: Record<string, unknown>) {
-		if (effectiveMode === 'Regierungsbezirk') {
-			const rs = Number(properties.rs);
-			drill = { mode: 'Kreis', rsPrefixDigits: 2, prefix: rsPrefix(rs, 2) };
-		} else if (effectiveMode === 'Kreis') {
-			const rs = Number(properties.rs);
-			drill = { mode: 'Gemeinde', rsPrefixDigits: 4, prefix: rsPrefix(rs, 4) };
-		} else if (effectiveMode === 'Gemeinde' && Number(properties.rs) === STUTTGART_RS) {
-			drill = { mode: 'Wahlbezirk' };
+		const clickedMode = effectiveMode;
+		// 'WK Name' covers Wahlkreis polygons, which formatPopup's hover tooltip doesn't currently need
+		// a name for (it only labels rs/AWBEZ_T-keyed regions) — the panel title needs one for every mode.
+		const clickedName =
+			(properties.name as string) ??
+			(properties.AWBEZ_T as string) ??
+			(properties['WK Name'] as string) ??
+			'';
+		const regionKeyNum = Number(properties[keyProperty]);
+
+		if (clickedMode === 'Regierungsbezirk') {
+			drillStack = [
+				...drillStack,
+				{ mode: 'Kreis', rsPrefixDigits: 2, prefix: rsPrefix(regionKeyNum, 2), label: clickedName }
+			];
+		} else if (clickedMode === 'Kreis') {
+			drillStack = [
+				...drillStack,
+				{
+					mode: 'Gemeinde',
+					rsPrefixDigits: 4,
+					prefix: rsPrefix(regionKeyNum, 4),
+					label: clickedName
+				}
+			];
+		} else if (clickedMode === 'Gemeinde' && regionKeyNum === STUTTGART_RS) {
+			drillStack = [...drillStack, { mode: 'Wahlbezirk', label: clickedName }];
 		}
+
+		// Wahlbezirk regions are individual polling districts, not a governing/electoral unit of their
+		// own — no result panel for them (yet). Gemeindefreie Gebiete never held an election at all.
+		if (clickedMode === 'Wahlbezirk') return;
+		if (keyProperty === 'rs' && NO_ELECTION_RS.has(regionKeyNum)) return;
+
+		openPanel(clickedMode, regionKeyNum, clickedName);
+	}
+
+	function openPanel(mode: MapMode, regionKeyNum: number, name: string) {
+		panelOpen = true;
+		panelLoading = true;
+		panelRegionName = name;
+		panelModeLabel = mapModeLabel(mode);
+		panelDetail = null;
+		// Capture reactive reads before untrack() below — same reasoning as the regionData/parties
+		// effects above: untrack only needs to cover the client.query(...) call/result.
+		const args = {
+			electionType: selectedElectionType,
+			date: selectedDate,
+			mapMode: mode,
+			regionKey: String(regionKeyNum),
+			voteType: isBundestagOrLandtag ? selectedVoteType : undefined
+		};
+		untrack(() =>
+			client.query
+				.regionDetail({
+					__args: args,
+					turnoutPercent: true,
+					parties: {
+						partyFamilyId: true,
+						nameShort: true,
+						color: true,
+						votePercent: true,
+						voteCount: true
+					},
+					seats: {
+						total: true,
+						groups: {
+							partyFamilyId: true,
+							nameShort: true,
+							color: true,
+							seatCount: true,
+							candidateNames: true
+						}
+					}
+				})
+				.then((res) => {
+					untrack(() => {
+						panelDetail = {
+							turnoutPercent: res.turnoutPercent,
+							parties: res.parties as unknown as RegionDetailData['parties'],
+							seats: res.seats as unknown as RegionDetailData['seats']
+						};
+						panelLoading = false;
+					});
+				})
+		);
 	}
 
 	function formatPopup(
@@ -362,10 +458,34 @@
 				</label>
 			{/if}
 
-			{#if drill}
-				<button class="text-sm text-blue-700 underline" onclick={() => (drill = null)}>
-					{m.map_back_to_mode({ mode: mapModeLabel(selectedMapMode) })}
-				</button>
+			{#if drillStack.length > 0}
+				<nav class="flex flex-wrap items-center gap-1 text-sm">
+					<button
+						class="text-blue-700 underline"
+						onclick={() => {
+							drillStack = [];
+							panelOpen = false;
+						}}
+					>
+						{m.map_breadcrumb_root()}
+					</button>
+					{#each drillStack as level, i (i)}
+						<span class="text-gray-400">›</span>
+						{#if i === drillStack.length - 1}
+							<span class="font-medium text-gray-900">{level.label}</span>
+						{:else}
+							<button
+								class="text-blue-700 underline"
+								onclick={() => {
+									drillStack = drillStack.slice(0, i + 1);
+									panelOpen = false;
+								}}
+							>
+								{level.label}
+							</button>
+						{/if}
+					{/each}
+				</nav>
 			{/if}
 		</div>
 
@@ -424,4 +544,13 @@
 			</div>
 		{/if}
 	</div>
+
+	<ResultPanel
+		open={panelOpen}
+		loading={panelLoading}
+		regionName={panelRegionName}
+		modeLabel={panelModeLabel}
+		detail={panelDetail}
+		onClose={() => (panelOpen = false)}
+	/>
 </div>

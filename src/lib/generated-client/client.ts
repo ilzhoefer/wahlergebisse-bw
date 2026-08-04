@@ -18,13 +18,14 @@ import { makeLiveQuery, makeMutation, makeSubscription, makeQuery } from '@m1212
 type Mutation = Record<string, never>;
 type Subscription = Record<string, never>;
 
-// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry (the map view's
-// query result) are computed view models with no natural id, and the codegen doesn't emit a `keys`
-// config for cacheExchange. Without one, graphcache can't produce a stable cache key for them, warns
-// "Invalid key" on every field, and — combined with requestPolicy: 'cache-and-network' below — treats
-// each keyless re-embed as invalidating the in-flight regionData query, which re-triggers it, which
-// re-embeds, forever: switching map modes in the UI hit Svelte's effect_update_depth_exceeded loop
-// guard because of this. Returning null tells graphcache these types are intentionally unkeyed.
+// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry/RegionDetail/
+// RegionDetailPartyRow/RegionDetailSeats/RegionDetailSeatGroup (the map view's query results) are
+// computed view models with no natural id, and the codegen doesn't emit a `keys` config for
+// cacheExchange. Without one, graphcache can't produce a stable cache key for them, warns "Invalid
+// key" on every field, and — combined with requestPolicy: 'cache-and-network' below — treats each
+// keyless re-embed as invalidating the in-flight query, which re-triggers it, which re-embeds,
+// forever: switching map modes in the UI hit Svelte's effect_update_depth_exceeded loop guard because
+// of this. Returning null tells graphcache these types are intentionally unkeyed.
 
 export type BigInt = unknown;
 
@@ -246,12 +247,46 @@ export type Query = {
 		party?: String | null | undefined;
 		voteType?: String | null | undefined;
 	}) => RegionData;
+	regionDetail: (p: {
+		date: String;
+		electionType: Int;
+		mapMode: String;
+		regionKey: String;
+		voteType?: String | null | undefined;
+	}) => RegionDetail;
 };
 
 export type RegionData = {
 	items: () => RegionItem[];
 	keyField: String;
 	legend: () => Legend | null;
+};
+
+export type RegionDetail = {
+	parties: () => RegionDetailPartyRow[];
+	seats: () => RegionDetailSeats | null;
+	turnoutPercent: Float | null;
+};
+
+export type RegionDetailPartyRow = {
+	color: String | null;
+	nameShort: String | null;
+	partyFamilyId: Int;
+	voteCount: Int | null;
+	votePercent: Float | null;
+};
+
+export type RegionDetailSeatGroup = {
+	candidateNames: String[];
+	color: String | null;
+	nameShort: String | null;
+	partyFamilyId: Int | null;
+	seatCount: Int;
+};
+
+export type RegionDetailSeats = {
+	groups: () => RegionDetailSeatGroup[];
+	total: Int;
 };
 
 export type RegionItem = {
@@ -298,7 +333,11 @@ export const defaultOptions: ConstructorParameters<Client>[0] = {
 				RegionData: () => null,
 				RegionItem: () => null,
 				Legend: () => null,
-				LegendEntry: () => null
+				LegendEntry: () => null,
+				RegionDetail: () => null,
+				RegionDetailPartyRow: () => null,
+				RegionDetailSeats: () => null,
+				RegionDetailSeatGroup: () => null
 			}
 		}),
 		nativeDateExchange,

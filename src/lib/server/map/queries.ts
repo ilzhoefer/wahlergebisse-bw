@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import {
 	elections,
@@ -12,6 +12,8 @@ import {
 	electionResultAggregatePartyPs,
 	electionResultAggregateMetaPs,
 	electionVoteDistrictMapping,
+	electionElectedCandidates,
+	electionPartyFamily,
 	pollingStations
 } from '$lib/server/db/schema';
 
@@ -379,4 +381,215 @@ export async function getVoteDistrictLookup(db: Db, electionTypeId: number, date
 				eq(electionVoteDistrictMapping.date, date)
 			)
 		);
+}
+
+export interface RegionDetailParams {
+	selectedElectionType: number;
+	selectedDate: string;
+	/** Wahlbezirk isn't a governing body of its own (no seats, no single "region" identity beyond one
+	 * polling station), so the detail panel doesn't cover it — only the four rs/district-keyed modes. */
+	selectedMapMode: Exclude<MapMode, 'Wahlbezirk'>;
+	/** rs for Regierungsbezirk/Kreis/Gemeinde, districtId for Wahlkreis — both passed as the numeric
+	 * value already used to key polygons on the map (see MapView's `keyProperty`). */
+	regionKey: number;
+	voteTypeFilter?: number | null;
+}
+
+export interface RegionDetailPartyRow {
+	partyFamilyId: number;
+	nameShort: string | null;
+	color: string | null;
+	votePercent: number | null;
+	voteCount: number | null;
+}
+
+export interface RegionDetailSeatGroup {
+	partyFamilyId: number | null;
+	nameShort: string | null;
+	color: string | null;
+	seatCount: number;
+	candidateNames: string[];
+}
+
+export interface RegionDetail {
+	turnoutPercent: number | null;
+	parties: RegionDetailPartyRow[];
+	/** null when no elected-candidates data has been scraped for this exact region/election — true for
+	 * most elections today, and structurally true for any Regierungsbezirk/Gemeinde-rollup-at-Kreis-level
+	 * view, since those spatial rollups aren't themselves an electoral/governing unit. */
+	seats: { total: number; groups: RegionDetailSeatGroup[] } | null;
+}
+
+/**
+ * Full (unsliced) per-party result plus turnout and, where scraped, real seat allocation for exactly
+ * one region — the data behind the click-opened result panel. Unlike `getMapInformation` (which powers
+ * the choropleth and is pre-sliced to the winner/2nd-place), this returns every party so the panel can
+ * show a complete ranked table.
+ */
+export async function getRegionDetail(db: Db, params: RegionDetailParams): Promise<RegionDetail> {
+	const { selectedElectionType, selectedDate, selectedMapMode, regionKey, voteTypeFilter } = params;
+	const isDistrict = selectedMapMode === 'Wahlkreis';
+
+	const partyRows = isDistrict
+		? await db
+				.select({
+					partyFamilyId: electionResultAggregatePartyDistrict.partyFamilyId,
+					nameShort: party.nameShort,
+					color: electionResultAggregatePartyDistrict.color,
+					votetypeId: electionResultAggregatePartyDistrict.votetypeId,
+					votePercent: electionResultAggregatePartyDistrict.votePercent,
+					voteCount: electionResultAggregatePartyDistrict.voteCount
+				})
+				.from(electionResultAggregatePartyDistrict)
+				.innerJoin(
+					party,
+					eq(electionResultAggregatePartyDistrict.partyFamilyId, party.partyFamilyId)
+				)
+				.where(
+					and(
+						eq(electionResultAggregatePartyDistrict.districtId, regionKey),
+						eq(electionResultAggregatePartyDistrict.electionType, selectedElectionType),
+						eq(electionResultAggregatePartyDistrict.date, selectedDate)
+					)
+				)
+		: await db
+				.select({
+					partyFamilyId: electionResultAggregatePartyRegion.partyFamilyId,
+					nameShort: party.nameShort,
+					color: electionResultAggregatePartyRegion.color,
+					votetypeId: electionResultAggregatePartyRegion.votetypeId,
+					votePercent: electionResultAggregatePartyRegion.votePercent,
+					voteCount: electionResultAggregatePartyRegion.voteCount
+				})
+				.from(electionResultAggregatePartyRegion)
+				.innerJoin(party, eq(electionResultAggregatePartyRegion.partyFamilyId, party.partyFamilyId))
+				.where(
+					and(
+						eq(electionResultAggregatePartyRegion.rs, regionKey),
+						eq(electionResultAggregatePartyRegion.electionType, selectedElectionType),
+						eq(electionResultAggregatePartyRegion.date, selectedDate)
+					)
+				);
+
+	const metaRows = isDistrict
+		? await db
+				.select({
+					votetypeId: electionResultAggregateMetaDistrict.votetypeId,
+					turnout: electionResultAggregateMetaDistrict.turnout
+				})
+				.from(electionResultAggregateMetaDistrict)
+				.where(
+					and(
+						eq(electionResultAggregateMetaDistrict.districtId, regionKey),
+						eq(electionResultAggregateMetaDistrict.electionType, selectedElectionType),
+						eq(electionResultAggregateMetaDistrict.date, selectedDate)
+					)
+				)
+		: await db
+				.select({
+					votetypeId: electionResultAggregateMetaRegion.votetypeId,
+					turnout: electionResultAggregateMetaRegion.turnout
+				})
+				.from(electionResultAggregateMetaRegion)
+				.where(
+					and(
+						eq(electionResultAggregateMetaRegion.rs, regionKey),
+						eq(electionResultAggregateMetaRegion.electionType, selectedElectionType),
+						eq(electionResultAggregateMetaRegion.date, selectedDate)
+					)
+				);
+
+	const matchesVoteType = (votetypeId: number) =>
+		voteTypeFilter === null || voteTypeFilter === undefined || votetypeId === voteTypeFilter;
+
+	const parties: RegionDetailPartyRow[] = partyRows
+		.filter((r) => matchesVoteType(r.votetypeId))
+		.map((r) => ({
+			partyFamilyId: r.partyFamilyId,
+			nameShort: r.nameShort,
+			color: r.color,
+			votePercent: r.votePercent === null ? null : Number(r.votePercent) * 100,
+			voteCount: r.voteCount
+		}))
+		.sort((a, b) => (b.votePercent ?? -1) - (a.votePercent ?? -1));
+
+	const turnoutRow = metaRows.find((r) => matchesVoteType(r.votetypeId));
+	const turnoutPercent =
+		turnoutRow?.turnout === null || turnoutRow?.turnout === undefined
+			? null
+			: Number(turnoutRow.turnout) * 100;
+
+	// Seats/Direktmandate are only meaningful for an actual electoral unit (a real rs a council was
+	// elected for) — Wahlkreis (Bundestag/Landtag Direktmandat) isn't tracked in this table, and a
+	// Regierungsbezirk/Kreis "region" that's really just a spatial rollup of several Gemeinderatswahl
+	// results has no council of its own, so the query below correctly (not just defensively) returns
+	// nothing in both cases.
+	const seats = isDistrict
+		? null
+		: await getSeatsForRegion(db, selectedElectionType, selectedDate, regionKey);
+
+	return { turnoutPercent, parties, seats };
+}
+
+async function getSeatsForRegion(
+	db: Db,
+	electionTypeId: number,
+	date: string,
+	rs: number
+): Promise<RegionDetail['seats']> {
+	const rows = await db
+		.select({
+			partyId: electionElectedCandidates.partyId,
+			name: electionElectedCandidates.name,
+			partyFamilyId: electionPartyFamily.partyFamilyId,
+			nameShort: party.nameShort,
+			color: party.color
+		})
+		.from(electionElectedCandidates)
+		.leftJoin(
+			electionPartyFamily,
+			and(
+				eq(electionPartyFamily.electionId, electionElectedCandidates.electionId),
+				eq(electionPartyFamily.rs, electionElectedCandidates.rs),
+				eq(electionPartyFamily.partyId, electionElectedCandidates.partyId),
+				eq(electionPartyFamily.votetypeId, 0),
+				isNull(electionPartyFamily.psId)
+			)
+		)
+		.leftJoin(party, eq(party.partyFamilyId, electionPartyFamily.partyFamilyId))
+		.where(
+			and(
+				eq(electionElectedCandidates.rs, rs),
+				eq(electionElectedCandidates.electionType, electionTypeId),
+				eq(electionElectedCandidates.date, date)
+			)
+		);
+
+	if (rows.length === 0) return null;
+
+	// Group by resolved party family; candidates whose party_id has no family match (independent
+	// candidates, list-name mismatches — see election_elected_candidates' own doc comment) are bucketed
+	// together under partyFamilyId: null rather than dropped, so the seat total always matches reality.
+	const groups = new Map<number | null, RegionDetailSeatGroup>();
+	for (const r of rows) {
+		const key = r.partyFamilyId;
+		const existing = groups.get(key);
+		if (existing) {
+			existing.seatCount += 1;
+			existing.candidateNames.push(r.name);
+		} else {
+			groups.set(key, {
+				partyFamilyId: key,
+				nameShort: r.nameShort,
+				color: r.color,
+				seatCount: 1,
+				candidateNames: [r.name]
+			});
+		}
+	}
+
+	return {
+		total: rows.length,
+		groups: Array.from(groups.values()).sort((a, b) => b.seatCount - a.seatCount)
+	};
 }
