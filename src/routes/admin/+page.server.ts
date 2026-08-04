@@ -19,23 +19,64 @@ export interface CityDates {
 	dates: string[];
 }
 
+export interface DateOption {
+	date: string;
+	cityCount: number;
+	/** Only populated when `cityCount` is small enough to name individually (see
+	 * SMALL_DATE_CITY_THRESHOLD) — flags a one-off/repeat election (e.g. a court-ordered Wiederholungswahl
+	 * for a single municipality) instead of presenting it like an ordinary statewide date. */
+	cityNames: string[];
+}
+
+/**
+ * Below this many distinct municipalities, a date is treated as a one-off worth naming rather than an
+ * ordinary statewide election date — every genuinely statewide date here has hundreds of cities, so this
+ * comfortably separates the two without needing to hardcode specific dates.
+ */
+const SMALL_DATE_CITY_THRESHOLD = 5;
+
 export const load: PageServerLoad = async () => {
 	const [lastRun] = await db.select().from(crawlRun).orderBy(desc(crawlRun.id)).limit(1);
 	const electionTypes = await db.select().from(electionType).orderBy(electionType.electionType);
 
-	// One row per (date, electionType) already discovered/classified by a previous crawl or a "Termine
-	// aktualisieren" run — used to filter the date dropdown down to dates that actually have elections of
-	// the selected Wahlart. No live API calls needed — an instant lookup against data already in
-	// `elections`.
-	const dateTypeRows = await db
-		.selectDistinct({ date: elections.date, electionType: elections.electionType })
+	// One row per (date, electionType, city) already discovered/classified by a previous crawl or a
+	// "Termine aktualisieren" run — used to filter the date dropdown down to dates that actually have
+	// elections of the selected Wahlart, and to flag dates that only cover a handful of municipalities
+	// (see SMALL_DATE_CITY_THRESHOLD) rather than the usual statewide vote. No live API calls needed — an
+	// instant lookup against data already in `elections`. `selectDistinct` on all four columns avoids
+	// double-counting a city whose Ortschaftsratswahl, say, has one `elections` row per Ortschaft.
+	const dateTypeCityRows = await db
+		.selectDistinct({
+			date: elections.date,
+			electionType: elections.electionType,
+			rs: elections.rs,
+			name: cities.name
+		})
 		.from(elections)
-		.orderBy(desc(elections.date));
+		.innerJoin(cities, eq(cities.rs, elections.rs));
 
-	const typesToDates: Record<number, string[]> = {};
-	for (const row of dateTypeRows) {
+	const typesToDates: Record<number, DateOption[]> = {};
+	const dateIndexByType = new Map<number, Map<string, number>>();
+	for (const row of dateTypeCityRows) {
 		if (row.date === null || row.electionType === null) continue;
-		(typesToDates[row.electionType] ??= []).push(row.date);
+		const list = (typesToDates[row.electionType] ??= []);
+		const dateIndex = dateIndexByType.get(row.electionType) ?? new Map<string, number>();
+		dateIndexByType.set(row.electionType, dateIndex);
+		let i = dateIndex.get(row.date);
+		if (i === undefined) {
+			i = list.length;
+			dateIndex.set(row.date, i);
+			list.push({ date: row.date, cityCount: 0, cityNames: [] });
+		}
+		list[i].cityCount += 1;
+		list[i].cityNames.push(row.name ?? String(row.rs));
+	}
+	for (const list of Object.values(typesToDates)) {
+		list.sort((a, b) => b.date.localeCompare(a.date));
+		for (const d of list) {
+			if (d.cityCount > SMALL_DATE_CITY_THRESHOLD) d.cityNames = [];
+			else d.cityNames.sort((a, b) => a.localeCompare(b));
+		}
 	}
 
 	// For the two city-specific types, also load which cities have a known election and what dates each

@@ -239,15 +239,19 @@ export async function getResultsCity(
 	parallel = DEFAULT_PARALLEL
 ) {
 	let started = 0;
+	let completed = 0;
 	await runWithConcurrency(
 		cityList,
 		parallel,
 		async (city, slot) => {
 			const cityLabel = city.name ?? String(city.rs);
+			// See updateElectionDates for why `position` (log text only) and `completed` (the progress
+			// tick's index) are kept separate — reusing `position` for both would make the bar jump
+			// backwards whenever an earlier-started city finishes after later ones have already begun.
 			const position = ++started;
 			log(`[${position}/${cityList.length}] ${cityLabel}: Ergebnisse abrufen`, {
 				level: 'city',
-				index: position,
+				index: completed,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
@@ -268,7 +272,7 @@ export async function getResultsCity(
 			if (!relevantElection) {
 				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
 					level: 'city',
-					index: position,
+					index: ++completed,
 					total: cityList.length,
 					label: cityLabel,
 					rs: city.rs,
@@ -311,7 +315,7 @@ export async function getResultsCity(
 				if (count === relevantPs.length * relevantVotetypes.length) {
 					log(`${cityLabel}: bereits vollständig verarbeitet, überspringe`, {
 						level: 'city',
-						index: position,
+						index: ++completed,
 						total: cityList.length,
 						label: cityLabel,
 						rs: city.rs,
@@ -442,7 +446,7 @@ export async function getResultsCity(
 
 			log('', {
 				level: 'city',
-				index: position,
+				index: ++completed,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,

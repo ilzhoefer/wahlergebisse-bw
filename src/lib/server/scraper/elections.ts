@@ -110,8 +110,15 @@ export async function updateElectionDates(
 	}
 
 	let started = 0;
+	let completed = 0;
 	await runWithConcurrency(cityList, parallel, async (city) => {
 		const cityLabel = city.name ?? String(city.rs);
+		// `position` (this city's own start-order slot) is only for the readable log line — using it for
+		// the progress tick's `index` too would make the bar jump backwards whenever a city with a lower
+		// position finishes after later ones have already started (its stale, smaller `position` would
+		// overwrite whatever higher number is currently shown). `completed`, incremented only on a
+		// terminal (done/skipped) tick, is what actually counts "how many of `total` are finished" and can
+		// only ever climb.
 		const position = ++started;
 
 		if (alreadyRecorded?.has(city.rs)) {
@@ -119,7 +126,7 @@ export async function updateElectionDates(
 				`[${position}/${cityList.length}] ${cityLabel}: Wahltermin ${onlyDate} bereits vorhanden, überspringe`,
 				{
 					level: 'city',
-					index: position,
+					index: ++completed,
 					total: cityList.length,
 					label: cityLabel,
 					rs: city.rs,
@@ -131,7 +138,7 @@ export async function updateElectionDates(
 
 		log(`[${position}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
 			level: 'city',
-			index: position,
+			index: completed,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,
@@ -174,7 +181,7 @@ export async function updateElectionDates(
 
 		log('', {
 			level: 'city',
-			index: position,
+			index: ++completed,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,

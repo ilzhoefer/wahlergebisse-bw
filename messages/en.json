@@ -58,6 +58,7 @@
 	"admin_crawl_start_heading": "Start a new crawl",
 	"admin_crawl_date_label": "Election date",
 	"admin_crawl_date_placeholder": "No dates known yet — please refresh",
+	"admin_crawl_date_special_note": "{date} — only {cities}",
 	"admin_crawl_date_refresh_button": "Refresh dates",
 	"admin_crawl_date_refresh_done": "Found {count} dates.",
 	"admin_crawl_date_refresh_error_generic": "Could not refresh the dates.",

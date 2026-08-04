@@ -126,9 +126,15 @@
 
 	const isCitySpecific = $derived(data.citySpecificTypes.includes(electionTypeId));
 	const citiesForType = $derived(data.cityDatesByType[electionTypeId] ?? []);
+	// Normalized to the same shape either way: city-specific dates are inherently single-city already
+	// (no need to name it again), so they carry no cityNames annotation.
 	const availableDates = $derived(
 		isCitySpecific
-			? (citiesForType.find((c) => c.rs === selectedCityRs)?.dates ?? [])
+			? (citiesForType.find((c) => c.rs === selectedCityRs)?.dates ?? []).map((date) => ({
+					date,
+					cityCount: 1,
+					cityNames: [] as string[]
+				}))
 			: (data.typesToDates[electionTypeId] ?? [])
 	);
 
@@ -150,8 +156,8 @@
 			date = '';
 			return;
 		}
-		if (!availableDates.includes(date)) {
-			date = availableDates[0];
+		if (!availableDates.some((d) => d.date === date)) {
+			date = availableDates[0].date;
 		}
 	});
 
@@ -350,8 +356,15 @@
 							{#if availableDates.length === 0}
 								<option value="">{m.admin_crawl_date_placeholder()}</option>
 							{/if}
-							{#each availableDates as d (d)}
-								<option value={d}>{d}</option>
+							{#each availableDates as d (d.date)}
+								<option value={d.date}>
+									{d.cityNames.length
+										? m.admin_crawl_date_special_note({
+												date: d.date,
+												cities: d.cityNames.join(', ')
+											})
+										: d.date}
+								</option>
 							{/each}
 						</select>
 						<button
