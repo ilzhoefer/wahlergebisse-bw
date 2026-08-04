@@ -18,11 +18,11 @@ import { makeLiveQuery, makeMutation, makeSubscription, makeQuery } from '@m1212
 type Mutation = Record<string, never>;
 type Subscription = Record<string, never>;
 
-// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem (the map view's query result) are
-// computed view models with no natural id, and the codegen doesn't emit a `keys` config for
-// cacheExchange. Without one, graphcache can't produce a stable cache key for them, warns "Invalid
-// key" on every field, and — combined with requestPolicy: 'cache-and-network' below — treats each
-// keyless re-embed as invalidating the in-flight regionData query, which re-triggers it, which
+// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry (the map view's
+// query result) are computed view models with no natural id, and the codegen doesn't emit a `keys`
+// config for cacheExchange. Without one, graphcache can't produce a stable cache key for them, warns
+// "Invalid key" on every field, and — combined with requestPolicy: 'cache-and-network' below — treats
+// each keyless re-embed as invalidating the in-flight regionData query, which re-triggers it, which
 // re-embeds, forever: switching map modes in the UI hit Svelte's effect_update_depth_exceeded loop
 // guard because of this. Returning null tells graphcache these types are intentionally unkeyed.
 
@@ -211,10 +211,16 @@ export type JSONWhereInputArgument = {
 
 export type Legend = {
 	color: String | null;
-	max: Float;
-	min: Float;
+	entries: () => LegendEntry[];
+	max: Float | null;
+	min: Float | null;
 	partyName: String | null;
 	type: String;
+};
+
+export type LegendEntry = {
+	color: String;
+	name: String;
 };
 
 export type MapModes = {
@@ -286,7 +292,15 @@ export const defaultOptions: ConstructorParameters<Client>[0] = {
 	url: '/graphql',
 	fetchSubscriptions: true,
 	exchanges: [
-		cacheExchange({ schema, keys: { RegionData: () => null, RegionItem: () => null } }),
+		cacheExchange({
+			schema,
+			keys: {
+				RegionData: () => null,
+				RegionItem: () => null,
+				Legend: () => null,
+				LegendEntry: () => null
+			}
+		}),
 		nativeDateExchange,
 		fetchExchange
 	],

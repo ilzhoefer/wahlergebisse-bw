@@ -135,11 +135,12 @@
 	let keyProperty = $state('rs');
 	let items = $state<RegionItem[]>([]);
 	let legend = $state<{
-		type: 'turnout' | 'party';
-		min: number;
-		max: number;
+		type: 'turnout' | 'party' | 'parties';
+		min?: number;
+		max?: number;
 		partyName?: string;
 		color?: string;
+		entries?: { name: string; color: string }[];
 	} | null>(null);
 
 	$effect(() => {
@@ -203,7 +204,14 @@
 				.regionData({
 					__args: args,
 					keyField: true,
-					legend: { type: true, min: true, max: true, partyName: true, color: true },
+					legend: {
+						type: true,
+						min: true,
+						max: true,
+						partyName: true,
+						color: true,
+						entries: { name: true, color: true }
+					},
 					items: {
 						key: true,
 						color: true,
@@ -345,9 +353,9 @@
 					style="background: linear-gradient(to right, #f7fbff, #08306b)"
 				></div>
 				<div class="mt-1 flex justify-between">
-					<span>{legend.min.toFixed(0)}</span><span>{legend.max.toFixed(0)}</span>
+					<span>{legend.min?.toFixed(0)}</span><span>{legend.max?.toFixed(0)}</span>
 				</div>
-			{:else}
+			{:else if legend.type === 'party'}
 				<div class="mb-1 font-medium">
 					{m.map_legend_ergebnis_title({ party: legend.partyName ?? '' })}
 				</div>
@@ -356,8 +364,19 @@
 					style={`background: linear-gradient(to right, white, ${legend.color})`}
 				></div>
 				<div class="mt-1 flex justify-between">
-					<span>{legend.min.toFixed(0)}%</span><span>{legend.max.toFixed(0)}%</span>
+					<span>{legend.min?.toFixed(0)}%</span><span>{legend.max?.toFixed(0)}%</span>
 				</div>
+			{:else if legend.type === 'parties'}
+				<div class="mb-1 font-medium">{visualModeLabel(selectedVisualMode)}</div>
+				<ul class="max-h-48 space-y-1 overflow-y-auto">
+					{#each legend.entries ?? [] as entry (entry.name)}
+						<li class="flex items-center gap-1.5">
+							<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {entry.color}"
+							></span>
+							<span>{entry.name}</span>
+						</li>
+					{/each}
+				</ul>
 			{/if}
 		</div>
 	{/if}
