@@ -31,6 +31,8 @@
 	"map_popup_wahlbeteiligung": "Voter turnout: {value}%",
 	"map_popup_nicht_angetreten": "Party {party} did not run here",
 	"map_popup_ergebnis": "Result {party}: {percent}%",
+	"map_popup_keine_daten": "No results for this election",
+	"map_popup_keine_wahl": "Unincorporated area – no elections are held here",
 
 	"daten_title": "Data Export",
 	"daten_intro": "Select municipalities, an election, and the data types you want.",

@@ -31,6 +31,8 @@
 	"map_popup_wahlbeteiligung": "Wahlbeteiligung: {value}%",
 	"map_popup_nicht_angetreten": "Partei {party} ist nicht angetreten",
 	"map_popup_ergebnis": "Ergebnis {party}: {percent}%",
+	"map_popup_keine_daten": "Keine Ergebnisse für diese Wahl",
+	"map_popup_keine_wahl": "Gemeindefreies Gebiet – hier finden keine Wahlen statt",
 
 	"daten_title": "Daten-Export",
 	"daten_intro": "Wählen Sie Gemeinden, eine Wahl und die gewünschten Datenarten aus.",

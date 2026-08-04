@@ -18,3 +18,15 @@ export function isSameRegierungsbezirk(childRs: number, regierungsbezirkRs: numb
 
 /** Stuttgart's rs — the only municipality with a Wahlbezirk-level drill-down target. */
 export const STUTTGART_RS = 81110000000;
+
+/**
+ * `rs`s of gemeindefreie Gebiete (unincorporated areas with no municipal government) that appear as
+ * their own polygon in the Gemeinde-level GeoJSON but never have election data, since there's no
+ * Gemeinderat/Bürgermeister to elect there — distinct from the same-named actual municipalities
+ * (e.g. "Rheinau, Stadt", rs 83170153153, does hold elections; "Rheinau/Rhinau", rs 83179971971,
+ * the unincorporated Rhine-adjacent area, does not).
+ */
+export const NO_ELECTION_RS = new Set([
+	84159971971, // Gutsbezirk Münsingen (Truppenübungsplatz)
+	83179971971 // Rheinau/Rhinau
+]);
