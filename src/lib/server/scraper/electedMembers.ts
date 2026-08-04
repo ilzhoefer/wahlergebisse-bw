@@ -13,7 +13,7 @@ import {
 type Db = typeof DbType;
 
 interface SitzeResponse {
-	Komponente: {
+	Komponente?: {
 		sitze?: {
 			tabelle: {
 				ueberschriften: string[];
@@ -91,7 +91,7 @@ export async function getElectedMembers(
 			continue;
 		}
 
-		const seats = content.Komponente.sitze?.tabelle;
+		const seats = content.Komponente?.sitze?.tabelle;
 		if (!seats) {
 			citySkip(`${cityLabel}: keine Sitzdaten vorhanden, überspringe`);
 			continue;
