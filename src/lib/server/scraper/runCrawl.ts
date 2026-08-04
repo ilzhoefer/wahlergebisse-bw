@@ -69,7 +69,10 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
 
 	stepTick('Stuttgart-Wahlkreiszuordnung aktualisieren');
-	if (params.electionTypeId === 2 || params.electionTypeId === 3) {
+	// The ps-level postal/in-person mapping and its meta/party aggregates (what the Wahlbezirk map
+	// reads) apply to every election type sharing this date — only the Bundestag/Landtag *district*
+	// numbers inside updateMappingStuttgart are type-specific, and that's already handled there.
+	{
 		const districtRows = STUTTGART_DISTRICTS[params.date];
 		if (districtRows) {
 			await updateMappingStuttgart(db, districtRows, params.date, params.electionTypeId, log);
