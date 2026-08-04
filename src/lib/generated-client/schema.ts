@@ -1226,19 +1226,24 @@ export const schema = {
 						args: []
 					},
 					{
-						name: 'max',
+						name: 'entries',
 						type: {
-							kind: 'NON_NULL',
-							ofType: { name: 'Float', kind: 'SCALAR', ofType: null, __proto__: null }
+							kind: 'LIST',
+							ofType: {
+								kind: 'NON_NULL',
+								ofType: { name: 'LegendEntry', kind: 'OBJECT', ofType: null, __proto__: null }
+							}
 						},
 						args: []
 					},
 					{
+						name: 'max',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
+					},
+					{
 						name: 'min',
-						type: {
-							kind: 'NON_NULL',
-							ofType: { name: 'Float', kind: 'SCALAR', ofType: null, __proto__: null }
-						},
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
 						args: []
 					},
 					{
@@ -1248,6 +1253,29 @@ export const schema = {
 					},
 					{
 						name: 'type',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'LegendEntry',
+				fields: [
+					{
+						name: 'color',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'name',
 						type: {
 							kind: 'NON_NULL',
 							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }

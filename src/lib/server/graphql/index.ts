@@ -81,21 +81,39 @@ const RegionItemRef = schemaBuilder.objectRef<RegionItem>('RegionItem').implemen
 	})
 });
 
+interface LegendEntry {
+	name: string;
+	color: string;
+}
+
 interface Legend {
-	type: 'turnout' | 'party';
-	min: number;
-	max: number;
+	type: 'turnout' | 'party' | 'parties';
+	min?: number;
+	max?: number;
 	partyName?: string;
 	color?: string;
+	entries?: LegendEntry[];
 }
+
+const LegendEntryRef = schemaBuilder.objectRef<LegendEntry>('LegendEntry').implement({
+	fields: (t) => ({
+		name: t.exposeString('name'),
+		color: t.exposeString('color')
+	})
+});
 
 const LegendRef = schemaBuilder.objectRef<Legend>('Legend').implement({
 	fields: (t) => ({
 		type: t.exposeString('type'),
-		min: t.exposeFloat('min'),
-		max: t.exposeFloat('max'),
+		min: t.exposeFloat('min', { nullable: true }),
+		max: t.exposeFloat('max', { nullable: true }),
 		partyName: t.exposeString('partyName', { nullable: true }),
-		color: t.exposeString('color', { nullable: true })
+		color: t.exposeString('color', { nullable: true }),
+		entries: t.field({
+			type: [LegendEntryRef],
+			nullable: true,
+			resolve: (parent) => parent.entries
+		})
 	})
 });
 
@@ -281,9 +299,20 @@ function buildResponse<T extends Row>(
 	}
 
 	// Stärkste Partei / 2. Stärkste Partei
+	const counts = new Map<string, { color: string; count: number }>();
+	for (const r of rows) {
+		if (!r.color || !r.nameShort) continue;
+		const entry = counts.get(r.nameShort);
+		if (entry) entry.count += 1;
+		else counts.set(r.nameShort, { color: r.color, count: 1 });
+	}
+	const entries = Array.from(counts, ([name, { color, count }]) => ({ name, color, count }))
+		.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+		.map(({ name, color }) => ({ name, color }));
+
 	return {
 		keyField,
-		legend: null,
+		legend: entries.length ? { type: 'parties', entries } : null,
 		items: rows
 			.map((r) => {
 				const key = keyOf(r);
