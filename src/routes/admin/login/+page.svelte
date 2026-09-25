@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages';
 	import '$lib/components/map/theme.css';
 
@@ -34,7 +35,7 @@
 			<p class="err">{m.admin_login_error_wrong_password()}</p>
 		{/if}
 		<button type="submit" class="primary">{m.admin_login_submit()}</button>
-		<a class="back" href="/">{m.nav_back_to_map()}</a>
+		<a class="back" href={resolve('/')}>{m.nav_back_to_map()}</a>
 	</form>
 </div>
 

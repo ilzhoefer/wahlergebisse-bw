@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages';
 	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
 	import '$lib/components/map/theme.css';
@@ -18,11 +19,14 @@
 		index: number;
 		total: number;
 		label: string;
+		rs?: number;
 	}
 	interface ProgressState {
 		step?: ProgressTick;
 		city?: ProgressTick;
-		station?: ProgressTick;
+		/** Keyed by concurrency slot (0-based) — one bar per worker currently doing station-level work,
+		 * always in the same slot regardless of which city that worker is currently on. */
+		stations: Record<number, ProgressTick>;
 		family?: ProgressTick;
 	}
 
@@ -48,10 +52,30 @@
 		cityStatus: Record<number, CityStatus>;
 	}
 
-	let date = $state(data.lastRun?.date ?? data.knownDates[0] ?? '');
 	let electionTypeId = $state(
 		data.lastRun?.electionType ?? data.electionTypes[0]?.electionType ?? 0
 	);
+	// For Bürgermeisterwahl/Bürgerentscheid (see citySpecificTypes), the city is picked first and the
+	// date dropdown is scoped to that city — every other Wahlart shares one statewide date, so there's no
+	// city to pick and the date dropdown is just scoped to the Wahlart. `initialCityRs` restores the
+	// previous run's city (if any) by finding which city's date list contains its date — crawl_run itself
+	// doesn't store rs, so this is the only way to recover it after a reload.
+	function initialCityRs(): number | null {
+		const lastType = data.lastRun?.electionType;
+		const lastDate = data.lastRun?.date;
+		if (lastType === undefined || lastDate === undefined) return null;
+		const cityList = data.cityDatesByType[lastType] ?? [];
+		return cityList.find((c) => c.dates.includes(lastDate))?.rs ?? null;
+	}
+	let selectedCityRs = $state<number | null>(initialCityRs());
+	let date = $state(data.lastRun?.date ?? '');
+	// How many cities the crawl processes concurrently — network-bound work, so this isn't really "one
+	// per CPU core", but core count − 1 is still a legible cap on the input (see maxParallelism).
+	let parallel = $state(Math.min(4, data.maxParallel));
+	// Deletes this election's previously fetched data before re-crawling instead of skipping cities that
+	// already look complete — for when the upstream source data changed and needs to actually replace
+	// what's stored, not just fill in gaps.
+	let fullRun = $state(false);
 	let starting = $state(false);
 	let startError = $state<string | null>(null);
 	let liveState = $state<CrawlState | null>(null);
@@ -87,7 +111,7 @@
 	const isDateRefreshRunning = $derived(dateDiscoveryState?.status === 'running');
 
 	// Once a "Termine aktualisieren" run finishes, its results are in `elections` — reload the page's
-	// server data (knownDates/datesToTypes) so the dropdowns reflect them.
+	// server data (typesToDates/cityDatesByType) so the dropdowns reflect them.
 	$effect(() => {
 		if (dateDiscoveryState?.status === 'done') invalidateAll();
 	});
@@ -97,30 +121,55 @@
 		else if (liveState && crawlFinishedAtMs === null) crawlFinishedAtMs = Date.now();
 	});
 
-	// Which dates the selected Wahlart actually happened on, per data already loaded from `elections` —
-	// no live lookup needed. A date with no classified elections yet (e.g. one just discovered but never
-	// crawled) could be any type, so it's offered for every type.
-	const filteredDates = $derived(
-		data.knownDates.filter((d) => {
-			const types = data.datesToTypes[d];
-			return types.length === 0 || types.includes(electionTypeId);
-		})
+	const isCitySpecific = $derived(data.citySpecificTypes.includes(electionTypeId));
+	const citiesForType = $derived(data.cityDatesByType[electionTypeId] ?? []);
+	// Normalized to the same shape either way: city-specific dates are inherently single-city already
+	// (no need to name it again), so they carry no cityNames annotation.
+	const availableDates = $derived(
+		isCitySpecific
+			? (citiesForType.find((c) => c.rs === selectedCityRs)?.dates ?? []).map((date) => ({
+					date,
+					cityCount: 1,
+					cityNames: [] as string[],
+					withData: null as number | null
+				}))
+			: (data.typesToDates[electionTypeId] ?? [])
 	);
 
-	// Keep the date selection valid as the Wahlart (and therefore the filtered list) changes.
+	// Keep the city selection valid as the Wahlart changes — reset to the first available city whenever
+	// switching to/within a city-specific Wahlart with a no-longer-valid (or no) city selected.
 	$effect(() => {
-		if (filteredDates.length > 0 && !filteredDates.includes(date)) date = filteredDates[0];
+		if (!isCitySpecific || citiesForType.length === 0) {
+			selectedCityRs = null;
+			return;
+		}
+		if (!citiesForType.some((c) => c.rs === selectedCityRs)) {
+			selectedCityRs = citiesForType[0].rs;
+		}
 	});
 
-	function dateOptionLabel(d: string): string {
-		const counts = data.gemeindeCounts[`${d}|${electionTypeId}`];
-		return counts
-			? m.admin_crawl_date_option({
-					date: d,
-					withData: String(counts.withData),
-					gemeinden: String(counts.gemeinden)
-				})
-			: d;
+	// Keep the date selection valid as the Wahlart (and, for city-specific types, the city) changes.
+	$effect(() => {
+		if (availableDates.length === 0) {
+			date = '';
+			return;
+		}
+		if (!availableDates.some((d) => d.date === date)) {
+			date = availableDates[0].date;
+		}
+	});
+
+	// "2024-06-09 · 935 von 945 Gemeinden mit Ergebnissen", or for a one-off date the Gemeinden it
+	// covers. City-specific dates (Bürgermeisterwahl etc.) are a single, already-chosen Gemeinde.
+	function dateOptionLabel(d: (typeof availableDates)[number]): string {
+		if (d.cityNames.length)
+			return m.admin_crawl_date_special_note({ date: d.date, cities: d.cityNames.join(', ') });
+		if (d.withData === null) return d.date;
+		return m.admin_crawl_date_option({
+			date: d.date,
+			withData: String(d.withData),
+			gemeinden: String(d.cityCount)
+		});
 	}
 
 	function typeLabel(id: number): string {
@@ -186,13 +235,14 @@
 	}
 
 	async function startCrawl() {
+		if (fullRun && !confirm(m.admin_crawl_fullrun_confirm())) return;
 		startError = null;
 		starting = true;
 		try {
 			const res = await fetch('/admin/crawl', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date, electionTypeId })
+				body: JSON.stringify({ date, electionTypeId, parallel, fullRun })
 			});
 			const body = await res.json();
 			if (!body.started) startError = errorMessage(body.reason ?? '', 'crawl');
@@ -244,7 +294,7 @@
 				durationMs: end - start,
 				log: data.lastRun.log ? data.lastRun.log.split('\n') : [],
 				error: data.lastRun.error,
-				progress: {} as ProgressState,
+				progress: { stations: {} } as ProgressState,
 				cityStatus: {} as Record<number, CityStatus>,
 				hasProgress: false
 			};
@@ -295,7 +345,7 @@
 			{/if}
 		</span>
 		<div class="aside">
-			<a class="link" href="/">{m.admin_nav_map()}</a>
+			<a class="link" href={resolve('/')}>{m.admin_nav_map()}</a>
 			<form method="POST" action="/admin/logout">
 				<button type="submit" class="link">{m.admin_logout()}</button>
 			</form>
@@ -332,19 +382,36 @@
 						{/each}
 					</select>
 				</label>
+				{#if isCitySpecific}
+					<label class="field">
+						<span class="map-lbl field-label">{m.admin_crawl_city_label()}</span>
+						<select
+							class="select"
+							bind:value={selectedCityRs}
+							disabled={citiesForType.length === 0 || isRunning}
+						>
+							{#if citiesForType.length === 0}
+								<option value={null}>{m.admin_crawl_city_placeholder()}</option>
+							{/if}
+							{#each citiesForType as c (c.rs)}
+								<option value={c.rs}>{c.name ?? c.rs}</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
 				<label class="field">
 					<span class="map-lbl field-label">{m.admin_crawl_date_label()}</span>
 					<span class="field-row">
 						<select
 							class="select select-mono"
 							bind:value={date}
-							disabled={filteredDates.length === 0 || isRunning}
+							disabled={availableDates.length === 0 || isRunning}
 						>
-							{#if filteredDates.length === 0}
+							{#if availableDates.length === 0}
 								<option value="">{m.admin_crawl_date_placeholder()}</option>
 							{/if}
-							{#each filteredDates as d (d)}
-								<option value={d}>{dateOptionLabel(d)}</option>
+							{#each availableDates as d (d.date)}
+								<option value={d.date}>{dateOptionLabel(d)}</option>
 							{/each}
 						</select>
 						<button
@@ -357,6 +424,29 @@
 						</button>
 					</span>
 				</label>
+				<div class="option-row">
+					<label class="field">
+						<span class="map-lbl field-label"
+							>{m.admin_crawl_parallel_label({ max: String(data.maxParallel) })}</span
+						>
+						<input
+							type="number"
+							class="select select-mono number"
+							bind:value={parallel}
+							min="1"
+							max={data.maxParallel}
+							step="1"
+							disabled={starting || isRunning}
+						/>
+					</label>
+					<label class="checkbox">
+						<input type="checkbox" bind:checked={fullRun} disabled={starting || isRunning} />
+						{m.admin_crawl_fullrun_label()}
+					</label>
+				</div>
+				{#if fullRun}
+					<p class="warn">{m.admin_crawl_fullrun_hint()}</p>
+				{/if}
 
 				{#if dateDiscoveryState}
 					<div class="note-box">
@@ -395,7 +485,11 @@
 					type="button"
 					class="primary"
 					onclick={startCrawl}
-					disabled={starting || isRunning || isDateRefreshRunning || !filteredDates.includes(date)}
+					disabled={starting ||
+						isRunning ||
+						isDateRefreshRunning ||
+						!date ||
+						(isCitySpecific && !selectedCityRs)}
 				>
 					{m.admin_crawl_start_button()}
 				</button>
@@ -404,7 +498,7 @@
 				{/if}
 
 				{#if display?.hasProgress && display.status === 'running'}
-					{#each ['step', 'city', 'station', 'family'] as const as level (level)}
+					{#each ['step', 'city'] as const as level (level)}
 						{@const tick = display.progress[level]}
 						{#if tick}
 							<ProgressBar
@@ -415,6 +509,23 @@
 							/>
 						{/if}
 					{/each}
+					<!-- One bar per concurrency slot, stable while its worker moves between Gemeinden. -->
+					{#each Object.entries(display.progress.stations) as [slot, tick] (slot)}
+						<ProgressBar
+							kicker={levelKicker('station')}
+							label={tick.label}
+							current={tick.index}
+							total={tick.total}
+						/>
+					{/each}
+					{#if display.progress.family}
+						<ProgressBar
+							kicker={levelKicker('family')}
+							label={display.progress.family.label}
+							current={display.progress.family.index}
+							total={display.progress.family.total}
+						/>
+					{/if}
 				{/if}
 
 				{#if display?.hasProgress}
@@ -636,6 +747,35 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+	}
+	.option-row {
+		display: flex;
+		align-items: flex-end;
+		gap: 14px;
+	}
+	.number {
+		width: 72px;
+		box-sizing: border-box;
+	}
+	.checkbox {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		padding-bottom: 8px;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--map-ink-2);
+		cursor: pointer;
+	}
+	.checkbox input {
+		accent-color: var(--map-accent);
+		margin: 0;
+	}
+	.warn {
+		margin: 0;
+		font-size: 11.5px;
+		line-height: 1.4;
+		color: var(--map-warning-text);
 	}
 	.field-row {
 		display: flex;

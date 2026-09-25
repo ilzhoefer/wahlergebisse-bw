@@ -1,6 +1,6 @@
 import type { db as DbType } from '$lib/server/db';
 import { cities } from '$lib/server/db/schema';
-import type { Logger } from './client';
+import { DEFAULT_PARALLEL, type Logger } from './client';
 import { updateElectionDates, setElectionType } from './elections';
 import { getPollingStationsElection } from './pollingStations';
 import { getResultsCity } from './results';
@@ -10,6 +10,7 @@ import { updateMappingStuttgart, type StuttgartDistrictRow } from './stuttgartMa
 import { importVoteDistrictMapping, type VoteDistrictRow } from './voteDistricts';
 import { getElectedMembers } from './electedMembers';
 import { importKreisOpenData } from './kreisOpenData';
+import { resetElectionData } from './resetElectionData';
 
 import districts20210926 from './stuttgart-districts/2021-09-26.json';
 import districts20240609 from './stuttgart-districts/2024-06-09.json';
@@ -41,6 +42,11 @@ const VOTE_DISTRICT_DATA: Record<string, VoteDistrictRow[]> = {
 export interface CrawlParams {
 	date: string;
 	electionTypeId: number;
+	/** How many cities the per-city steps process concurrently — see `maxParallelism` for the cap. */
+	parallel?: number;
+	/** When true, deletes this election's previously fetched data first (see `resetElectionData`)
+	 * instead of the default incremental "skip what's already there" behavior. */
+	fullRun?: boolean;
 }
 
 /**
@@ -83,17 +89,33 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 		c.ags === null ? [] : [{ rs: c.rs, ags: c.ags, name: c.name }]
 	);
 
+	const parallel = params.parallel ?? DEFAULT_PARALLEL;
+
+	// Not counted as one of the 8 steps (keeps the step total constant regardless of this flag) — a
+	// one-off cleanup before the normal sequence starts, not a stage of it.
+	if (params.fullRun) {
+		await resetElectionData(db, params.date, params.electionTypeId, log);
+	}
+
 	stepTick('Wahltermine aktualisieren');
-	await updateElectionDates(db, cityList, log, params.date);
+	await updateElectionDates(db, cityList, log, params.date, parallel);
 
 	stepTick('Wahlarten zuordnen');
 	await setElectionType(db, log);
 
 	stepTick('Wahlbezirke abrufen');
-	await getPollingStationsElection(db, cityList, params.electionTypeId, params.date, true, log);
+	await getPollingStationsElection(
+		db,
+		cityList,
+		params.electionTypeId,
+		params.date,
+		true,
+		log,
+		parallel
+	);
 
 	stepTick('Ergebnisse abrufen');
-	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log);
+	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log, parallel);
 
 	stepTick('Fehlende Gemeinden aus Kreis-Open-Data ergänzen');
 	// After the per-city steps, which would otherwise look these Gemeinden up on komm.one in vain.
@@ -138,7 +160,7 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	}
 
 	stepTick('Gewählte Mitglieder abrufen');
-	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log);
+	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
 
 	log('Crawl abgeschlossen');
 }
