@@ -1,5 +1,8 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
+import { KREISFREIE_STADT_RS, STUTTGART_RS } from '$lib/map/rs';
+import { mixColors } from '$lib/map/colors';
+import { postalElsewhereRs } from '$lib/server/scraper/kreisOpenData';
 import {
 	elections,
 	electionType,
@@ -12,6 +15,9 @@ import {
 	electionResultAggregatePartyPs,
 	electionResultAggregateMetaPs,
 	electionVoteDistrictMapping,
+	electionElectedCandidates,
+	electionParty,
+	electionPartyFamily,
 	pollingStations
 } from '$lib/server/db/schema';
 
@@ -103,6 +109,44 @@ export function possibleMapModes(typeId: number): {
  * digits (mirrors update_aggregate_party / rsPrefix), i.e. `rs % 1e9 = 0` picks out exactly the 4
  * Regierungsbezirk-level rows — already a sum over every Gemeinde in Baden-Württemberg.
  */
+export interface CandidateHit {
+	name: string;
+	/** Candidate list as named on the ballot (e.g. "CDU", "Bürgerliste"); null if unmatched. */
+	party: string | null;
+	rs: number;
+	electionType: number;
+	date: string;
+}
+
+/**
+ * Elected candidates whose name contains every whitespace-separated token of `q` (case-insensitive),
+ * so "erika müller" finds "Müller, Erika". Tokens are passed as bound parameters with LIKE wildcards
+ * escaped — never concatenated into SQL. Callers enforce a minimum query length.
+ */
+export async function searchCandidates(db: Db, q: string, limit = 20): Promise<CandidateHit[]> {
+	const tokens = q.trim().split(/\s+/).filter(Boolean).slice(0, 5);
+	if (tokens.length === 0) return [];
+	const escape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+	const c = electionElectedCandidates;
+	const rows = await db
+		.select({
+			name: c.name,
+			// election_party has one row per votetype (and polling station) — any one carries the name;
+			// a scalar subquery hits the (rs, party_id, election_id, …) unique index per result row.
+			party: sql<string | null>`(select ${electionParty.name} from ${electionParty}
+				where ${electionParty.rs} = ${c.rs} and ${electionParty.electionId} = ${c.electionId}
+				and ${electionParty.partyId} = ${c.partyId} limit 1)`,
+			rs: c.rs,
+			electionType: c.electionType,
+			date: c.date
+		})
+		.from(c)
+		.where(and(...tokens.map((t) => ilike(electionElectedCandidates.name, `%${escape(t)}%`))))
+		.orderBy(electionElectedCandidates.name)
+		.limit(limit);
+	return rows as CandidateHit[];
+}
+
 export async function getParties(db: Db, date: string, electionTypeId: number) {
 	const rows = await db
 		.select({
@@ -186,7 +230,7 @@ export function secondPlaceByGroup<T>(
 }
 
 export type MapInformationMode =
-	'Stärkste Partei' | '2. Stärkste Partei' | 'Wahlbeteiligung' | 'Hochburg';
+	'Stärkste Partei' | '2. Stärkste Partei' | 'Wahlbeteiligung' | 'Hochburg' | 'Stimmensplitting';
 
 export interface MapInformationParams {
 	selectedMapInformation: MapInformationMode;
@@ -194,6 +238,67 @@ export interface MapInformationParams {
 	selectedElectionType: number;
 	selectedDate: string;
 	selectedParty?: string;
+	/** Restricts the region-grain (Regierungsbezirk/Kreis/Gemeinde) query to exactly these rs's — so the
+	 * Wahlbeteiligung/Hochburg colour scale's min/max reflect only what's currently rendered in the map's
+	 * mosaic, not every region of that grain statewide (whose extremes can sit far outside the area the
+	 * user actually drilled into). Ignored for Wahlkreis, which has no rs-scoped view to begin with. */
+	selectedRsList?: number[];
+}
+
+/** Comma-joined for inlining into a raw `rs in (...)` SQL fragment below — built from our own fixed
+ * constant, never user input, so `sql.raw` here carries no injection risk. */
+const KREISFREIE_STADT_RS_LIST = [...KREISFREIE_STADT_RS].join(',');
+
+/**
+ * `election_result_aggregate_*_region` holds Gemeinde-, Kreis- *and* Regierungsbezirk-grain rows in
+ * one table, distinguished only by how many trailing zero-digits `rs` has (see `update_aggregate_party`
+ * / `grainRsExpr` in aggregates.ts: Regierungsbezirk = 2 real digits + 9 zeros, Kreis = 4 + 7, Gemeinde
+ * = whatever's left over) — so a query against it needs its own grain filter, or it returns all three
+ * grains' rows mixed together under one `rs` column.
+ */
+function regionGrainFilter(mapMode: MapMode) {
+	switch (mapMode) {
+		case 'Regierungsbezirk':
+			return sql`rs % 1000000000 = 0`;
+		case 'Kreis':
+			return sql`rs % 10000000 = 0 and rs % 1000000000 != 0`;
+		case 'Gemeinde':
+			// A kreisfreie Stadt's territory is exactly one Gemeinde (see KREISFREIE_STADT_RS's doc
+			// comment), so its only aggregate row has the same "...000" trailing-zero rs as a genuine
+			// Kreis-level rollup row and would otherwise never satisfy this filter at all — leaving it
+			// uncoloured on the map whenever Gemeinde-grain data is requested (its Kreis-grain query,
+			// from the branch above, still finds the same row and colours it fine at that grain).
+			return sql`(rs % 10000000 != 0 or rs in (${sql.raw(KREISFREIE_STADT_RS_LIST)}))`;
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * Gemeinde-grain rs's that actually have data for this election+date — statewide elections have
+ * (almost) every one of Baden-Württemberg's ~1103 Gemeinden, but Regionalwahl only covers the Verband
+ * Region Stuttgart's municipalities (which, confirmed against the actual ingested data, isn't a clean
+ * Kreis-level boundary: Rottenburg am Neckar belongs to Landkreis Tübingen but is still part of the
+ * region). Used by the map to hide Gemeinden it has nothing to show for at all, distinct from
+ * gemeindefreie Gebiete (`NO_ELECTION_RS` on the client), which the map still renders — colourless,
+ * with an explanatory hover — since those never have data for *any* election, not just this one.
+ */
+export async function getGemeindenWithData(
+	db: Db,
+	electionType: number,
+	date: string
+): Promise<number[]> {
+	const rows = await db
+		.selectDistinct({ rs: electionResultAggregateMetaRegion.rs })
+		.from(electionResultAggregateMetaRegion)
+		.where(
+			and(
+				eq(electionResultAggregateMetaRegion.electionType, electionType),
+				eq(electionResultAggregateMetaRegion.date, date),
+				regionGrainFilter('Gemeinde')
+			)
+		);
+	return rows.map((r) => r.rs);
 }
 
 /**
@@ -208,9 +313,19 @@ export async function getMapInformation(db: Db, params: MapInformationParams) {
 		selectedMapMode,
 		selectedElectionType,
 		selectedDate,
-		selectedParty
+		selectedParty,
+		selectedRsList
 	} = params;
 	const isDistrict = selectedMapMode === 'Wahlkreis';
+	const grainFilter = regionGrainFilter(selectedMapMode);
+	const rsListFilter =
+		!isDistrict && selectedRsList
+			? inArray(electionResultAggregateMetaRegion.rs, selectedRsList)
+			: undefined;
+	const rsListFilterParty =
+		!isDistrict && selectedRsList
+			? inArray(electionResultAggregatePartyRegion.rs, selectedRsList)
+			: undefined;
 
 	if (selectedMapInformation === 'Wahlbeteiligung') {
 		return isDistrict
@@ -237,7 +352,9 @@ export async function getMapInformation(db: Db, params: MapInformationParams) {
 					.where(
 						and(
 							eq(electionResultAggregateMetaRegion.electionType, selectedElectionType),
-							eq(electionResultAggregateMetaRegion.date, selectedDate)
+							eq(electionResultAggregateMetaRegion.date, selectedDate),
+							grainFilter,
+							rsListFilter
 						)
 					);
 	}
@@ -275,7 +392,9 @@ export async function getMapInformation(db: Db, params: MapInformationParams) {
 				.where(
 					and(
 						eq(electionResultAggregatePartyRegion.electionType, selectedElectionType),
-						eq(electionResultAggregatePartyRegion.date, selectedDate)
+						eq(electionResultAggregatePartyRegion.date, selectedDate),
+						grainFilter,
+						rsListFilterParty
 					)
 				);
 
@@ -288,7 +407,7 @@ export async function getMapInformation(db: Db, params: MapInformationParams) {
 		return sliceMaxByGroup(raw, groupKey, valueOf, 1);
 	if (selectedMapInformation === '2. Stärkste Partei')
 		return secondPlaceByGroup(raw, groupKey, valueOf);
-	// Hochburg
+	// Hochburg / Stimmensplitting (the latter keeps both votetypes; the resolver pairs them up)
 	return raw.filter((r) => r.nameShort === selectedParty);
 }
 
@@ -364,6 +483,596 @@ export async function getMapInformationPs(
 	if (selectedMapInformation === '2. Stärkste Partei')
 		return secondPlaceByGroup(raw, groupKey, valueOf);
 	return raw.filter((r) => r.nameShort === selectedParty);
+}
+
+/**
+ * Numeric `election_type` values for the two elections that allocate seats (see `election-types.csv`
+ * seed data and the Kartenansicht click-dummy's `seatsHere` condition: Gemeinderatswahl seats are
+ * counted at Gemeinde grain, Kreistagswahl seats at Kreis grain).
+ */
+const GEMEINDERATSWAHL_TYPE = 6;
+const KREISTAGSWAHL_TYPE = 5;
+
+export type BreakdownGrain = 'gemeinde' | 'kreis' | 'regierungsbezirk' | 'wahlbezirk' | 'wahlkreis';
+
+export interface RegionBreakdownRow {
+	partyName: string | null;
+	color: string | null;
+	votePercent: number | null;
+	/** Raw vote count — lets the client sum multiple regions' rows into a correctly-weighted combined
+	 * total (e.g. the Kartenansicht's "Land" scope, whose totals are a client-side sum of the four
+	 * Regierungsbezirk rows — see the module doc on `getRegionBreakdowns`). */
+	voteCount: number | null;
+	seats: number | null;
+	/** Bundestag/Landtag Erststimmen only: the party's candidate, where exactly one ran in the area. */
+	candidate?: string | null;
+}
+
+export interface RegionBreakdown {
+	/** rs (gemeinde/kreis/regierungsbezirk), polling-station name slug (wahlbezirk), or districtId
+	 * (wahlkreis) — always stringified, matching the map's `keyProperty` convention. */
+	key: string;
+	turnout: number | null;
+	eligible: number | null;
+	seatTotal: number | null;
+	/** Gemeinde grain only: its postal votes are counted centrally elsewhere and missing here. */
+	postalElsewhere?: boolean;
+	rows: RegionBreakdownRow[];
+}
+
+export interface RegionBreakdownParams {
+	grain: BreakdownGrain;
+	/** rs list for gemeinde/kreis/regierungsbezirk. Ignored for wahlbezirk/wahlkreis, which — like
+	 * `getMapInformationPs`/the Wahlkreis branch of `getMapInformation` — always return every row for
+	 * the given election+date rather than being scoped into a parent region. */
+	rsList?: number[];
+	electionType: number;
+	date: string;
+	voteType?: '0' | '1';
+}
+
+/**
+ * Full per-party breakdown (every party, not just the one the current map mode colours by) plus
+ * turnout/eligible-voter counts and, where applicable, seats — the data the Kartenansicht redesign's
+ * left panel (top 7 rows) and hover card (top 5 rows) need. `getMapInformation`/`getMapInformationPs`
+ * intentionally stay as-is (they answer "one value per region for the active colouring mode", which is
+ * all the map fill layer needs and is cheaper to compute).
+ */
+export async function getRegionBreakdowns(
+	db: Db,
+	params: RegionBreakdownParams
+): Promise<RegionBreakdown[]> {
+	const breakdowns = await getRegionBreakdownsBase(db, params);
+	// Erststimmen of a Bundestags-/Landtagswahl: name the party's candidate wherever only one ran.
+	if ((params.electionType !== 2 && params.electionType !== 3) || params.voteType !== '0')
+		return breakdowns;
+	const candidates = await getErststimmeCandidates(db, params);
+	return breakdowns.map((b) => ({
+		...b,
+		rows: b.rows.map((r) => ({
+			...r,
+			candidate: (r.partyName && candidates.get(`${b.key}|${r.partyName}`)) || null
+		}))
+	}));
+}
+
+/**
+ * "area key|party" → the single Erststimme candidate of that party in that area (absent where
+ * several ran, e.g. a Regierungsbezirk, or Stuttgart as a whole with two Wahlkreise). Decided from
+ * the per-polling-station `candidate_name` ("Dr. Mustermann, CDU"), since `election_party` keeps
+ * only one label per party and Gemeinde. Shown as the full name from that label where it is the
+ * same person ("Dr. Max Mustermann"), else as the station label's surname ("Muster-Frau").
+ */
+async function getErststimmeCandidates(
+	db: Db,
+	params: RegionBreakdownParams
+): Promise<Map<string, string>> {
+	const { grain, electionType, date } = params;
+	const rsList = params.rsList ?? [];
+	const kreisOrRb = (digits: number) => sql.raw(`rpad(substr(er.rs::text, 1, ${digits}), 11, '0')`);
+	const area =
+		grain === 'gemeinde'
+			? sql`er.rs::text`
+			: grain === 'kreis'
+				? kreisOrRb(4)
+				: grain === 'regierungsbezirk'
+					? kreisOrRb(2)
+					: grain === 'wahlkreis'
+						? sql`m.district_id::text`
+						: sql`left(coalesce(ps.name, ''), 6)`;
+	const join =
+		grain === 'wahlkreis'
+			? sql`JOIN election_vote_district_mapping m ON m.rs = er.rs AND m.election_type = e.election_type
+				AND m.date = e.date AND (m.ps_id IS NULL OR m.ps_id = er.ps_id)`
+			: grain === 'wahlbezirk'
+				? sql`JOIN polling_stations ps ON ps.rs = er.rs AND ps.ps_id = er.ps_id
+					AND ps.election_id = er.election_id`
+				: sql``;
+	const scope =
+		grain === 'wahlkreis'
+			? sql``
+			: grain === 'wahlbezirk'
+				? sql`AND er.rs = ${STUTTGART_RS}`
+				: rsList.length === 0
+					? sql`AND false`
+					: grain === 'gemeinde' // plain column → uses election_result's rs index
+						? sql`AND er.rs IN (${sql.join(rsList, sql`, `)})`
+						: sql`AND ${area}::bigint IN (${sql.join(rsList, sql`, `)})`;
+	const result = await db.execute(sql`
+		SELECT ${area} AS key, p.name_short AS party,
+			count(DISTINCT er.candidate_name) AS n,
+			min(er.candidate_name) AS label,
+			min(CASE WHEN ep.name = er.candidate_name THEN split_part(ep.name_long, ', ', 1) END) AS full_name
+		FROM election_result er
+		JOIN elections e ON e.election_id = er.election_id AND e.rs = er.rs
+		JOIN election_party_family epf ON epf.rs = er.rs AND epf.election_id = er.election_id
+			AND epf.party_id = er.party_id AND epf.votetype_id = er.votetype_id
+		JOIN party p ON p.party_family_id = epf.party_family_id
+		JOIN election_party ep ON ep.rs = er.rs AND ep.election_id = er.election_id
+			AND ep.party_id = er.party_id AND ep.votetype_id = er.votetype_id
+		${join}
+		WHERE e.election_type = ${electionType} AND e.date = ${date} AND er.votetype_id = 0
+			AND er.candidate_name LIKE '%, %' ${scope}
+		GROUP BY 1, 2
+	`);
+	const out = new Map<string, string>();
+	for (const r of result as unknown as Record<string, unknown>[]) {
+		if (Number(r.n) !== 1 || !r.party) continue;
+		const label = String(r.label);
+		out.set(
+			`${r.key}|${r.party}`,
+			r.full_name ? String(r.full_name) : label.slice(0, label.lastIndexOf(', '))
+		);
+	}
+	return out;
+}
+
+async function getRegionBreakdownsBase(
+	db: Db,
+	params: RegionBreakdownParams
+): Promise<RegionBreakdown[]> {
+	const { grain, electionType, date, voteType } = params;
+	const votetypeFilter = voteType === undefined ? null : Number(voteType);
+	const rsList = params.rsList ?? [];
+	if (grain !== 'wahlbezirk' && grain !== 'wahlkreis' && rsList.length === 0) return [];
+
+	if (grain === 'wahlkreis') {
+		const metaRows = await db
+			.select({
+				key: sql<string>`${electionResultAggregateMetaDistrict.districtId}::text`,
+				votetypeId: electionResultAggregateMetaDistrict.votetypeId,
+				votesEligible: electionResultAggregateMetaDistrict.votesEligible,
+				turnout: electionResultAggregateMetaDistrict.turnout
+			})
+			.from(electionResultAggregateMetaDistrict)
+			.where(
+				and(
+					eq(electionResultAggregateMetaDistrict.electionType, electionType),
+					eq(electionResultAggregateMetaDistrict.date, date)
+				)
+			);
+		const partyRows = await db
+			.select({
+				key: sql<string>`${electionResultAggregatePartyDistrict.districtId}::text`,
+				votetypeId: electionResultAggregatePartyDistrict.votetypeId,
+				votePercent: electionResultAggregatePartyDistrict.votePercent,
+				voteCount: electionResultAggregatePartyDistrict.voteCount,
+				color: electionResultAggregatePartyDistrict.color,
+				nameShort: party.nameShort
+			})
+			.from(electionResultAggregatePartyDistrict)
+			.innerJoin(party, eq(electionResultAggregatePartyDistrict.partyFamilyId, party.partyFamilyId))
+			.where(
+				and(
+					eq(electionResultAggregatePartyDistrict.electionType, electionType),
+					eq(electionResultAggregatePartyDistrict.date, date)
+				)
+			);
+		return assembleBreakdowns(
+			metaRows.filter((r) => votetypeFilter === null || r.votetypeId === votetypeFilter),
+			partyRows.filter((r) => votetypeFilter === null || r.votetypeId === votetypeFilter),
+			null
+		);
+	}
+
+	if (grain === 'wahlbezirk') {
+		const metaRows = await db
+			.selectDistinct({
+				key: sql<string>`left(coalesce(${pollingStations.name}, ''), 6)`,
+				votetypeId: electionResultAggregateMetaPs.votetypeId,
+				votesEligible: electionResultAggregateMetaPs.votesEligible,
+				turnout: electionResultAggregateMetaPs.turnout
+			})
+			.from(electionResultAggregateMetaPs)
+			.innerJoin(
+				pollingStations,
+				and(
+					eq(electionResultAggregateMetaPs.psId, pollingStations.psId),
+					eq(electionResultAggregateMetaPs.rs, pollingStations.rs),
+					eq(electionResultAggregateMetaPs.date, pollingStations.date)
+				)
+			)
+			.where(
+				and(
+					eq(electionResultAggregateMetaPs.electionType, electionType),
+					eq(electionResultAggregateMetaPs.date, date)
+				)
+			);
+		const partyRows = await db
+			.selectDistinct({
+				key: sql<string>`left(coalesce(${pollingStations.name}, ''), 6)`,
+				votetypeId: electionResultAggregatePartyPs.votetypeId,
+				votePercent: electionResultAggregatePartyPs.votePercent,
+				voteCount: electionResultAggregatePartyPs.voteCount,
+				color: electionResultAggregatePartyPs.color,
+				nameShort: party.nameShort
+			})
+			.from(electionResultAggregatePartyPs)
+			.innerJoin(party, eq(electionResultAggregatePartyPs.partyFamilyId, party.partyFamilyId))
+			.innerJoin(
+				pollingStations,
+				and(
+					eq(electionResultAggregatePartyPs.psId, pollingStations.psId),
+					eq(electionResultAggregatePartyPs.rs, pollingStations.rs),
+					eq(electionResultAggregatePartyPs.date, pollingStations.date)
+				)
+			)
+			.where(
+				and(
+					eq(electionResultAggregatePartyPs.electionType, electionType),
+					eq(electionResultAggregatePartyPs.date, date)
+				)
+			);
+		return assembleBreakdowns(
+			metaRows.filter((r) => votetypeFilter === null || r.votetypeId === votetypeFilter),
+			partyRows.filter((r) => votetypeFilter === null || r.votetypeId === votetypeFilter),
+			null
+		);
+	}
+
+	// gemeinde / kreis / regierungsbezirk all share the same region-grain aggregate tables (see
+	// getMapInformation's doc comment — a Kreis/Regierungsbezirk row is just a region row whose rs was
+	// truncated+padded at scrape time).
+	const metaRows = await db
+		.select({
+			key: sql<string>`${electionResultAggregateMetaRegion.rs}::text`,
+			votetypeId: electionResultAggregateMetaRegion.votetypeId,
+			votesEligible: electionResultAggregateMetaRegion.votesEligible,
+			turnout: electionResultAggregateMetaRegion.turnout
+		})
+		.from(electionResultAggregateMetaRegion)
+		.where(
+			and(
+				eq(electionResultAggregateMetaRegion.electionType, electionType),
+				eq(electionResultAggregateMetaRegion.date, date),
+				inArray(electionResultAggregateMetaRegion.rs, rsList)
+			)
+		);
+	const partyRowsRaw = await db
+		.select({
+			rs: electionResultAggregatePartyRegion.rs,
+			key: sql<string>`${electionResultAggregatePartyRegion.rs}::text`,
+			votetypeId: electionResultAggregatePartyRegion.votetypeId,
+			votePercent: electionResultAggregatePartyRegion.votePercent,
+			voteCount: electionResultAggregatePartyRegion.voteCount,
+			color: electionResultAggregatePartyRegion.color,
+			nameShort: party.nameShort,
+			partyFamilyId: electionResultAggregatePartyRegion.partyFamilyId
+		})
+		.from(electionResultAggregatePartyRegion)
+		.innerJoin(party, eq(electionResultAggregatePartyRegion.partyFamilyId, party.partyFamilyId))
+		.where(
+			and(
+				eq(electionResultAggregatePartyRegion.electionType, electionType),
+				eq(electionResultAggregatePartyRegion.date, date),
+				inArray(electionResultAggregatePartyRegion.rs, rsList)
+			)
+		);
+
+	const seatsHere =
+		(electionType === GEMEINDERATSWAHL_TYPE && grain === 'gemeinde') ||
+		(electionType === KREISTAGSWAHL_TYPE && grain === 'kreis');
+	const seatCounts = seatsHere ? await getSeatCounts(db, rsList, electionType, date) : null;
+
+	let partyRows = partyRowsRaw
+		.filter((r) => votetypeFilter === null || r.votetypeId === votetypeFilter)
+		.map((r) => ({
+			...r,
+			seats: seatCounts?.byFamily.get(String(r.rs))?.get(r.partyFamilyId) ?? null
+		}));
+
+	// A single electoral area — any Gemeinde, or a Kreis in a Kreistagswahl — lists every ballot list
+	// that isn't simply one party family under its own name: the local voter groups / small parties
+	// behind the catch-all families, and joint lists of several parties (e.g. "Volt/ÖDP", which the
+	// family aggregates count once per partner). Bigger scopes keep the family view.
+	const splitGrain =
+		grain === 'gemeinde' || (grain === 'kreis' && electionType === KREISTAGSWAHL_TYPE)
+			? grain
+			: null;
+	// ponytail: per-list seats are only resolvable per Gemeinde (party_ids differ across a Kreis); no
+	// Kreistag seats are crawled yet, so a Kreis with seat data just keeps the family view for now.
+	const kreisHasSeats = splitGrain === 'kreis' && (seatCounts?.byParty.size ?? 0) > 0;
+	if (splitGrain && !kreisHasSeats) {
+		// Bundestag/Landtag: every party has its own family, so "Sonstige" holds only independent
+		// Erststimme candidates — kept as one row, which the client labels "Einzelbewerber:in / Name"
+		// where it's a single person (see getErststimmeCandidates), like at Wahlkreis grain.
+		const independentsOnly = (l: SplitList) =>
+			(electionType === 2 || electionType === 3) && l.families.every((f) => f === SONSTIGE_FAMILY);
+		const lists = (await getSplitLists(db, rsList, splitGrain, electionType, date)).filter(
+			(l) => (votetypeFilter === null || l.votetypeId === votetypeFilter) && !independentsOnly(l)
+		);
+		if (lists.length > 0)
+			partyRows = splitLists(partyRows, lists, seatsHere ? (seatCounts?.byParty ?? null) : null);
+	}
+
+	const breakdowns = assembleBreakdowns(
+		metaRows.filter((r) => votetypeFilter === null || r.votetypeId === votetypeFilter),
+		partyRows,
+		// Every requested rs counts as "seats apply here" once the election/grain combo allocates seats
+		// at all — not just the ones a candidate happened to be found for — so a region with genuinely
+		// zero recorded winners still reports `seatTotal: 0` rather than `null` (see doc comment below).
+		seatsHere ? new Set(rsList.map(String)) : null
+	);
+	if (grain !== 'gemeinde') return breakdowns;
+	// Gemeinden imported from Kreis open data whose postal votes are counted elsewhere (kreisOpenData.ts).
+	const postal = await postalElsewhereRs(db, rsList, electionType, date);
+	return breakdowns.map((b) => ({ ...b, postalElsewhere: postal.has(Number(b.key)) }));
+}
+
+/** Catch-all party families (see partyFamily.ts): aggregated as one group, but listed by their real
+ * names wherever a breakdown covers a single electoral area. */
+const SONSTIGE_FAMILY = 91;
+const CATCH_ALL_FAMILIES = [90, SONSTIGE_FAMILY];
+/** Distinct muted tones for individual local lists, so they stay apart in the seat chart. */
+const LOCAL_LIST_COLORS = ['#8c7355', '#c2a67a', '#5f5140', '#d8c9ae', '#a8906e', '#77664f'];
+
+interface SplitList {
+	rs: number;
+	votetypeId: number;
+	/** Every family the list is counted for — several for a joint list. */
+	families: number[];
+	/** The list's party_id — only meaningful per Gemeinde (a Kreis groups several). */
+	partyId: number;
+	name: string;
+	voteCount: number;
+}
+
+/**
+ * Ballot lists that don't map onto exactly one real party family — catch-all lists and joint lists —
+ * per Gemeinde (or per Kreis for a Kreistagswahl), summed over polling stations exactly like
+ * `insertPartyRegionAggregate`. Within one Gemeinde a list is one party_id (election_party holds one
+ * label per party_id/votetype); across a Kreis every Gemeinde has its own party_ids, so lists are
+ * grouped by label there.
+ */
+async function getSplitLists(
+	db: Db,
+	rsList: number[],
+	grain: 'gemeinde' | 'kreis',
+	electionType: number,
+	date: string
+): Promise<SplitList[]> {
+	const rsOf = (alias: string) =>
+		grain === 'kreis'
+			? sql.raw(`rpad(substr(${alias}.rs::text, 1, 4), 11, '0')::bigint`)
+			: sql.raw(`${alias}.rs`);
+	const listKey = grain === 'kreis' ? sql`ep.name` : sql`er.party_id`;
+	const result = await db.execute(sql`
+		WITH fam AS (
+			SELECT epf.rs, epf.election_id, epf.party_id, epf.votetype_id,
+				array_agg(DISTINCT epf.party_family_id ORDER BY epf.party_family_id) AS families
+			FROM election_party_family epf
+			JOIN elections e ON e.election_id = epf.election_id AND e.rs = epf.rs
+			WHERE e.election_type = ${electionType} AND e.date = ${date}
+				AND ${rsOf('epf')} IN (${sql.join(rsList, sql`, `)})
+			GROUP BY 1, 2, 3, 4
+			HAVING count(DISTINCT epf.party_family_id) > 1
+				OR bool_or(epf.party_family_id IN (${sql.join(CATCH_ALL_FAMILIES, sql`, `)}))
+		)
+		SELECT ${rsOf('er')} AS rs, er.votetype_id, fam.families, min(er.party_id) AS party_id,
+			min(ep.name) AS name, SUM(er.vote_count)::float8 AS vote_count
+		FROM fam
+		JOIN election_result er ON er.rs = fam.rs AND er.election_id = fam.election_id
+			AND er.party_id = fam.party_id AND er.votetype_id = fam.votetype_id
+		JOIN election_party ep ON ep.rs = fam.rs AND ep.election_id = fam.election_id
+			AND ep.party_id = fam.party_id AND ep.votetype_id = fam.votetype_id
+		GROUP BY 1, 2, 3, ${listKey}
+	`);
+	return (result as unknown as Record<string, unknown>[]).map((r) => ({
+		rs: Number(r.rs),
+		votetypeId: Number(r.votetype_id),
+		families: (r.families as (number | string)[]).map(Number),
+		partyId: Number(r.party_id),
+		name: String(r.name),
+		voteCount: Number(r.vote_count)
+	}));
+}
+
+/**
+ * Takes each list out of the family rows it was aggregated into and adds it as a row of its own:
+ * votes are subtracted from every family the list counts for (a family left with nothing — e.g.
+ * "Wählervereinigungen", or Volt where it only ran jointly — disappears), shares follow from votes
+ * with the area's own denominator (share ÷ votes is the same for every row of one area), seats come
+ * per party_id (`seatsByParty`: rs → party_id → seats; getSeatCounts leaves these lists out of the
+ * family seats). Joint lists get their partners' colours mixed, local lists a muted tone each.
+ */
+function splitLists<
+	T extends {
+		rs: number;
+		votetypeId: number;
+		partyFamilyId: number;
+		votePercent: string | null;
+		voteCount: number | null;
+		nameShort: string | null;
+		color: string | null;
+		seats: number | null;
+	}
+>(rows: T[], lists: SplitList[], seatsByParty: Map<string, Map<number, number>> | null): T[] {
+	const out = rows.map((r) => ({ ...r }));
+	const reduced = new Set<T>();
+	// Rows of the lists themselves, kept apart so a later list never mistakes one for a family row.
+	const added: T[] = [];
+	const inArea = (r: T, l: SplitList) => r.rs === l.rs && r.votetypeId === l.votetypeId;
+	// share ÷ votes per area, taken from the untouched family rows.
+	const pctPerVoteByArea = new Map<string, number>();
+	for (const r of rows)
+		if (r.voteCount && r.votePercent !== null)
+			pctPerVoteByArea.set(`${r.rs}:${r.votetypeId}`, Number(r.votePercent) / r.voteCount);
+	const localIndex = new Map<string, number>();
+	for (const l of [...lists].sort((a, b) => b.voteCount - a.voteCount)) {
+		const areaRows = out.filter((r) => inArea(r, l));
+		const partners = areaRows.filter((r) => l.families.includes(r.partyFamilyId));
+		const template = partners[0] ?? areaRows[0];
+		if (!template) continue;
+		const pctPerVote = pctPerVoteByArea.get(`${l.rs}:${l.votetypeId}`) ?? null;
+		for (const r of partners) {
+			reduced.add(r);
+			r.voteCount = (r.voteCount ?? 0) - l.voteCount;
+			r.votePercent = pctPerVote === null ? null : String(r.voteCount * pctPerVote);
+		}
+		const realPartners = partners.filter((r) => !CATCH_ALL_FAMILIES.includes(r.partyFamilyId));
+		const areaKey = `${l.rs}:${l.votetypeId}`;
+		const i = localIndex.get(areaKey) ?? 0;
+		if (realPartners.length === 0) localIndex.set(areaKey, i + 1);
+		added.push({
+			...template,
+			nameShort: l.name,
+			color:
+				realPartners.length > 0
+					? mixColors(realPartners.map((r) => r.color).filter((c): c is string => !!c))
+					: LOCAL_LIST_COLORS[i % LOCAL_LIST_COLORS.length],
+			voteCount: l.voteCount,
+			votePercent: pctPerVote === null ? null : String(l.voteCount * pctPerVote),
+			// Like a family without seats (absent from getSeatCounts): no seat number rather than 0.
+			seats: seatsByParty ? (seatsByParty.get(String(l.rs))?.get(l.partyId) ?? null) : null
+		});
+	}
+	// Drop what's left of a family that only contained split lists (half a vote of float slack).
+	return [...out.filter((r) => !reduced.has(r) || (r.voteCount ?? 0) > 0.5), ...added];
+}
+
+interface KeyedMetaRow {
+	key: string;
+	votesEligible: string | null;
+	turnout: string | null;
+}
+interface KeyedPartyRow {
+	key: string;
+	votePercent: string | null;
+	voteCount: number | null;
+	color: string | null;
+	nameShort: string | null;
+	seats?: number | null;
+}
+
+/** Shared assembly step for `getRegionBreakdowns`'s five grains: join already-keyed meta+party rows
+ * (each query above maps its own columns down to this common `{key, ...}` shape) into one
+ * `RegionBreakdown` per key, sorted by vote share. `keysWithSeatTotal` marks which regions the current
+ * election/grain combo allocates seats for at all (so a region with zero recorded winners still reports
+ * `seatTotal: 0`, not `null`), distinct from an individual row's `seats` simply being absent. */
+function assembleBreakdowns(
+	metaRows: KeyedMetaRow[],
+	partyRows: KeyedPartyRow[],
+	keysWithSeatTotal: Set<string> | null
+): RegionBreakdown[] {
+	const metaByKey = new Map<string, KeyedMetaRow>();
+	for (const row of metaRows) metaByKey.set(row.key, row);
+
+	const rowsByKey = new Map<string, RegionBreakdownRow[]>();
+	for (const row of partyRows) {
+		const list = rowsByKey.get(row.key) ?? [];
+		list.push({
+			partyName: row.nameShort,
+			color: row.color,
+			votePercent: row.votePercent === null ? null : Number(row.votePercent) * 100,
+			voteCount: row.voteCount,
+			seats: row.seats ?? null
+		});
+		rowsByKey.set(row.key, list);
+	}
+
+	const keys = new Set([...metaByKey.keys(), ...rowsByKey.keys()]);
+	return Array.from(keys, (key) => {
+		const meta = metaByKey.get(key);
+		const rows = (rowsByKey.get(key) ?? []).sort(
+			(a, b) => (b.votePercent ?? -Infinity) - (a.votePercent ?? -Infinity)
+		);
+		const seatTotal = rows.reduce((sum, r) => sum + (r.seats ?? 0), 0);
+		return {
+			key,
+			turnout:
+				meta?.turnout === null || meta?.turnout === undefined ? null : Number(meta.turnout) * 100,
+			eligible:
+				meta?.votesEligible === null || meta?.votesEligible === undefined
+					? null
+					: Number(meta.votesEligible),
+			seatTotal: keysWithSeatTotal?.has(key) ? seatTotal : null,
+			rows
+		};
+	});
+}
+
+/** Seats won per rs+party-family, from `electionElectedCandidates` — resolved in two round trips (candidate
+ * rows, then their party's family) and merged in JS, since `electionElectedCandidates.partyId` only
+ * identifies a party within one rs+election (see schema.ts), same as everywhere else this codebase joins
+ * across that boundary. */
+async function getSeatCounts(
+	db: Db,
+	rsList: number[],
+	electionType: number,
+	date: string
+): Promise<{
+	/** rs → party family → seats */
+	byFamily: Map<string, Map<number, number>>;
+	/** rs → party_id → seats (splits the catch-all families into their lists, see splitCatchAll) */
+	byParty: Map<string, Map<number, number>>;
+}> {
+	const candidates = await db
+		.select({
+			rs: electionElectedCandidates.rs,
+			electionId: electionElectedCandidates.electionId,
+			partyId: electionElectedCandidates.partyId
+		})
+		.from(electionElectedCandidates)
+		.where(
+			and(
+				eq(electionElectedCandidates.electionType, electionType),
+				eq(electionElectedCandidates.date, date),
+				inArray(electionElectedCandidates.rs, rsList)
+			)
+		);
+	if (candidates.length === 0) return { byFamily: new Map(), byParty: new Map() };
+
+	const families = await db
+		.selectDistinct({
+			rs: electionPartyFamily.rs,
+			electionId: electionPartyFamily.electionId,
+			partyId: electionPartyFamily.partyId,
+			partyFamilyId: electionPartyFamily.partyFamilyId
+		})
+		.from(electionPartyFamily)
+		.where(inArray(electionPartyFamily.rs, rsList));
+	const familiesByKey = new Map<string, number[]>();
+	for (const f of families) {
+		const key = `${f.rs}:${f.electionId}:${f.partyId}`;
+		familiesByKey.set(key, [...(familiesByKey.get(key) ?? []), f.partyFamilyId]);
+	}
+
+	const byFamily = new Map<string, Map<number, number>>();
+	const byParty = new Map<string, Map<number, number>>();
+	const bump = (map: Map<string, Map<number, number>>, rs: number, id: number) => {
+		const inner = map.get(String(rs)) ?? new Map<number, number>();
+		inner.set(id, (inner.get(id) ?? 0) + 1);
+		map.set(String(rs), inner);
+	};
+	for (const c of candidates) {
+		if (c.partyId === null) continue;
+		bump(byParty, c.rs, c.partyId);
+		// A joint list's seats belong to the list itself (shown as its own row, see splitLists), not
+		// to any one partner family.
+		const families = familiesByKey.get(`${c.rs}:${c.electionId}:${c.partyId}`) ?? [];
+		if (families.length === 1) bump(byFamily, c.rs, families[0]);
+	}
+	return { byFamily, byParty };
 }
 
 /** Cities with more than one Wahlkreis need per-polling-station district resolution (see aggregates());

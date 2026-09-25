@@ -85,14 +85,18 @@ export async function getPollingStationElectionCity(
 				label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
 			});
 		}
+		// Checked before parsing the link: stations that never reported (e.g. every station of a
+		// Gemeinde whose portal was never filled, like Aidlingen 2019) come without a `link` at all.
+		if (wahlbezirk.statusString !== 'eingegangen' || !wahlbezirk.link) {
+			log(
+				`Wahlbezirk ${wahlbezirk.label}: Status "${wahlbezirk.statusString}", noch nicht verfügbar`
+			);
+			continue;
+		}
+
 		const match = /[^_]+$/.exec(wahlbezirk.link.id);
 		const psId = match ? Number(match[0]) : NaN;
 		if (!Number.isFinite(psId)) continue;
-
-		if (wahlbezirk.statusString !== 'eingegangen') {
-			log(`Wahlbezirk ${psId}: Status "${wahlbezirk.statusString}", noch nicht verfügbar`);
-			continue;
-		}
 
 		const { status, content: meta } = await fetchWithFallback<WahlraumResponse>(
 			`${BASE}/wahltermin-${dateStr}/${agsStr}/daten/api/wahlraum_${psId}.json`,

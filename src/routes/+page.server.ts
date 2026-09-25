@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { getElectionTypes, getAllElectionDates, possibleMapModes } from '$lib/server/map/queries';
+import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -21,11 +21,6 @@ export const load: PageServerLoad = async () => {
 			(t): t is { electionType: number; electionDescription: string } =>
 				t.electionType !== null && t.electionDescription !== null
 		),
-		datesByType: Object.fromEntries(datesByType),
-		mapModesByType: Object.fromEntries(
-			electionTypes
-				.filter((t) => t.electionType !== null)
-				.map((t) => [t.electionType as number, possibleMapModes(t.electionType as number)])
-		)
+		datesByType: Object.fromEntries(datesByType)
 	};
 };

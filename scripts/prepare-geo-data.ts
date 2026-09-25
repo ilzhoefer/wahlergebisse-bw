@@ -14,12 +14,13 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import proj4 from 'proj4';
+import * as turf from '@turf/turf';
 // @ts-expect-error -- mapshaper ships no types
 import mapshaper from 'mapshaper';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.resolve(__dirname, '../Docker/shiny/data');
-const OUT = path.resolve(__dirname, '../static/geo');
+const OUT = path.resolve(__dirname, '../src/lib/geo');
 mkdirSync(OUT, { recursive: true });
 
 // EPSG:31467 = DHDN / Gauss-Krüger zone 3 (the source CRS of Landtag_BW.geojson).
@@ -29,6 +30,9 @@ const EPSG_31467 =
 type GeoJSON = { type: string; features: Feature[] };
 type Feature = { type: 'Feature'; properties: Record<string, unknown>; geometry: Geometry };
 type Geometry = { type: string; coordinates: unknown };
+type TurfPoly = import('geojson').Feature<
+	import('geojson').Polygon | import('geojson').MultiPolygon
+>;
 
 function readGeoJSON(file: string): GeoJSON {
 	return JSON.parse(readFileSync(path.join(SRC, file), 'utf-8'));
@@ -84,12 +88,80 @@ async function simplify(geojson: GeoJSON, percentage: number): Promise<GeoJSON> 
 	const input = JSON.stringify(geojson);
 	const output = await new Promise<Record<string, Buffer>>((resolve, reject) => {
 		mapshaper.applyCommands(
-			`-i in.json -simplify ${percentage}% keep-shapes -clean -o format=geojson precision=0.000001 out.json`,
+			// Adjacent municipalities in this source are independently-digitized OSM relations whose
+			// shared border doesn't always land on exactly the same coordinates — without `-snap` (run
+			// *before* simplifying, so mapshaper's topology engine treats the now-merged vertices as one
+			// shared arc from that point on), those near-misses show up as thin gap/sliver polygons
+			// between neighbours once rendered, most visible at fine (Gemeinde) resolution.
+			`-i in.json -snap -simplify ${percentage}% keep-shapes -clean -o format=geojson precision=0.000001 out.json`,
 			{ 'in.json': input },
 			(err: Error | null, out: Record<string, Buffer>) => (err ? reject(err) : resolve(out))
 		);
 	});
 	return JSON.parse(output['out.json'].toString());
+}
+
+/**
+ * Simplifies several layers in ONE mapshaper topology (`combine-files`), so a border shared across
+ * layers (e.g. a Kreis edge that is also a Gemeinde edge) is simplified once and stays identical in
+ * every output. Simplifying each level separately (and at different percentages) dropped different
+ * vertices per level, so Gemeinde and neighbouring Kreis polygons no longer met on the map.
+ */
+async function simplifyShared(
+	layers: Record<string, GeoJSON>,
+	percentage: number
+): Promise<Record<string, GeoJSON>> {
+	const input = Object.fromEntries(
+		Object.entries(layers).map(([name, g]) => [`${name}.json`, JSON.stringify(g)])
+	);
+	const files = Object.keys(input).join(' ');
+	const output = await new Promise<Record<string, Buffer>>((resolve, reject) => {
+		mapshaper.applyCommands(
+			`-i combine-files ${files} -snap -simplify ${percentage}% keep-shapes target=* -clean target=* -o format=geojson precision=0.000001 target=*`,
+			input,
+			(err: Error | null, out: Record<string, Buffer>) => (err ? reject(err) : resolve(out))
+		);
+	});
+	return Object.fromEntries(
+		Object.keys(layers).map((name) => [name, JSON.parse(output[`${name}.json`].toString())])
+	);
+}
+
+/**
+ * The Stuttgart Wahlbezirke come from the city's own data, not OSM, so their outer edge only roughly
+ * follows the OSM Stuttgart outline the neighbouring Gemeinde/Kreis polygons use — leaving overhangs
+ * and gaps where the two meet on the map. Fit them to the (already simplified) OSM outline: clip every
+ * Bezirk to it, then hand each leftover gap piece to the Bezirk it touches most.
+ */
+function fitToOutline(bezirke: GeoJSON, outline: Feature): GeoJSON {
+	const fc = (...fs: unknown[]) => turf.featureCollection(fs as TurfPoly[]);
+	const clipped = bezirke.features
+		.map((f) => {
+			const cut = turf.intersect(fc(f, outline));
+			return cut && { ...f, geometry: cut.geometry as Geometry };
+		})
+		.filter((f): f is Feature => f !== null);
+
+	const covered = turf.union(fc(...clipped));
+	const gaps = covered && turf.difference(fc(outline, covered));
+	if (gaps) {
+		for (const piece of turf.flatten(gaps).features) {
+			// ponytail: "touches most" = largest overlap with the piece grown by 25 m; fine for border
+			// slivers, a real shared-edge-length metric if a piece ever lands in the wrong Bezirk.
+			const probe = turf.buffer(piece, 0.025, { units: 'kilometers' });
+			let best: Feature | null = null;
+			let bestArea = 0;
+			for (const f of clipped) {
+				const hit = turf.intersect(fc(f, probe));
+				const area = hit ? turf.area(hit) : 0;
+				if (area > bestArea) [best, bestArea] = [f, area];
+			}
+			if (best) best.geometry = turf.union(fc(best, piece))!.geometry as Geometry;
+		}
+	}
+	return turf.truncate({ type: 'FeatureCollection', features: clipped } as never, {
+		precision: 6
+	}) as unknown as GeoJSON;
 }
 
 function write(name: string, geojson: GeoJSON) {
@@ -139,56 +211,51 @@ async function main() {
 		features: withRs.filter((f) => f.properties.deRsLength === 12)
 	};
 
-	write(
-		'regierungsbezirk.geojson',
-		pickProperties(await simplify(regierungsbezirk as GeoJSON, 20), ['rs', 'name'])
+	// One shared topology + one percentage for all three levels — see simplifyShared.
+	const admin = await simplifyShared(
+		{ regierungsbezirk, kreis, gemeinde } as Record<string, GeoJSON>,
+		8
 	);
-	write('kreis.geojson', pickProperties(await simplify(kreis as GeoJSON, 15), ['rs', 'name']));
-	write('gemeinde.geojson', pickProperties(await simplify(gemeinde as GeoJSON, 8), ['rs', 'name']));
+	for (const [name, g] of Object.entries(admin)) {
+		write(`${name}.json`, pickProperties(g, ['rs', 'name']));
+	}
 
 	// --- Bundestag.geojson: Wahlkreis polygons for Bundestagswahl, keyed by `ref` ---
 	const bundestag = readGeoJSON('Bundestag.geojson');
-	write(
-		'wahlkreis-bundestag.geojson',
-		pickProperties(await simplify(bundestag, 15), ['ref', 'name'])
-	);
+	write('wahlkreis-bundestag.json', pickProperties(await simplify(bundestag, 15), ['ref', 'name']));
 
 	// --- Landtag_BW.geojson: Wahlkreis polygons for Landtagswahl, EPSG:31467 -> WGS84.
 	// Also renamed "Nummer" -> "ref" and "WK Name" -> "name" so client code can treat both Wahlkreis
 	// files uniformly (the source data has no shared property naming between the two elections).
 	const landtag = reprojectFeatureCollection(readGeoJSON('Landtag_BW.geojson'), EPSG_31467);
 	write(
-		'wahlkreis-landtag.geojson',
+		'wahlkreis-landtag.json',
 		pickProperties(await simplify(landtag, 15), ['ref', 'name'], {
 			Nummer: 'ref',
 			'WK Name': 'name'
 		})
 	);
 
-	// --- Stuttgart district boundaries: combine the three per-year files into one, tagged with the
-	// date each version became effective (matching app.R's geo_stuttgart_combined rbind).
-	// IMPORTANT: each year must be simplified *separately*, before combining. Simplifying the
-	// already-combined multi-year set in one pass fed all three years into mapshaper's shared-topology
-	// `-clean` step, which treated the heavily-overlapping same-geography polygons from different
-	// years as duplicate/degenerate slivers and silently dropped most of them (2025 went from 265
-	// features to 14 in testing). ---
+	// --- Stuttgart district boundaries: one file per election date (the map only ever shows one, so
+	// shipping all three in one file tripled the download).
+	// IMPORTANT: each year must be simplified *separately*. Simplifying a combined multi-year set in
+	// one pass fed all three years into mapshaper's shared-topology `-clean` step, which treated the
+	// heavily-overlapping same-geography polygons from different years as duplicate/degenerate slivers
+	// and silently dropped most of them (2025 went from 265 features to 14 in testing). ---
 	const stuttgartByDate: [string, string][] = [
 		['Stuttgart_Bezirke_2021.geojson', '2021-09-26'],
 		['Stuttgart_Bezirke_2024.geojson', '2024-06-09'],
 		['Stuttgart_Bezirke_2025.geojson', '2025-02-23']
 	];
-	const stuttgartCombined: GeoJSON = { type: 'FeatureCollection', features: [] };
+	const stuttgartOutline = admin.gemeinde.features.find((f) => f.properties.rs === 81110000000)!;
 	for (const [file, date] of stuttgartByDate) {
 		const geo = readGeoJSON(file);
-		const simplified = await simplify(geo, 30);
-		for (const f of simplified.features) {
-			stuttgartCombined.features.push({ ...f, properties: { ...f.properties, date } });
-		}
+		const simplified = fitToOutline(await simplify(geo, 30), stuttgartOutline);
+		write(
+			`stuttgart-bezirke-${date}.json`,
+			pickProperties(simplified, ['AWBEZ_T', 'name'], { STBNAM_T: 'name' })
+		);
 	}
-	write(
-		'stuttgart-bezirke.geojson',
-		pickProperties(stuttgartCombined, ['AWBEZ_T', 'name', 'date'], { STBNAM_T: 'name' })
-	);
 }
 
 main().catch((err) => {

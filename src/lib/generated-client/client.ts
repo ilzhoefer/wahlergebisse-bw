@@ -18,14 +18,6 @@ import { makeLiveQuery, makeMutation, makeSubscription, makeQuery } from '@m1212
 type Mutation = Record<string, never>;
 type Subscription = Record<string, never>;
 
-// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry (the map view's
-// query result) are computed view models with no natural id, and the codegen doesn't emit a `keys`
-// config for cacheExchange. Without one, graphcache can't produce a stable cache key for them, warns
-// "Invalid key" on every field, and — combined with requestPolicy: 'cache-and-network' below — treats
-// each keyless re-embed as invalidating the in-flight regionData query, which re-triggers it, which
-// re-embeds, forever: switching map modes in the UI hit Svelte's effect_update_depth_exceeded loop
-// guard because of this. Returning null tells graphcache these types are intentionally unkeyed.
-
 export type BigInt = unknown;
 
 export type BigIntWhereInputArgument = {
@@ -62,6 +54,14 @@ export type BooleanWhereInputArgument = {
 };
 
 export type Bytes = unknown;
+
+export type CandidateHit = {
+	date: String;
+	electionType: Int;
+	name: String;
+	party: String | null;
+	rs: String;
+};
 
 export type DateTime = Date;
 
@@ -115,6 +115,10 @@ export type ElectionDate = {
 export type ElectionTypeOption = {
 	electionDescription: String | null;
 	electionType: Int;
+};
+
+export type EligibleGemeinden = {
+	rsList: String[];
 };
 
 export type Float = number;
@@ -223,6 +227,19 @@ export type LegendEntry = {
 	name: String;
 };
 
+export type MandateDirect = {
+	name: String | null;
+	party: String;
+	percent: Float | null;
+	seat: Boolean;
+};
+
+export type MandateList = {
+	listPlace: Int | null;
+	name: String;
+	party: String;
+};
+
 export type MapModes = {
 	possibleModes: String[];
 	selectedMode: String;
@@ -236,16 +253,45 @@ export type PartyOption = {
 export type Query = {
 	allElectionDates: () => ElectionDate[];
 	electionTypes: () => ElectionTypeOption[];
+	eligibleGemeinden: (p: { date: String; electionType: Int }) => EligibleGemeinden;
 	mapModes: (p: { electionType: Int }) => MapModes;
 	parties: (p: { date: String; electionType: Int }) => PartyOption[];
+	regionBreakdowns: (p: {
+		date: String;
+		electionType: Int;
+		mapMode: String;
+		rs?: String[] | null | undefined;
+		voteType?: String | null | undefined;
+	}) => RegionBreakdown[];
 	regionData: (p: {
 		date: String;
 		electionType: Int;
 		mapInformation: String;
 		mapMode: String;
 		party?: String | null | undefined;
+		rs?: String[] | null | undefined;
 		voteType?: String | null | undefined;
 	}) => RegionData;
+	searchCandidates: (p: { q: String }) => CandidateHit[];
+	wahlkreisMandates: (p: { date: String }) => WahlkreisMandates[];
+};
+
+export type RegionBreakdown = {
+	eligible: Float | null;
+	key: String;
+	postalElsewhere: Boolean;
+	rows: () => RegionBreakdownRow[];
+	seatTotal: Int | null;
+	turnout: Float | null;
+};
+
+export type RegionBreakdownRow = {
+	candidate: String | null;
+	color: String | null;
+	partyName: String | null;
+	seats: Int | null;
+	voteCount: Int | null;
+	votePercent: Float | null;
 };
 
 export type RegionData = {
@@ -288,6 +334,21 @@ export type StringWhereInputArgument = {
 	notLike?: String | null | undefined;
 };
 
+export type WahlkreisMandates = {
+	direct: () => MandateDirect | null;
+	districtId: String;
+	list: () => MandateList[];
+};
+
+// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry/RegionBreakdown/
+// RegionBreakdownRow (the map view's query results) are computed view models with no natural id, and
+// the codegen doesn't emit a `keys` config for cacheExchange. Without one, graphcache can't produce a
+// stable cache key for them, warns "Invalid key" on every field, and — combined with
+// requestPolicy: 'cache-and-network' below — treats each keyless re-embed as invalidating the in-flight
+// query, which re-triggers it, which re-embeds, forever: switching map modes in the UI hit Svelte's
+// effect_update_depth_exceeded loop guard because of this. Returning null tells graphcache these types
+// are intentionally unkeyed. CandidateHit (name search results) and the Wahlkreis mandate types are
+// keyless for the same reason.
 export const defaultOptions: ConstructorParameters<Client>[0] = {
 	url: '/graphql',
 	fetchSubscriptions: true,
@@ -298,7 +359,13 @@ export const defaultOptions: ConstructorParameters<Client>[0] = {
 				RegionData: () => null,
 				RegionItem: () => null,
 				Legend: () => null,
-				LegendEntry: () => null
+				LegendEntry: () => null,
+				RegionBreakdown: () => null,
+				RegionBreakdownRow: () => null,
+				CandidateHit: () => null,
+				WahlkreisMandates: () => null,
+				MandateDirect: () => null,
+				MandateList: () => null
 			}
 		}),
 		nativeDateExchange,

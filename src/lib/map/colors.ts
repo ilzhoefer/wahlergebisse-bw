@@ -1,4 +1,16 @@
-import { interpolateBlues } from 'd3-scale-chromatic';
+import { interpolateBlues, interpolatePuOr } from 'd3-scale-chromatic';
+
+/** Diverging scale for Stimmensplitting (Erst − Zweit, in points), symmetric around 0 over the
+ * largest |value| present: purple = candidate ahead of the list, orange = list ahead, light grey = 0. */
+export function diffColorScale(diffValues: number[]): (value: number) => string | undefined {
+	const values = diffValues.filter((v) => Number.isFinite(v));
+	if (values.length === 0) return () => undefined;
+	const bound = Math.max(...values.map(Math.abs)) || 1;
+	return (value: number) =>
+		Number.isFinite(value) ? interpolatePuOr(0.5 - value / (2 * bound)) : undefined;
+}
+/** Legend bar for `diffColorScale`, running from +max (Erst ahead, left) to −max (Zweit ahead, right). */
+export const diffGradientCss = `linear-gradient(to right, ${[0, 0.25, 0.5, 0.75, 1].map((t) => interpolatePuOr(t)).join(', ')})`;
 
 /** Port of shiny_colorscale_turnout: a Blues sequential scale over the turnout values present. */
 export function turnoutColorScale(
@@ -66,6 +78,32 @@ function adjustLightness(hex: string, amount: number): string {
 	const [h, s, l] = rgbToHsl(r, g, b);
 	const newL = amount >= 0 ? l + (1 - l) * amount : l + l * amount;
 	return rgbToHex(...hslToRgb(h, s, Math.max(0, Math.min(1, newL))));
+}
+
+/** Average of several hex colours — a joint list's colour from its partners' (e.g. Volt + ÖDP). */
+export function mixColors(hexes: string[]): string {
+	if (hexes.length === 0) return '#cfc8ba';
+	const rgbs = hexes.map(hexToRgb);
+	const avg = (i: number) => Math.round(rgbs.reduce((s, c) => s + c[i], 0) / rgbs.length);
+	return rgbToHex(avg(0), avg(1), avg(2));
+}
+
+/** Washed-out version of a party colour — Veränderung's "same winner as before" fill. */
+export function paleColor(hex: string): string {
+	return adjustLightness(hex, 0.65);
+}
+
+/** Square RGBA tile of 45° stripes alternating `a` and `b` (hex), for a MapLibre `fill-pattern`.
+ * The stripe period divides the tile size, so tiles repeat seamlessly. */
+export function stripeImage(a: string, b: string, size = 20) {
+	const [ca, cb] = [hexToRgb(a), hexToRgb(b)];
+	const data = new Uint8Array(size * size * 4);
+	for (let y = 0; y < size; y++)
+		for (let x = 0; x < size; x++) {
+			const [r, g, bl] = (x + y) % size < size / 2 ? ca : cb;
+			data.set([r, g, bl, 255], (y * size + x) * 4);
+		}
+	return { width: size, height: size, data };
 }
 
 /**

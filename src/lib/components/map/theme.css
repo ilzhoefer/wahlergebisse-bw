@@ -1,0 +1,74 @@
+/*
+ * Design tokens transcribed from the Kartenansicht click-dummy (`Klickdummy Kartenansicht.dc.html`,
+ * see the design handoff README's "Design Tokens" table). Scoped to the map page only via import —
+ * the rest of the app (`/daten`, `/admin`) keeps its plain Tailwind look.
+ */
+:root {
+	--map-bg-page: #e9e4d9;
+	--map-bg-surface: #fffdf8;
+	--map-bg-surface-muted: #eae7de;
+	--map-bg-surface-sunken: #efe9dc;
+	--map-bg-list-a: #f5f1e7;
+	--map-bg-list-b: #fbf9f3;
+	--map-bg-selected-tint: #f7eae4;
+	--map-bg-selected-tint-2: #fbf4ef;
+	--map-bg-partial-fill: #f0d3c5;
+
+	--map-border-strong: #d9d1c1;
+	--map-border-soft: #e6dfd0;
+	--map-border-faint: #f0ece1;
+	--map-border-faint-2: #f4f1e9;
+
+	--map-ink: #211d18;
+	--map-ink-2: #4f483e;
+	--map-ink-3: #5c544a;
+	--map-ink-muted: #6f6658;
+	--map-ink-disabled: #a99f8d;
+
+	--map-accent: #9c4a2f;
+	--map-accent-hover: #7d3a23;
+	--map-accent-tint-border: #ddd5c6;
+	--map-on-dark: #f4f1ea;
+
+	--map-success-text: #2c6b3f;
+	--map-success-fill: #4f7a52;
+	--map-success-bg: #e4f0e6;
+	--map-success-border: #bcd9c3;
+
+	--map-warning-text: #8a5a12;
+	--map-warning-bg: #faf0dc;
+	--map-warning-border: #e8d3a8;
+
+	--map-error-text: #9c2f2f;
+	--map-error-bg: #f9e6e2;
+	--map-error-border: #e8bdb3;
+
+	--map-progress-running: #e0b481;
+	--map-progress-pending: #cfc8ba;
+	--map-grid-line: rgba(33, 29, 24, 0.45);
+	--map-swatch-border: rgba(33, 29, 24, 0.18);
+
+	--map-font-body: 'Instrument Sans', system-ui, sans-serif;
+	--map-font-heading: 'Newsreader', Georgia, serif;
+	--map-font-mono: 'Roboto Mono', monospace;
+
+	--map-shadow-card: 0 1px 3px rgba(33, 29, 24, 0.08);
+	--map-shadow-pill: 0 2px 8px rgba(33, 29, 24, 0.1);
+	--map-shadow-overlay: 0 2px 10px rgba(33, 29, 24, 0.1);
+	--map-shadow-label-idle: 0 1px 4px rgba(33, 29, 24, 0.14);
+	--map-shadow-label-active: 0 6px 16px -6px rgba(33, 29, 24, 0.5);
+	--map-shadow-hover-card: 0 14px 34px -14px rgba(33, 29, 24, 0.5);
+	--map-shadow-map-body: drop-shadow(0 6px 14px rgba(33, 29, 24, 0.14));
+}
+
+.map-root {
+	font-family: var(--map-font-body);
+	-webkit-font-smoothing: antialiased;
+	background: var(--map-bg-page);
+}
+
+.map-lbl {
+	font: 500 9.5px var(--map-font-mono);
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}

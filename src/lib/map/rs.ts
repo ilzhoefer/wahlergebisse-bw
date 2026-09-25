@@ -20,6 +20,23 @@ export function isSameRegierungsbezirk(childRs: number, regierungsbezirkRs: numb
 export const STUTTGART_RS = 81110000000;
 
 /**
+ * rs's of Baden-Württemberg's 9 kreisfreie Städte (Stadtkreise) — a Kreis whose territory is exactly
+ * one Gemeinde, so the Kreis- and Gemeinde-level polygons are identical. Verified against the data:
+ * every rs here appears as both a Kreis and a Gemeinde feature (`kreis.geojson`/`gemeinde.geojson`).
+ */
+export const KREISFREIE_STADT_RS = new Set([
+	81110000000, // Stuttgart
+	81210000000, // Heilbronn
+	82110000000, // Baden-Baden
+	82120000000, // Karlsruhe
+	82210000000, // Heidelberg
+	82220000000, // Mannheim
+	82310000000, // Pforzheim
+	83110000000, // Freiburg im Breisgau
+	84210000000 // Ulm
+]);
+
+/**
  * `rs`s of gemeindefreie Gebiete (unincorporated areas with no municipal government) that appear as
  * their own polygon in the Gemeinde-level GeoJSON but never have election data, since there's no
  * Gemeinderat/Bürgermeister to elect there — distinct from the same-named actual municipalities

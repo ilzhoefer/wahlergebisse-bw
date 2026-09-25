@@ -1,0 +1,598 @@
+{
+	"258": {
+		"direct": {
+			"name": "Simone Fischer",
+			"party": "GRÜNE",
+			"percent": 28.330283,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Luigi Pantisano",
+				"party": "Die Linke",
+				"listPlace": 2
+			}
+		]
+	},
+	"259": {
+		"direct": {
+			"name": "Maximilian Mörseburg",
+			"party": "CDU",
+			"percent": 30.368295,
+			"seat": false
+		},
+		"list": []
+	},
+	"260": {
+		"direct": {
+			"name": "Marc Biadacz",
+			"party": "CDU",
+			"percent": 37.347604,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Markus-Cornel Frohnmaier",
+				"party": "AfD",
+				"listPlace": 2
+			},
+			{
+				"name": "Jasmina Hostert",
+				"party": "SPD",
+				"listPlace": 7
+			}
+		]
+	},
+	"261": {
+		"direct": {
+			"name": "Dr. David Preisendanz",
+			"party": "CDU",
+			"percent": 37.031773,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Dr. Sebastian Schäfer",
+				"party": "GRÜNE",
+				"listPlace": 4
+			}
+		]
+	},
+	"262": {
+		"direct": {
+			"name": "Dr. Matthias Hiller",
+			"party": "CDU",
+			"percent": 37.732594,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Dr. Nils Schmid",
+				"party": "SPD",
+				"listPlace": 2
+			},
+			{
+				"name": "Matthias Gastel",
+				"party": "GRÜNE",
+				"listPlace": 10
+			}
+		]
+	},
+	"263": {
+		"direct": {
+			"name": "Hermann Färber",
+			"party": "CDU",
+			"percent": 37.107875,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Hans-Jürgen Goßner",
+				"party": "AfD",
+				"listPlace": 6
+			}
+		]
+	},
+	"264": {
+		"direct": {
+			"name": "Christina Stumpp",
+			"party": "CDU",
+			"percent": 37.675315,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Lars Haise",
+				"party": "AfD",
+				"listPlace": 10
+			}
+		]
+	},
+	"265": {
+		"direct": {
+			"name": "Steffen Bilger",
+			"party": "CDU",
+			"percent": 36.534568,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Martin Hess",
+				"party": "AfD",
+				"listPlace": 3
+			},
+			{
+				"name": "Dr. Sandra Detzer",
+				"party": "GRÜNE",
+				"listPlace": 5
+			},
+			{
+				"name": "Macit Karaahmetoğlu",
+				"party": "SPD",
+				"listPlace": 10
+			}
+		]
+	},
+	"266": {
+		"direct": {
+			"name": "Fabian Gramling",
+			"party": "CDU",
+			"percent": 39.250041,
+			"seat": true
+		},
+		"list": []
+	},
+	"267": {
+		"direct": {
+			"name": "Alexander Throm",
+			"party": "CDU",
+			"percent": 34.982202,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Jürgen Kögel",
+				"party": "AfD",
+				"listPlace": 7
+			}
+		]
+	},
+	"268": {
+		"direct": {
+			"name": "Christian Freiherr von Stetten",
+			"party": "CDU",
+			"percent": 36.394252,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Harald Ebner",
+				"party": "GRÜNE",
+				"listPlace": 8
+			}
+		]
+	},
+	"269": {
+		"direct": {
+			"name": "Dr. Ingeborg Gräßle",
+			"party": "CDU",
+			"percent": 36.558295,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Ricarda Lang",
+				"party": "GRÜNE",
+				"listPlace": 2
+			},
+			{
+				"name": "Ruben Rupp",
+				"party": "AfD",
+				"listPlace": 5
+			}
+		]
+	},
+	"270": {
+		"direct": {
+			"name": "Roderich Kiesewetter",
+			"party": "CDU",
+			"percent": 41.386136,
+			"seat": true
+		},
+		"list": []
+	},
+	"271": {
+		"direct": {
+			"name": "Dr. Zoe Mayer",
+			"party": "GRÜNE",
+			"percent": 30.643254,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Marc Bernhard",
+				"party": "AfD",
+				"listPlace": 4
+			},
+			{
+				"name": "Marcel Bauer",
+				"party": "Die Linke",
+				"listPlace": 6
+			},
+			{
+				"name": "Parsa Marvi",
+				"party": "SPD",
+				"listPlace": 8
+			}
+		]
+	},
+	"272": {
+		"direct": {
+			"name": "Nicolas Zippelius",
+			"party": "CDU",
+			"percent": 39.157898,
+			"seat": true
+		},
+		"list": []
+	},
+	"273": {
+		"direct": {
+			"name": "Kai Whittaker",
+			"party": "CDU",
+			"percent": 38.850896,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Alexander Arpaschi",
+				"party": "AfD",
+				"listPlace": 11
+			}
+		]
+	},
+	"274": {
+		"direct": {
+			"name": "Alexander Föhr",
+			"party": "CDU",
+			"percent": 29.161093,
+			"seat": false
+		},
+		"list": [
+			{
+				"name": "Dr. Franziska Brantner",
+				"party": "GRÜNE",
+				"listPlace": 1
+			},
+			{
+				"name": "Sahra Mirow",
+				"party": "Die Linke",
+				"listPlace": 1
+			},
+			{
+				"name": "Dr. Malte Kaufmann",
+				"party": "AfD",
+				"listPlace": 12
+			}
+		]
+	},
+	"275": {
+		"direct": {
+			"name": "Melis Sekmen",
+			"party": "CDU",
+			"percent": 24.727325,
+			"seat": false
+		},
+		"list": [
+			{
+				"name": "Gökay Akbulut",
+				"party": "Die Linke",
+				"listPlace": 3
+			},
+			{
+				"name": "Isabel Cademartori Dujisin",
+				"party": "SPD",
+				"listPlace": 9
+			},
+			{
+				"name": "Heinrich Koch",
+				"party": "AfD",
+				"listPlace": 15
+			}
+		]
+	},
+	"276": {
+		"direct": {
+			"name": "Nina Warken",
+			"party": "CDU",
+			"percent": 42.848735,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Johann Martel",
+				"party": "AfD",
+				"listPlace": 16
+			}
+		]
+	},
+	"277": {
+		"direct": {
+			"name": "Moritz Paul Georg Oppelt",
+			"party": "CDU",
+			"percent": 34.42291,
+			"seat": false
+		},
+		"list": [
+			{
+				"name": "Achim Köhler",
+				"party": "AfD",
+				"listPlace": 9
+			},
+			{
+				"name": "Dr. Lars Castellucci",
+				"party": "SPD",
+				"listPlace": 12
+			}
+		]
+	},
+	"278": {
+		"direct": {
+			"name": "Olav Gutting",
+			"party": "CDU",
+			"percent": 36.14015,
+			"seat": true
+		},
+		"list": []
+	},
+	"279": {
+		"direct": {
+			"name": "Gunther Krichbaum",
+			"party": "CDU",
+			"percent": 37.064035,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Katja Mast",
+				"party": "SPD",
+				"listPlace": 5
+			},
+			{
+				"name": "Diana Zimmer",
+				"party": "AfD",
+				"listPlace": 8
+			}
+		]
+	},
+	"280": {
+		"direct": {
+			"name": "Klaus Mack",
+			"party": "CDU",
+			"percent": 39.03687,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Saskia Esken",
+				"party": "SPD",
+				"listPlace": 1
+			}
+		]
+	},
+	"281": {
+		"direct": {
+			"name": "Chantal Kopf",
+			"party": "GRÜNE",
+			"percent": 32.491284,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Vinzenz Glaser",
+				"party": "Die Linke",
+				"listPlace": 4
+			},
+			{
+				"name": "Martina Kempf",
+				"party": "AfD",
+				"listPlace": 17
+			}
+		]
+	},
+	"282": {
+		"direct": {
+			"name": "Stefan Glaser",
+			"party": "CDU",
+			"percent": 33.213678,
+			"seat": false
+		},
+		"list": []
+	},
+	"283": {
+		"direct": {
+			"name": "Dr. Yannick Bury",
+			"party": "CDU",
+			"percent": 37.033925,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Dr. Johannes Fechner",
+				"party": "SPD",
+				"listPlace": 6
+			},
+			{
+				"name": "Dr. Michael Blos",
+				"party": "AfD",
+				"listPlace": 14
+			}
+		]
+	},
+	"284": {
+		"direct": {
+			"name": "Johannes Rothenberger",
+			"party": "CDU",
+			"percent": 38.205614,
+			"seat": true
+		},
+		"list": []
+	},
+	"285": {
+		"direct": {
+			"name": "Dr. Maria-Lena Weiss",
+			"party": "CDU",
+			"percent": 38.944991,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Joachim Bloch",
+				"party": "AfD",
+				"listPlace": 13
+			}
+		]
+	},
+	"286": {
+		"direct": {
+			"name": "Thorsten Frei",
+			"party": "CDU",
+			"percent": 42.316149,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Derya Türk-Nachbaur",
+				"party": "SPD",
+				"listPlace": 11
+			}
+		]
+	},
+	"287": {
+		"direct": {
+			"name": "Andreas Jung",
+			"party": "CDU",
+			"percent": 37.695637,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Dr. Lina Seitzl",
+				"party": "SPD",
+				"listPlace": 13
+			}
+		]
+	},
+	"288": {
+		"direct": {
+			"name": "Felix Schreiner",
+			"party": "CDU",
+			"percent": 37.718223,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Rita Schwarzelühr-Sutter",
+				"party": "SPD",
+				"listPlace": 3
+			}
+		]
+	},
+	"289": {
+		"direct": {
+			"name": "Michael Donth",
+			"party": "CDU",
+			"percent": 38.482479,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Anne Zerr",
+				"party": "Die Linke",
+				"listPlace": 5
+			}
+		]
+	},
+	"290": {
+		"direct": {
+			"name": "Christoph Naser",
+			"party": "CDU",
+			"percent": 31.723162,
+			"seat": false
+		},
+		"list": []
+	},
+	"291": {
+		"direct": {
+			"name": "Ronja Kemmer",
+			"party": "CDU",
+			"percent": 38.788537,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Marcel Emmerich",
+				"party": "GRÜNE",
+				"listPlace": 6
+			}
+		]
+	},
+	"292": {
+		"direct": {
+			"name": "Wolfgang Dahler",
+			"party": "CDU",
+			"percent": 40.868359,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Martin Gerster",
+				"party": "SPD",
+				"listPlace": 4
+			},
+			{
+				"name": "Dr. Anja Reinalter",
+				"party": "GRÜNE",
+				"listPlace": 11
+			}
+		]
+	},
+	"293": {
+		"direct": {
+			"name": "Volker Mayer-Lay",
+			"party": "CDU",
+			"percent": 40.032772,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Dr. Alice Weidel",
+				"party": "AfD",
+				"listPlace": 1
+			}
+		]
+	},
+	"294": {
+		"direct": {
+			"name": "Axel Müller",
+			"party": "CDU",
+			"percent": 38.718937,
+			"seat": true
+		},
+		"list": [
+			{
+				"name": "Agnes Brugger",
+				"party": "GRÜNE",
+				"listPlace": 3
+			}
+		]
+	},
+	"295": {
+		"direct": {
+			"name": "Thomas Bareiß",
+			"party": "CDU",
+			"percent": 37.13321,
+			"seat": true
+		},
+		"list": []
+	}
+}

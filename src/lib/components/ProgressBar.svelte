@@ -1,38 +1,64 @@
 <script lang="ts">
-	type Tone = 'running' | 'done' | 'error';
-
 	let {
 		kicker,
 		label,
 		current,
-		total,
-		tone
-	}: { kicker: string; label: string; current: number; total: number; tone: Tone } = $props();
+		total
+	}: { kicker: string; label: string; current: number; total: number } = $props();
 
 	const percent = $derived(total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0);
-
-	const barColor: Record<Tone, string> = {
-		running: 'bg-blue-600',
-		done: 'bg-green-600',
-		error: 'bg-red-600'
-	};
 </script>
 
-<div class="space-y-1">
-	<div class="flex items-baseline justify-between gap-2">
-		<span class="flex min-w-0 items-baseline gap-1.5 text-xs">
-			<span class="shrink-0 font-medium tracking-wide text-gray-500 uppercase">{kicker}</span>
-			<span class="truncate text-gray-700">{label}</span>
-		</span>
-		<span class="shrink-0 text-xs text-gray-500 tabular-nums">{current}/{total}</span>
+<div class="progress">
+	<div class="top">
+		<span class="map-lbl kicker">{kicker}</span>
+		<span class="label">{label}</span>
+		<span class="count">{current}/{total}</span>
 	</div>
-	<div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-		<div
-			class="h-full rounded-full transition-[width] duration-300 ease-out {barColor[tone]} {tone ===
-			'running'
-				? 'animate-pulse'
-				: ''}"
-			style="width: {percent}%"
-		></div>
-	</div>
+	<span class="track"><span class="fill" style="width: {percent}%"></span></span>
 </div>
+
+<style>
+	.progress {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+	}
+	.top {
+		display: flex;
+		align-items: baseline;
+		gap: 7px;
+		min-width: 0;
+	}
+	.kicker {
+		color: var(--map-ink-muted);
+		flex: none;
+	}
+	.label {
+		flex: 1;
+		min-width: 0;
+		font-size: 11.5px;
+		color: var(--map-ink-2);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.count {
+		flex: none;
+		font: 500 11px var(--map-font-mono);
+		color: var(--map-ink);
+	}
+	.track {
+		display: block;
+		height: 7px;
+		border-radius: 4px;
+		background: var(--map-bg-surface-sunken);
+		overflow: hidden;
+	}
+	.fill {
+		display: block;
+		height: 100%;
+		background: var(--map-accent);
+		transition: width 0.3s linear;
+	}
+</style>

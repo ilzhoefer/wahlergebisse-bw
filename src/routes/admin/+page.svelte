@@ -3,7 +3,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import * as m from '$lib/paraglide/messages';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
+	import '$lib/components/map/theme.css';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
 	import CrawlMap from '$lib/components/CrawlMap.svelte';
 
@@ -56,7 +57,6 @@
 	let liveState = $state<CrawlState | null>(null);
 	let dateDiscoveryState = $state<DateDiscoveryState | null>(null);
 	let now = $state(Date.now());
-	let logExpanded = $state(false);
 	let logEl = $state<HTMLPreElement>();
 
 	// The live state carries no end timestamp (only `startedAt`) — freeze the wall-clock moment the run
@@ -97,27 +97,31 @@
 		else if (liveState && crawlFinishedAtMs === null) crawlFinishedAtMs = Date.now();
 	});
 
-	$effect(() => {
-		if (liveState?.status === 'error') logExpanded = true;
-	});
-
-	// Which Wahlarten actually exist on the selected date, per data already loaded from `elections` —
-	// no live lookup needed. Falls back to showing every known type for a date with no classified
-	// elections yet (e.g. one just discovered but never crawled).
-	const typesForDate = $derived(data.datesToTypes[date] ?? null);
-	const filteredElectionTypes = $derived(
-		typesForDate
-			? data.electionTypes.filter((t) => typesForDate.includes(t.electionType))
-			: data.electionTypes
+	// Which dates the selected Wahlart actually happened on, per data already loaded from `elections` —
+	// no live lookup needed. A date with no classified elections yet (e.g. one just discovered but never
+	// crawled) could be any type, so it's offered for every type.
+	const filteredDates = $derived(
+		data.knownDates.filter((d) => {
+			const types = data.datesToTypes[d];
+			return types.length === 0 || types.includes(electionTypeId);
+		})
 	);
 
-	// Keep the Wahlart selection valid as the date (and therefore the filtered list) changes.
+	// Keep the date selection valid as the Wahlart (and therefore the filtered list) changes.
 	$effect(() => {
-		if (filteredElectionTypes.length === 0) return;
-		if (!filteredElectionTypes.some((t) => t.electionType === electionTypeId)) {
-			electionTypeId = filteredElectionTypes[0].electionType;
-		}
+		if (filteredDates.length > 0 && !filteredDates.includes(date)) date = filteredDates[0];
 	});
+
+	function dateOptionLabel(d: string): string {
+		const counts = data.gemeindeCounts[`${d}|${electionTypeId}`];
+		return counts
+			? m.admin_crawl_date_option({
+					date: d,
+					withData: String(counts.withData),
+					gemeinden: String(counts.gemeinden)
+				})
+			: d;
+	}
 
 	function typeLabel(id: number): string {
 		return data.electionTypes.find((t) => t.electionType === id)?.electionDescription ?? String(id);
@@ -248,131 +252,121 @@
 		return null;
 	});
 
+	// Per-Gemeinde tallies for the counters under the progress bars.
+	const cityCounts = $derived.by(() => {
+		const counts = { done: 0, in_progress: 0, skipped: 0 };
+		for (const s of Object.values(display?.cityStatus ?? {})) counts[s] += 1;
+		return counts;
+	});
+
+	const COUNTER_COLORS = { done: '#4f7a52', in_progress: '#e0b481', skipped: '#6f6658' };
+
 	$effect(() => {
 		void display?.log;
 		if (logEl) logEl.scrollTop = logEl.scrollHeight;
 	});
 </script>
 
-<div class="min-h-screen bg-gray-50">
-	<header class="sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur">
-		<div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-			<div class="flex items-center gap-3">
-				<h1 class="text-xl font-semibold text-gray-900">{m.admin_title()}</h1>
-				{#if isRunning}
-					<StatusBadge status="running" label={statusLabel('running')} />
-				{/if}
-			</div>
+<svelte:head>
+	<title>{m.admin_title()} · {m.map_brand_name()}</title>
+</svelte:head>
+
+<div class="map-root app">
+	<header class="toolbar">
+		<div class="brand-block">
+			<span class="logo">
+				<span class="bar" style="height: 8px"></span>
+				<span class="bar" style="height: 15px"></span>
+				<span class="bar" style="height: 11px"></span>
+			</span>
+			<span class="wordmark">
+				<span class="brand">{m.map_brand_name()}</span>
+				<span class="map-lbl region">{m.admin_brand_subtitle()}</span>
+			</span>
+		</div>
+		<span class="map-lbl status-text">
+			{#if display}
+				{statusLabel(display.status)} · {durationLabel(
+					display.status,
+					formatDuration(display.durationMs)
+				)}
+			{:else}
+				{m.admin_status_idle()}
+			{/if}
+		</span>
+		<div class="aside">
+			<a class="link" href="/">{m.admin_nav_map()}</a>
 			<form method="POST" action="/admin/logout">
-				<button type="submit" class="text-sm text-blue-700 underline">{m.admin_logout()}</button>
+				<button type="submit" class="link">{m.admin_logout()}</button>
 			</form>
+			<div class="segmented">
+				{#each locales as locale (locale)}
+					<button
+						type="button"
+						class="pill"
+						class:active={getLocale() === locale}
+						onclick={() => setLocale(locale)}>{locale.toUpperCase()}</button
+					>
+				{/each}
+			</div>
 		</div>
 	</header>
 
-	<div class="mx-auto max-w-3xl space-y-6 p-6">
-		<section class="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-			<h2 class="font-medium text-gray-900">{m.admin_crawl_start_heading()}</h2>
-			<div class="flex flex-wrap items-end gap-3">
-				<label class="text-sm text-gray-700">
-					{m.admin_crawl_date_label()}
-					<div class="mt-1 flex items-center gap-2">
-						<select
-							bind:value={date}
-							disabled={data.knownDates.length === 0}
-							class="rounded-lg border border-gray-300 p-1.5 text-sm"
-						>
-							{#if data.knownDates.length === 0}
-								<option value="">{m.admin_crawl_date_placeholder()}</option>
-							{/if}
-							{#each data.knownDates as d (d)}
-								<option value={d}>{d}</option>
-							{/each}
-						</select>
-						<button
-							type="button"
-							onclick={refreshDates}
-							disabled={starting || isRunning || isDateRefreshRunning}
-							class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-						>
-							{m.admin_crawl_date_refresh_button()}
-						</button>
-					</div>
-				</label>
-				<label class="text-sm text-gray-700">
-					{m.admin_crawl_electiontype_label()}
+	<div class="body">
+		<aside class="panel">
+			<div class="section header">
+				<h2 class="heading">{m.admin_crawl_start_heading()}</h2>
+				<p class="intro">{m.admin_intro()}</p>
+			</div>
+
+			<div class="section fields">
+				<label class="field">
+					<span class="map-lbl field-label">{m.admin_crawl_electiontype_label()}</span>
 					<select
+						class="select"
 						bind:value={electionTypeId}
-						disabled={filteredElectionTypes.length === 0}
-						class="mt-1 block rounded-lg border border-gray-300 p-1.5 text-sm"
+						disabled={data.electionTypes.length === 0 || isRunning}
 					>
-						{#if filteredElectionTypes.length === 0}
-							<option value="">{m.admin_crawl_electiontype_placeholder()}</option>
-						{/if}
-						{#each filteredElectionTypes as t (t.electionType)}
+						{#each data.electionTypes as t (t.electionType)}
 							<option value={t.electionType}>{t.electionDescription ?? t.electionType}</option>
 						{/each}
 					</select>
 				</label>
-				<button
-					type="button"
-					onclick={startCrawl}
-					disabled={starting ||
-						isRunning ||
-						isDateRefreshRunning ||
-						!date ||
-						filteredElectionTypes.length === 0}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:opacity-50"
-				>
-					{#if starting}
-						<svg
-							class="h-3.5 w-3.5 animate-spin"
-							viewBox="0 0 24 24"
-							fill="none"
-							aria-hidden="true"
+				<label class="field">
+					<span class="map-lbl field-label">{m.admin_crawl_date_label()}</span>
+					<span class="field-row">
+						<select
+							class="select select-mono"
+							bind:value={date}
+							disabled={filteredDates.length === 0 || isRunning}
 						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-							></path>
-						</svg>
-					{/if}
-					{m.admin_crawl_start_button()}
-				</button>
-			</div>
+							{#if filteredDates.length === 0}
+								<option value="">{m.admin_crawl_date_placeholder()}</option>
+							{/if}
+							{#each filteredDates as d (d)}
+								<option value={d}>{dateOptionLabel(d)}</option>
+							{/each}
+						</select>
+						<button
+							type="button"
+							class="secondary"
+							onclick={refreshDates}
+							disabled={starting || isRunning || isDateRefreshRunning}
+						>
+							{m.admin_crawl_date_refresh_button()}
+						</button>
+					</span>
+				</label>
 
-			{#if dateDiscoveryState}
-				<div class="space-y-2 rounded-lg bg-gray-50 p-3">
-					<div class="flex items-center justify-between gap-3">
-						<StatusBadge
-							status={dateDiscoveryState.status}
-							label={statusLabel(dateDiscoveryState.status)}
-						/>
-						{#if dateDiscoveryState.status === 'done'}
-							<span class="text-xs text-gray-600">
-								{m.admin_crawl_date_refresh_done({
-									count: String(dateDiscoveryState.dates.length)
-								})}
-							</span>
-						{/if}
-					</div>
-					{#if dateDiscoveryState.status === 'running'}
-						<div class="space-y-2">
+				{#if dateDiscoveryState}
+					<div class="note-box">
+						{#if dateDiscoveryState.status === 'running'}
 							{#if dateDiscoveryState.progress.step}
 								<ProgressBar
 									kicker={levelKicker('step')}
 									label={dateDiscoveryState.progress.step.label}
 									current={dateDiscoveryState.progress.step.index}
 									total={dateDiscoveryState.progress.step.total}
-									tone="running"
 								/>
 							{/if}
 							{#if dateDiscoveryState.progress.city}
@@ -381,108 +375,461 @@
 									label={dateDiscoveryState.progress.city.label}
 									current={dateDiscoveryState.progress.city.index}
 									total={dateDiscoveryState.progress.city.total}
-									tone="running"
 								/>
 							{/if}
-						</div>
-					{/if}
-					{#if dateDiscoveryState.status === 'error'}
-						<p class="text-xs text-red-600">{dateDiscoveryState.error}</p>
-					{/if}
-				</div>
-			{/if}
-
-			{#if startError}
-				<p class="text-sm text-red-600">{startError}</p>
-			{/if}
-		</section>
-
-		<section class="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-			<h2 class="font-medium text-gray-900">{m.admin_status_heading()}</h2>
-
-			{#if display}
-				<div class="flex flex-wrap items-center gap-3">
-					<StatusBadge status={display.status} label={statusLabel(display.status)} />
-					<span class="text-xs text-gray-500 tabular-nums">
-						{durationLabel(display.status, formatDuration(display.durationMs))}
-					</span>
-				</div>
-				<p class="text-sm text-gray-600">
-					{m.admin_status_meta({ type: typeLabel(display.electionType), date: display.date })}
-				</p>
-
-				{#if display.hasProgress && display.status === 'running'}
-					<div class="space-y-3 rounded-lg bg-gray-50 p-3">
-						{#if display.progress.step}
-							<ProgressBar
-								kicker={levelKicker('step')}
-								label={display.progress.step.label}
-								current={display.progress.step.index}
-								total={display.progress.step.total}
-								tone="running"
-							/>
-						{/if}
-						{#if display.progress.city}
-							<ProgressBar
-								kicker={levelKicker('city')}
-								label={display.progress.city.label}
-								current={display.progress.city.index}
-								total={display.progress.city.total}
-								tone="running"
-							/>
-						{/if}
-						{#if display.progress.station}
-							<ProgressBar
-								kicker={levelKicker('station')}
-								label={display.progress.station.label}
-								current={display.progress.station.index}
-								total={display.progress.station.total}
-								tone="running"
-							/>
-						{/if}
-						{#if display.progress.family}
-							<ProgressBar
-								kicker={levelKicker('family')}
-								label={display.progress.family.label}
-								current={display.progress.family.index}
-								total={display.progress.family.total}
-								tone="running"
-							/>
+						{:else if dateDiscoveryState.status === 'done'}
+							<span class="ok">
+								{m.admin_crawl_date_refresh_done({
+									count: String(dateDiscoveryState.dates.length)
+								})}
+							</span>
+						{:else}
+							<span class="err">{dateDiscoveryState.error}</span>
 						{/if}
 					</div>
 				{/if}
+			</div>
 
-				{#if display.error}
-					<p class="text-sm text-red-600">{display.error}</p>
+			<div class="section action">
+				<button
+					type="button"
+					class="primary"
+					onclick={startCrawl}
+					disabled={starting || isRunning || isDateRefreshRunning || !filteredDates.includes(date)}
+				>
+					{m.admin_crawl_start_button()}
+				</button>
+				{#if startError}
+					<p class="err">{startError}</p>
 				{/if}
 
-				{#if display.hasProgress}
-					<CrawlMap cityStatus={display.cityStatus} />
+				{#if display?.hasProgress && display.status === 'running'}
+					{#each ['step', 'city', 'station', 'family'] as const as level (level)}
+						{@const tick = display.progress[level]}
+						{#if tick}
+							<ProgressBar
+								kicker={levelKicker(level)}
+								label={tick.label}
+								current={tick.index}
+								total={tick.total}
+							/>
+						{/if}
+					{/each}
 				{/if}
 
-				<div>
-					<button
-						type="button"
-						class="text-xs text-blue-700 underline"
-						onclick={() => (logExpanded = !logExpanded)}
-					>
-						{logExpanded ? m.admin_status_log_hide() : m.admin_status_log_show()}
-					</button>
-					{#if logExpanded}
-						<pre
-							bind:this={logEl}
-							class="mt-2 max-h-96 overflow-y-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100">{display
-								.log.length
-								? display.log.join('\n')
-								: m.admin_status_log_waiting()}</pre>
-					{/if}
-				</div>
-			{:else}
-				<div class="py-8 text-center">
-					<p class="text-sm text-gray-600">{m.admin_status_none()}</p>
-					<p class="mt-1 text-xs text-gray-400">{m.admin_status_none_hint()}</p>
+				{#if display?.hasProgress}
+					<div class="counters">
+						{#each ['done', 'in_progress', 'skipped'] as const as key (key)}
+							<span class="counter">
+								<span class="swatch" style="background: {COUNTER_COLORS[key]}"></span>
+								{key === 'done'
+									? m.admin_map_status_done()
+									: key === 'in_progress'
+										? m.admin_map_status_in_progress()
+										: m.admin_map_status_skipped()}
+								<span class="counter-value">{cityCounts[key]}</span>
+							</span>
+						{/each}
+					</div>
+				{/if}
+
+				{#if display?.error}
+					<p class="err">{display.error}</p>
+				{/if}
+			</div>
+
+			<div class="log-heading">
+				<span class="map-lbl" style="color: var(--map-ink)">{m.admin_log_heading()}</span>
+				{#if display}
+					<span class="map-lbl" style="color: var(--map-ink-muted)">
+						{m.admin_log_count({ count: String(display.log.length) })}
+					</span>
+				{/if}
+			</div>
+			<pre bind:this={logEl} class="log">{display
+					? display.log.length
+						? display.log.join('\n')
+						: m.admin_status_log_waiting()
+					: `${m.admin_status_none()}\n${m.admin_status_none_hint()}`}</pre>
+		</aside>
+
+		<div class="map-area">
+			<CrawlMap cityStatus={display?.cityStatus ?? {}} />
+
+			<div class="pill-bar">
+				<span class="status-pill">
+					<span
+						class="dot"
+						style="background: {display?.status === 'running'
+							? 'var(--map-accent)'
+							: display?.status === 'done'
+								? 'var(--map-success-fill)'
+								: display?.status === 'error'
+									? 'var(--map-error-text)'
+									: '#c4bba7'}"
+					></span>
+					{display
+						? m.admin_status_meta({ type: typeLabel(display.electionType), date: display.date })
+						: m.admin_status_idle()}
+				</span>
+			</div>
+
+			{#if display?.status === 'running' && display.progress.city}
+				<div class="current">
+					<div class="map-lbl" style="color: var(--map-ink); margin-bottom: 7px">
+						{m.admin_map_current()}
+					</div>
+					<div class="current-name">{display.progress.city.label}</div>
+					<div class="current-code">
+						{display.progress.city.index}/{display.progress.city.total}
+					</div>
 				</div>
 			{/if}
-		</section>
+		</div>
 	</div>
 </div>
+
+<style>
+	.app {
+		height: 100vh;
+		width: 100vw;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		color: var(--map-ink);
+	}
+	.body {
+		flex: 1;
+		display: flex;
+		min-height: 0;
+	}
+
+	/* Toolbar: same shell as the Kartenansicht's (map/Toolbar.svelte). */
+	.toolbar {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: 10px 14px;
+		flex-wrap: wrap;
+		padding: 10px 14px;
+		min-height: 60px;
+		box-sizing: border-box;
+		background: var(--map-bg-surface);
+		border-bottom: 1px solid var(--map-border-strong);
+	}
+	.brand-block {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.logo {
+		width: 26px;
+		height: 26px;
+		flex: none;
+		border-radius: 4px;
+		background: var(--map-accent);
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 2px;
+		padding: 5px;
+		box-sizing: border-box;
+	}
+	.bar {
+		width: 4px;
+		background: var(--map-on-dark);
+		border-radius: 1px;
+	}
+	.wordmark {
+		display: flex;
+		flex-direction: column;
+		line-height: 1;
+		padding-right: 13px;
+		border-right: 1px solid var(--map-border-soft);
+	}
+	.brand {
+		font-family: var(--map-font-heading);
+		font-size: 15px;
+		font-weight: 500;
+	}
+	.region {
+		color: var(--map-accent);
+		margin-top: 3px;
+	}
+	.status-text {
+		color: var(--map-ink-muted);
+		flex: 1;
+	}
+	.aside {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+	.link {
+		font: 500 12.5px var(--map-font-body);
+		color: var(--map-accent);
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		text-decoration: none;
+	}
+	.link:hover {
+		color: var(--map-accent-hover);
+	}
+	.segmented {
+		display: flex;
+		padding: 2px;
+		background: var(--map-bg-surface-sunken);
+		border-radius: 7px;
+	}
+	.pill {
+		font: 500 11.5px var(--map-font-body);
+		padding: 3px 8px;
+		border-radius: 5px;
+		background: transparent;
+		color: var(--map-ink-3);
+		border: none;
+		cursor: pointer;
+	}
+	.pill.active {
+		background: var(--map-ink);
+		color: var(--map-on-dark);
+		font-weight: 600;
+	}
+
+	/* Left panel: same frame as the Kartenansicht's ResultPanel. */
+	.panel {
+		flex: 0 1 360px;
+		min-width: 290px;
+		background: var(--map-bg-surface);
+		border-right: 1px solid var(--map-border-strong);
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
+	}
+	.section {
+		padding: 16px 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		border-bottom: 1px solid var(--map-border-soft);
+	}
+	.header {
+		padding: 18px 20px 14px;
+		gap: 4px;
+	}
+	.heading {
+		margin: 0;
+		font-family: var(--map-font-heading);
+		font-size: 23px;
+		font-weight: 500;
+		line-height: 1.15;
+	}
+	.intro {
+		margin: 0;
+		font-size: 12.5px;
+		line-height: 1.45;
+		color: var(--map-ink-3);
+	}
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.field-row {
+		display: flex;
+		gap: 6px;
+	}
+	.field-row .select {
+		flex: 1;
+		min-width: 0;
+	}
+	.select {
+		padding: 8px 10px;
+		border: 1px solid var(--map-border-strong);
+		border-radius: 6px;
+		background: #fff;
+		font: 500 12.5px var(--map-font-body);
+		color: var(--map-ink);
+		cursor: pointer;
+	}
+	.select-mono {
+		font: 500 12px var(--map-font-mono);
+		color: var(--map-ink-2);
+	}
+	.select:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+	.secondary {
+		flex: none;
+		padding: 8px 11px;
+		border-radius: 6px;
+		border: 1px solid var(--map-border-strong);
+		background: #fff;
+		color: var(--map-ink-2);
+		font: 500 12px var(--map-font-body);
+		cursor: pointer;
+	}
+	.secondary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.note-box {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 10px 12px;
+		border: 1px solid var(--map-border-soft);
+		border-radius: 6px;
+		background: var(--map-bg-list-a);
+	}
+	.primary {
+		padding: 12px 16px;
+		border-radius: 6px;
+		border: 1px solid var(--map-ink);
+		background: var(--map-ink);
+		color: var(--map-on-dark);
+		font: 600 13px var(--map-font-body);
+		cursor: pointer;
+	}
+	.primary:disabled {
+		background: #fff;
+		color: var(--map-ink);
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+	.counters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+	.counter {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11.5px;
+		color: var(--map-ink-2);
+	}
+	.counter-value {
+		font: 500 11.5px var(--map-font-mono);
+		color: var(--map-ink);
+	}
+	.swatch {
+		width: 9px;
+		height: 9px;
+		border-radius: 2px;
+		flex: none;
+		border: 0.5px solid var(--map-swatch-border);
+	}
+	.ok,
+	.err {
+		margin: 0;
+		font-size: 11.5px;
+		line-height: 1.4;
+	}
+	.ok {
+		color: var(--map-success-text);
+	}
+	.err {
+		color: var(--map-error-text);
+		font-weight: 500;
+	}
+	.log-heading {
+		padding: 14px 20px 8px;
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+	}
+	.log {
+		flex: 1;
+		min-height: 160px;
+		margin: 0 20px 18px;
+		padding: 10px 12px;
+		overflow: auto;
+		border: 1px solid var(--map-border-soft);
+		border-radius: 6px;
+		background: var(--map-bg-list-a);
+		font: 400 10.5px/1.55 var(--map-font-mono);
+		color: var(--map-ink-2);
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	/* Map area + floating overlays, as on the Kartenansicht. */
+	.map-area {
+		flex: 1;
+		min-width: 0;
+		position: relative;
+		overflow: hidden;
+		background: var(--map-bg-surface-muted);
+	}
+	.pill-bar {
+		position: absolute;
+		top: 14px;
+		left: 16px;
+		z-index: 3;
+	}
+	.status-pill {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		background: rgba(255, 253, 248, 0.94);
+		border: 1px solid var(--map-border-strong);
+		border-radius: 20px;
+		padding: 6px 12px;
+		box-shadow: var(--map-shadow-pill);
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		flex: none;
+	}
+	.current {
+		position: absolute;
+		bottom: 16px;
+		right: 16px;
+		min-width: 150px;
+		max-width: 260px;
+		background: rgba(255, 253, 248, 0.95);
+		border: 1px solid var(--map-border-strong);
+		border-radius: 8px;
+		padding: 11px 13px;
+		box-shadow: var(--map-shadow-overlay);
+		z-index: 3;
+	}
+	.current-name {
+		font-size: 12.5px;
+		font-weight: 600;
+		margin-bottom: 3px;
+	}
+	.current-code {
+		font: 400 11px var(--map-font-mono);
+		color: var(--map-ink-muted);
+	}
+
+	/* Narrow screens: panel stacks above the map, page scrolls. */
+	@media (max-width: 720px) {
+		.app {
+			height: auto;
+			min-height: 100vh;
+			overflow: visible;
+		}
+		.body {
+			flex-direction: column;
+		}
+		.panel {
+			flex: none;
+			border-right: none;
+			border-bottom: 1px solid var(--map-border-strong);
+		}
+		.map-area {
+			flex: none;
+			height: 520px;
+		}
+	}
+</style>
