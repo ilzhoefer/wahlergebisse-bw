@@ -29,7 +29,7 @@ export interface ShareState {
 	ebene?: ShareEbene;
 	/** rs of the focused Regierungsbezirk/Kreis/Gemeinde (level follows from the rs, see levelOfRs). */
 	gebiet?: number;
-	/** Stuttgart Wahlbezirk (AWBEZ_T) focused inside `gebiet`. */
+	/** Wahlbezirk (AWBEZ_T) focused inside `gebiet`. */
 	wb?: string;
 	/** Selected Wahlkreis `ref` (only with ebene=Wahlkreis). */
 	wk?: string;
@@ -66,7 +66,8 @@ export function readShareParams(p: URLSearchParams): ShareState {
 	const gebiet = Number(p.get('gebiet'));
 	if (Number.isSafeInteger(gebiet) && gebiet > 0 && levelOfRs(gebiet)) s.gebiet = gebiet;
 	const wb = p.get('wb');
-	if (wb && /^\d{3}-\d{2}$/.test(wb)) s.wb = wb;
+	// Stuttgart's "012-04" or komm.one's "08221000-001.01" (see stationKey in statistikBw.ts).
+	if (wb && /^\d[\d.]*-[\d.-]+$/.test(wb)) s.wb = wb;
 	const wk = p.get('wk');
 	if (wk && /^\d+$/.test(wk)) s.wk = wk;
 	return s;

@@ -3,15 +3,19 @@ import { cities } from '$lib/server/db/schema';
 import { DEFAULT_PARALLEL, type Logger } from './client';
 import { updateElectionDates, setElectionType } from './elections';
 import { getPollingStationsElection } from './pollingStations';
-import { getResultsCity } from './results';
+import { getResultsCity, neutralizeCentralCountPlaceholders } from './results';
 import { updatePartyFamily } from './partyFamily';
 import { updateAggregateParty } from './aggregates';
 import { updateMappingStuttgart, type StuttgartDistrictRow } from './stuttgartMapping';
 import { importVoteDistrictMapping, type VoteDistrictRow } from './voteDistricts';
 import { getElectedMembers } from './electedMembers';
 import { importKreisOpenData } from './kreisOpenData';
+import { importHtml5OpenData, mapJsonStationsToWahlkreise } from './html5OpenData';
 import { resetElectionData } from './resetElectionData';
+import { hasStatistikBwSource, importStatistikBw } from './statistikBw';
+import { updateWahlbezirkAggregates, type PostalCatchments } from './wahlbezirkAggregates';
 
+import districts20190526 from './stuttgart-districts/2019-05-26.json';
 import districts20210926 from './stuttgart-districts/2021-09-26.json';
 import districts20240609 from './stuttgart-districts/2024-06-09.json';
 import districts20250223 from './stuttgart-districts/2025-02-23.json';
@@ -21,12 +25,19 @@ import voteDistricts20210314 from './vote-districts/2021-03-14.json';
 import voteDistricts20210926 from './vote-districts/2021-09-26.json';
 import voteDistricts20250223 from './vote-districts/2025-02-23.json';
 
+import postal20260308 from './wahlbezirk-postal/2026-03-08.json';
+
 type Db = typeof DbType;
 
 const STUTTGART_DISTRICTS: Record<string, StuttgartDistrictRow[]> = {
+	'2019-05-26': districts20190526 as StuttgartDistrictRow[],
 	'2021-09-26': districts20210926 as StuttgartDistrictRow[],
 	'2024-06-09': districts20240609 as StuttgartDistrictRow[],
-	'2025-02-23': districts20250223 as StuttgartDistrictRow[]
+	'2025-02-23': districts20250223 as StuttgartDistrictRow[],
+	// Same Wahlbezirke as those dates (see STUTTGART_BEZIRKE_SAME_AS). The Landtag Wahlkreis of each
+	// Bezirk comes from the html5 import instead (LWKNUM_T is empty there).
+	'2021-03-14': districts20210926 as StuttgartDistrictRow[],
+	'2016-03-13': districts20190526 as StuttgartDistrictRow[]
 };
 
 // Every non-Stuttgart municipality's Gemeinde -> Wahlkreis assignment (see
@@ -37,6 +48,12 @@ const VOTE_DISTRICT_DATA: Record<string, VoteDistrictRow[]> = {
 	'2021-03-14': voteDistricts20210314 as VoteDistrictRow[],
 	'2021-09-26': voteDistricts20210926 as VoteDistrictRow[],
 	'2025-02-23': voteDistricts20250223 as VoteDistrictRow[]
+};
+
+// Cities with Wahlbezirk polygons whose Briefwahlbezirke are spread over their Urnenwahlbezirke (see
+// scripts/prepare-wahlbezirke.ts) — from 2026 on, instead of STUTTGART_DISTRICTS.
+const WAHLBEZIRK_POSTAL: Record<string, PostalCatchments> = {
+	'2026-03-08': postal20260308
 };
 
 export interface CrawlParams {
@@ -59,21 +76,51 @@ export interface CrawlParams {
 // Fixed step count for progress reporting — the Stuttgart-mapping and Wahlkreis-import steps always
 // run (as a no-op log line when there's no data for the date/type), so the total is constant
 // regardless of branch.
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 /**
  * Re-derives everything that depends on the party-family mapping for an already-crawled election —
- * the mapping itself, the region/district aggregates and Stuttgart's polling-station aggregates —
- * without re-fetching anything. Run after changing the families (party-families.csv) or the
+ * the central-count placeholder cleanup (see neutralizeCentralCountPlaceholders), the mapping
+ * itself, the region/district aggregates and Stuttgart's polling-station aggregates — without
+ * re-fetching anything. Run after changing the families (party-families.csv) or the
  * matching rules in partyFamily.ts; see scripts/remap-parties.ts. (Seat counts need nothing: they're
  * resolved through the mapping at query time.)
  */
 export async function remapPartyFamilies(db: Db, params: CrawlParams, log: Logger) {
+	await neutralizeCentralCountPlaceholders(db, params.date, params.electionTypeId, log);
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
 	const districtRows = STUTTGART_DISTRICTS[params.date];
 	if (districtRows)
 		await updateMappingStuttgart(db, districtRows, params.date, params.electionTypeId, log);
+	const postal = WAHLBEZIRK_POSTAL[params.date];
+	if (postal) await updateWahlbezirkAggregates(db, postal, params.date, params.electionTypeId, log);
+}
+
+/** A Landtagswahl imported from the Statistisches Landesamt (see statistikBw.ts): none of the komm.one
+ * steps apply, and the Wahlkreis of every Wahlbezirk comes with the import. */
+async function runStatistikBwCrawl(db: Db, params: CrawlParams, log: Logger) {
+	const steps = [
+		'Landtagswahl vom Statistischen Landesamt importieren',
+		'Parteifamilien zuordnen',
+		'Aggregate berechnen'
+	];
+	const postal = WAHLBEZIRK_POSTAL[params.date];
+	if (postal) steps.push('Wahlbezirke mit anteiliger Briefwahl berechnen');
+	const stepTick = (i: number) =>
+		log(steps[i], { level: 'step', index: i + 1, total: steps.length, label: steps[i] });
+
+	stepTick(0);
+	await importStatistikBw(db, params.date, log);
+	stepTick(1);
+	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
+	stepTick(2);
+	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
+	if (postal) {
+		stepTick(3);
+		await updateWahlbezirkAggregates(db, postal, params.date, params.electionTypeId, log);
+	}
+	log('Crawl abgeschlossen');
 }
 
 export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
@@ -96,6 +143,8 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	if (params.fullRun) {
 		await resetElectionData(db, params.date, params.electionTypeId, log);
 	}
+	if (hasStatistikBwSource(params.date, params.electionTypeId))
+		return runStatistikBwCrawl(db, params, log);
 
 	stepTick('Wahltermine aktualisieren');
 	await updateElectionDates(db, cityList, log, params.date, parallel);
@@ -116,17 +165,11 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 
 	stepTick('Ergebnisse abrufen');
 	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log, parallel);
-
-	stepTick('Fehlende Gemeinden aus Kreis-Open-Data ergänzen');
-	// After the per-city steps, which would otherwise look these Gemeinden up on komm.one in vain.
-	await importKreisOpenData(db, cityList, params.date, log);
-	await setElectionType(db, log);
-
-	stepTick('Parteifamilien zuordnen');
-	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
+	await neutralizeCentralCountPlaceholders(db, params.date, params.electionTypeId, log);
 
 	stepTick('Wahlkreis-Gemeinden-Zuordnung importieren');
-	// Must run before `updateAggregateParty` (which computes the Wahlkreis-grain aggregates from
+	// Must run before the html5 import (which splits Gemeinden spanning several Wahlkreise by it) and
+	// `updateAggregateParty` (which computes the Wahlkreis-grain aggregates from
 	// `election_vote_district_mapping` for Bundestags-/Landtagswahlen) — every other election type has
 	// no Wahlkreis concept at all.
 	if (params.electionTypeId === 2 || params.electionTypeId === 3) {
@@ -140,6 +183,21 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	} else {
 		log('Kein Wahlkreis-Konzept für diese Wahlart, überspringe Zuordnung');
 	}
+
+	stepTick('Fehlende Gemeinden aus html5-Export ergänzen');
+	// Gemeinden that published this Wahltermin only as votemanager's static html5 export (no JSON API)
+	// — Landtagswahl 2016/2021 almost everywhere. Before the Kreis import, which would otherwise fill
+	// them with one whole-Gemeinde row instead of their polling stations.
+	await importHtml5OpenData(db, cityList, params.date, params.electionTypeId, log, parallel);
+	await mapJsonStationsToWahlkreise(db, cityList, params.date, params.electionTypeId, log);
+
+	stepTick('Fehlende Gemeinden aus Kreis-Open-Data ergänzen');
+	// After the per-city steps, which would otherwise look these Gemeinden up on komm.one in vain.
+	await importKreisOpenData(db, cityList, params.date, log);
+	await setElectionType(db, log);
+
+	stepTick('Parteifamilien zuordnen');
+	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 
 	stepTick('Aggregate berechnen');
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);

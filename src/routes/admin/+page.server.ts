@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { crawlRun, electionType, elections, cities, electionResult } from '$lib/server/db/schema';
 import { maxParallelism } from '$lib/server/crawl-runner';
+import { statistikBwDates } from '$lib/server/scraper/statistikBw';
 
 /**
  * Bürgermeisterwahl (7) and Bürgerentscheid (9) each happen on whatever date one specific municipality
@@ -27,8 +28,8 @@ export interface DateOption {
 	 * for a single municipality) instead of presenting it like an ordinary statewide date. */
 	cityNames: string[];
 	/** How many of those `cityCount` municipalities already have results in `election_result` — shown
-	 * in the dropdown so incomplete crawls stand out. */
-	withData: number;
+	 * in the dropdown so incomplete crawls stand out; null for a date nothing has been crawled for yet. */
+	withData: number | null;
 }
 
 /**
@@ -96,6 +97,10 @@ export const load: PageServerLoad = async () => {
 		list[i].cityCount += 1;
 		list[i].cityNames.push(row.name ?? String(row.rs));
 	}
+	// Landtagswahlen imported from the Statistisches Landesamt appear nowhere until their first crawl.
+	for (const [date, type] of statistikBwDates())
+		if (!dateIndexByType.get(type)?.has(date))
+			(typesToDates[type] ??= []).push({ date, cityCount: 0, cityNames: [], withData: null });
 	for (const list of Object.values(typesToDates)) {
 		list.sort((a, b) => b.date.localeCompare(a.date));
 		for (const d of list) {

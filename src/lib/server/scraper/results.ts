@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import {
 	elections,
@@ -265,7 +265,10 @@ export async function getResultsCity(
 					and(
 						eq(elections.rs, city.rs),
 						eq(elections.date, date),
-						eq(elections.electionType, electionTypeId)
+						eq(elections.electionType, electionTypeId),
+						// No result_id: not from the JSON API but the html5/Kreis open-data imports, whose
+						// data the JSON endpoints lack or only partly have (no postal districts).
+						isNotNull(elections.resultId)
 					)
 				);
 
@@ -455,4 +458,39 @@ export async function getResultsCity(
 		},
 		(slot) => log('', { level: 'station', index: 0, total: 0, label: '', slot, closed: true })
 	);
+}
+
+/**
+ * Some Gemeinden count their Gemeinderat ballots centrally: one station carries the whole Gemeinde's
+ * result, and every other station only reports its turnout, with 0 valid ballots and all voters
+ * listed as invalid (e.g. Dettingen an der Erms 2019). Summed as-is, those placeholders double-count
+ * Wahlberechtigte/Wähler and inflate the invalid share, so their counts are zeroed here. The rows
+ * themselves stay, since the "already complete" checks in getResultsCity compare row counts.
+ *
+ * `voters >= 10` keeps genuine tiny stations (a postal district with one invalid ballot) untouched —
+ * a real station where every one of 10+ ballots is invalid doesn't happen.
+ */
+export async function neutralizeCentralCountPlaceholders(
+	db: Db,
+	date: string,
+	electionTypeId: number,
+	log: Logger
+) {
+	const updated = await db.execute(sql`
+		UPDATE ${electionResultPs} p
+		SET votes_eligible = 0, voters = 0, invalid_ballots = 0, turnout = NULL
+		FROM ${elections} e
+		WHERE e.election_id = p.election_id AND e.rs = p.rs
+			AND e.date = ${date} AND e.election_type = ${electionTypeId}
+			AND coalesce(p.valid_ballots, 0) = 0 AND p.voters >= 10 AND p.invalid_ballots = p.voters
+			AND EXISTS (
+				SELECT 1 FROM ${electionResultPs} s
+				WHERE s.rs = p.rs AND s.election_id = p.election_id
+					AND s.votetype_id = p.votetype_id AND s.valid_ballots > 0
+			)
+		RETURNING p.rs
+	`);
+	if (updated.length) {
+		log(`${updated.length} Platzhalter-Wahlbezirke (zentrale Auszählung) neutralisiert`);
+	}
 }

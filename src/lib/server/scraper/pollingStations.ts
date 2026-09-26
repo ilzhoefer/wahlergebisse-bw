@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import { elections, pollingStations } from '$lib/server/db/schema';
 import {
@@ -174,7 +174,10 @@ export async function getPollingStationsElection(
 					and(
 						eq(elections.rs, city.rs),
 						eq(elections.date, date),
-						eq(elections.electionType, electionTypeId)
+						eq(elections.electionType, electionTypeId),
+						// No result_id: not from the JSON API but the html5/Kreis open-data imports, whose
+						// data the JSON endpoints lack or only partly have (no postal districts).
+						isNotNull(elections.resultId)
 					)
 				);
 

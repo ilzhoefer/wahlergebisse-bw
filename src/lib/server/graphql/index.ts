@@ -11,14 +11,21 @@ import {
 	getGemeindenWithData,
 	possibleMapModes,
 	searchCandidates,
+	getCandidateResults,
 	type CandidateHit,
+	type CandidateResult,
 	type MapMode,
 	type MapInformationMode,
 	type BreakdownGrain,
 	type RegionBreakdown
 } from '$lib/server/map/queries';
 import { memo } from '$lib/server/queryCache';
-import { getWahlkreisMandates, type WahlkreisMandates } from '$lib/server/map/mandates';
+import {
+	getWahlkreisGemeinden,
+	getWahlkreisMandates,
+	getWahlkreisBezirke,
+	type WahlkreisMandates
+} from '$lib/server/map/mandates';
 import { turnoutColorScale, partyColorScale, diffColorScale } from '$lib/map/colors';
 
 /*
@@ -194,14 +201,26 @@ const MandateListRef = schemaBuilder
 		})
 	});
 const WahlkreisMandatesRef = schemaBuilder
-	.objectRef<WahlkreisMandates>('WahlkreisMandates')
+	.objectRef<WahlkreisMandates & { rs: string[]; bezirke: string[] }>('WahlkreisMandates')
 	.implement({
 		fields: (t) => ({
 			districtId: t.exposeString('districtId'),
 			direct: t.field({ type: MandateDirectRef, nullable: true, resolve: (p) => p.direct }),
-			list: t.field({ type: [MandateListRef], resolve: (p) => p.list })
+			list: t.field({ type: [MandateListRef], resolve: (p) => p.list }),
+			/** The Gemeinden (rs) this Wahlkreis covers — String: rs overflows GraphQL's Int. */
+			rs: t.stringList({ resolve: (p) => p.rs }),
+			/** Wahlbezirke in it of Gemeinden spanning several Wahlkreise (keyed as on the map). */
+			bezirke: t.stringList({ resolve: (p) => p.bezirke })
 		})
 	});
+
+const CandidateResultRef = schemaBuilder.objectRef<CandidateResult>('CandidateResult').implement({
+	fields: (t) => ({
+		name: t.exposeString('name'),
+		votes: t.exposeFloat('votes'),
+		elected: t.exposeBoolean('elected')
+	})
+});
 
 const RegionBreakdownRef = schemaBuilder.objectRef<RegionBreakdown>('RegionBreakdown').implement({
 	fields: (t) => ({
@@ -262,11 +281,48 @@ schemaBuilder.queryFields((t) => ({
 	}),
 	// Not memoized on purpose: every keystroke is a new key and would evict map queries from the
 	// FIFO-capped cache (queryCache.ts), while this query itself is cheap (~17k indexed rows).
-	// Static per-election files (see mandates.ts) — nothing to cache.
+	// Static per-election files (see mandates.ts), plus each Wahlkreis's Gemeinden.
 	wahlkreisMandates: t.field({
 		type: [WahlkreisMandatesRef],
-		args: { date: t.arg.string({ required: true }) },
-		resolve: (_root, args) => getWahlkreisMandates(args.date)
+		args: {
+			date: t.arg.string({ required: true }),
+			electionType: t.arg.int({ required: true })
+		},
+		resolve: async (_root, args) => {
+			const [gemeinden, bezirke] = await Promise.all([
+				memo('wahlkreisGemeinden', args, () =>
+					getWahlkreisGemeinden(db, args.electionType, args.date)
+				),
+				memo('wahlkreisBezirke', args, () => getWahlkreisBezirke(db, args.electionType, args.date))
+			]);
+			return getWahlkreisMandates(args.date).map((m) => ({
+				...m,
+				rs: gemeinden.get(m.districtId) ?? [],
+				bezirke: bezirke.get(m.districtId) ?? []
+			}));
+		}
+	}),
+	// One list's candidates in one Gemeinde (or Stuttgart Wahlbezirk) — the panel's party-row
+	// expansion for Gemeinderats-/Kreistagswahl. rs is String: it overflows GraphQL's 32-bit Int.
+	candidateResults: t.field({
+		type: [CandidateResultRef],
+		args: {
+			electionType: t.arg.int({ required: true }),
+			date: t.arg.string({ required: true }),
+			rs: t.arg.string({ required: true }),
+			party: t.arg.string({ required: true }),
+			station: t.arg.string()
+		},
+		resolve: (_root, args) =>
+			memo('candidateResults', args, () =>
+				getCandidateResults(db, {
+					electionType: args.electionType,
+					date: args.date,
+					rs: Number(args.rs),
+					party: args.party,
+					station: args.station ?? undefined
+				})
+			)
 	}),
 	searchCandidates: t.field({
 		type: [CandidateHitRef],
@@ -364,7 +420,7 @@ async function resolveRegionData(args: RegionDataArgs) {
 			'awbezT',
 			mapInformation,
 			filtered,
-			(r) => r.name?.slice(0, 6) ?? null,
+			(r) => r.name?.split(' ')[0] ?? null,
 			selectedParty
 		);
 	}

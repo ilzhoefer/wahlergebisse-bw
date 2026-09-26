@@ -16,6 +16,15 @@ const full = {
 } as const;
 // Round trip.
 assert.deepEqual(readShareParams(new URLSearchParams(writeShareParams(full))), full);
+// A Wahlbezirk outside Stuttgart (komm.one key, since 2026).
+const heidelberg = { wahl: 3, datum: '2026-03-08', gebiet: 82210000000, wb: '08221000-001.01' };
+assert.deepEqual(readShareParams(new URLSearchParams(writeShareParams(heidelberg))), heidelberg);
+// Ebene and a focused region together (the Ebene stays the map's base grain while drilling).
+const ebeneAndGebiet = { wahl: 6, ebene: 'Gemeinde', gebiet: 81275009076 } as const;
+assert.deepEqual(
+	readShareParams(new URLSearchParams(writeShareParams(ebeneAndGebiet))),
+	ebeneAndGebiet
+);
 // Default mode is omitted from the URL.
 assert.equal(writeShareParams({ wahl: 1, modus: 'Stärkste Partei' }), 'wahl=1');
 // Stimmensplitting round trip.

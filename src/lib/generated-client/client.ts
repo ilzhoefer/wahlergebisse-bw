@@ -10,14 +10,6 @@ import { nativeDateExchange } from '@m1212e/rumble/client';
 import { schema } from './schema';
 import { makeLiveQuery, makeMutation, makeSubscription, makeQuery } from '@m1212e/rumble/client';
 
-// MANUAL PATCH (re-add after regenerating via /dev/generate-graphql-client until the schema defines
-// real mutations/subscriptions in Phase 3, or rumble's codegen is fixed to emit these unconditionally):
-// the codegen only emits Mutation/Subscription type aliases when the schema actually defines fields
-// for them — ours doesn't yet, but makeMutation<Mutation>/makeSubscription<Subscription> below still
-// reference the type names unconditionally.
-type Mutation = Record<string, never>;
-type Subscription = Record<string, never>;
-
 export type BigInt = unknown;
 
 export type BigIntWhereInputArgument = {
@@ -61,6 +53,12 @@ export type CandidateHit = {
 	name: String;
 	party: String | null;
 	rs: String;
+};
+
+export type CandidateResult = {
+	elected: Boolean;
+	name: String;
+	votes: Float;
 };
 
 export type DateTime = Date;
@@ -250,8 +248,23 @@ export type PartyOption = {
 	partyFamilyId: Int;
 };
 
+// MANUAL PATCH (re-add after regenerating via /dev/generate-graphql-client until the schema defines
+// real mutations/subscriptions in Phase 3, or rumble's codegen is fixed to emit these unconditionally):
+// the codegen only emits Mutation/Subscription type aliases when the schema actually defines fields
+// for them — ours doesn't yet, but makeMutation<Mutation>/makeSubscription<Subscription> below still
+// reference the type names unconditionally.
+type Mutation = Record<string, never>;
+type Subscription = Record<string, never>;
+
 export type Query = {
 	allElectionDates: () => ElectionDate[];
+	candidateResults: (p: {
+		date: String;
+		electionType: Int;
+		party: String;
+		rs: String;
+		station?: String | null | undefined;
+	}) => CandidateResult[];
 	electionTypes: () => ElectionTypeOption[];
 	eligibleGemeinden: (p: { date: String; electionType: Int }) => EligibleGemeinden;
 	mapModes: (p: { electionType: Int }) => MapModes;
@@ -340,18 +353,18 @@ export type WahlkreisMandates = {
 	list: () => MandateList[];
 };
 
-// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry/RegionBreakdown/
-// RegionBreakdownRow (the map view's query results) are computed view models with no natural id, and
-// the codegen doesn't emit a `keys` config for cacheExchange. Without one, graphcache can't produce a
-// stable cache key for them, warns "Invalid key" on every field, and — combined with
-// requestPolicy: 'cache-and-network' below — treats each keyless re-embed as invalidating the in-flight
-// query, which re-triggers it, which re-embeds, forever: switching map modes in the UI hit Svelte's
-// effect_update_depth_exceeded loop guard because of this. Returning null tells graphcache these types
-// are intentionally unkeyed. CandidateHit (name search results) and the Wahlkreis mandate types are
-// keyless for the same reason.
 export const defaultOptions: ConstructorParameters<Client>[0] = {
 	url: '/graphql',
 	fetchSubscriptions: true,
+	// MANUAL PATCH (re-add after regenerating): RegionData/RegionItem/Legend/LegendEntry/RegionBreakdown/
+	// RegionBreakdownRow (the map view's query results) are computed view models with no natural id, and
+	// the codegen doesn't emit a `keys` config for cacheExchange. Without one, graphcache can't produce a
+	// stable cache key for them, warns "Invalid key" on every field, and — combined with
+	// requestPolicy: 'cache-and-network' below — treats each keyless re-embed as invalidating the in-flight
+	// query, which re-triggers it, which re-embeds, forever: switching map modes in the UI hit Svelte's
+	// effect_update_depth_exceeded loop guard because of this. Returning null tells graphcache these types
+	// are intentionally unkeyed. CandidateHit (name search results) and the Wahlkreis mandate types are
+	// keyless for the same reason, as is CandidateResult (a panel row's candidate list).
 	exchanges: [
 		cacheExchange({
 			schema,
@@ -365,7 +378,8 @@ export const defaultOptions: ConstructorParameters<Client>[0] = {
 				CandidateHit: () => null,
 				WahlkreisMandates: () => null,
 				MandateDirect: () => null,
-				MandateList: () => null
+				MandateList: () => null,
+				CandidateResult: () => null
 			}
 		}),
 		nativeDateExchange,

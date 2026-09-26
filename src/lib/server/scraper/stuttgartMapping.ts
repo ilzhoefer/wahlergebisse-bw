@@ -20,7 +20,9 @@ const STUTTGART_RS = 81110000000;
 
 export interface StuttgartDistrictRow {
 	AWBEZ_T: string;
-	BWBEZ_T: string;
+	/** null when no urn→postal assignment is known (2019: postal districts weren't 1:1 with urn ones,
+	 * and the city never published which belonged to which) — that Bezirk then gets urn votes only. */
+	BWBEZ_T: string | null;
 	/** Numeric district ID, but stored as a string in the source GeoJSON's property table. */
 	BWKNUM_T: string | null;
 	LWKNUM_T: string | null;
@@ -150,7 +152,11 @@ export async function updateMappingStuttgart(
 		);
 
 	for (const row of districtRows) {
-		const postalStation = stuttgartStations.find((s) => s.name?.startsWith(row.BWBEZ_T));
+		const postalPrefix = row.BWBEZ_T;
+		const postalStation =
+			postalPrefix === null
+				? undefined
+				: stuttgartStations.find((s) => s.name?.startsWith(postalPrefix));
 		const inPersonStation = stuttgartStations.find((s) => s.name?.startsWith(row.AWBEZ_T));
 		const psIdPostal = postalStation?.psId ?? null;
 		const psId = inPersonStation?.psId ?? null;

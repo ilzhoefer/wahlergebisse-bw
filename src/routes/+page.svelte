@@ -18,7 +18,12 @@
 	import ModeBadge from '$lib/components/map/ModeBadge.svelte';
 	import StatusLine from '$lib/components/map/StatusLine.svelte';
 	import '$lib/components/map/theme.css';
-	import { GEO_URL, stuttgartBezirkeUrl } from '$lib/map/geoUrls';
+	import {
+		GEO_URL,
+		wahlbezirkeUrl,
+		wahlbezirkGemeinden,
+		wahlbezirkPostalEstimated
+	} from '$lib/map/geoUrls';
 	import {
 		readShareParams,
 		writeShareParams,
@@ -80,6 +85,10 @@
 		selectedElectionType === 2 || (selectedElectionType === 3 && selectedDate >= '2026')
 	);
 	let selectedVoteType = $state<'0' | '1'>(shared.stimme ?? '0');
+	// Single-vote Landtagswahl (2021 and earlier): its one vote is stored as votetype 0.
+	$effect(() => {
+		if (!hasTwoVotes) selectedVoteType = '0';
+	});
 	let selectedVisualMode = $state<VisualMode>(shared.modus ?? 'Stärkste Partei');
 	const splitting = $derived(selectedVisualMode === 'Stimmensplitting');
 	const changing = $derived(selectedVisualMode === 'Veränderung');
@@ -135,7 +144,7 @@
 	);
 	const stimmeTabs = $derived<Tab[] | null>(
 		// Stimmensplitting compares both votes, so there's no single Stimme to pick.
-		isBundestagOrLandtag && !splitting
+		hasTwoVotes && !splitting
 			? [
 					{
 						key: 'e',
@@ -278,6 +287,7 @@
 	// Kreistagswahl of their own — used by the hover card below to explain that explicitly rather than
 	// just showing no data.
 	const KREISTAGSWAHL_TYPE = 5;
+	const GEMEINDERATSWAHL_TYPE = 6;
 	/** Gemeinden with data for the selected election — fetched for every election (the panel's
 	 * missing-results note needs it), but only *filters the map* for Regionalwahl. */
 	let gemeindenWithData = $state<Set<number> | null>(null);
@@ -324,7 +334,20 @@
 	/** The region the left panel currently shows stats for — independent of `expanded` above (a leaf
 	 * click, e.g. a Gemeinde with no children of its own, focuses it without expanding anything). */
 	let focused = $state<PathEntry>(LAND_ROOT);
-	const leaf = $derived(!hasChildren(focused.level, focused.rs));
+	/** The Gemeinden that open into their Wahlbezirke — only where we have their boundaries. */
+	const bezirkGemeinden = $derived(wahlbezirkGemeinden(selectedDate));
+	const hasKids = (level: MapLevel, rs: number | null) => hasChildren(level, rs, bezirkGemeinden);
+	const leaf = $derived(!hasKids(focused.level, focused.rs));
+	// Switching to an election without a Gemeinde's Wahlbezirke: it becomes a plain Gemeinde again.
+	$effect(() => {
+		const cities = bezirkGemeinden;
+		untrack(() => {
+			const stale = (n: PathEntry) => n.level === 'Gemeinde' && n.rs !== null && !cities.has(n.rs);
+			const parent = expanded.find((n) => stale(n) && n.rs === focused.rs);
+			if (focused.level === 'Wahlbezirk' && parent) focused = parent;
+			if (expanded.some(stale)) expanded = expanded.filter((n) => !stale(n));
+		});
+	});
 
 	function parentLevelOf(level: MapLevel): MapLevel {
 		switch (level) {
@@ -390,17 +413,28 @@
 		focusedChain.length > 1 ? focusedChain[focusedChain.length - 2] : null
 	);
 
-	/** Set by the toolbar's Ebene select to jump straight to a resolution from the Land root — e.g.
-	 * picking "Gemeinde" shows every Gemeinde state-wide instead of requiring three clicks to get
-	 * there. Ignores `expanded` entirely until the user actually clicks a region (see
-	 * `handleFeatureClick`), at which point normal hierarchical drilling resumes from that click. */
-	let flatLevelOverride = $state<MapLevel | null>(
-		shared.ebene && shared.ebene !== 'Wahlkreis' && !shared.gebiet ? shared.ebene : null
+	/** The toolbar's Ebene: the coarsest grain the map ever shows. The mosaic (see the
+	 * geometry-loading effect) starts with every region at this grain — "Gemeinde" shows every
+	 * Gemeinde state-wide, never a whole Kreis or Regierungsbezirk — and clicks only drill further
+	 * down from there, so the Ebene stays true however far the user drills. */
+	let baseLevel = $state<MapLevel>(
+		shared.ebene && shared.ebene !== 'Wahlkreis' ? shared.ebene : 'Regierungsbezirk'
 	);
+	const LEVEL_DEPTH: Record<MapLevel, number> = {
+		Land: 0,
+		Regierungsbezirk: 1,
+		Kreis: 2,
+		Gemeinde: 3,
+		Wahlbezirk: 4
+	};
 	// Never 'Land' — Land always has children, so this is always one of the four levels below it.
-	const displayLevel = $derived(
-		(flatLevelOverride ?? (leaf ? focused.level : childLevel(focused.level)!)) as MapLevel
-	);
+	// Focused on a region coarser than the Ebene (e.g. a Regierungsbezirk breadcrumb while on
+	// "Gemeinde"), its children are still drawn at the Ebene's grain.
+	const displayLevel = $derived.by((): MapLevel => {
+		if (leaf) return focused.level;
+		const child = childLevel(focused.level)!;
+		return LEVEL_DEPTH[child] >= LEVEL_DEPTH[baseLevel] ? child : baseLevel;
+	});
 
 	/** A click always affects only the region clicked: it focuses it and — if it has children — adds
 	 * it to `expanded`, never touching any other region's expansion (see the mosaic built in the
@@ -408,12 +442,12 @@
 	 * mosaic was built), which is what makes this work for *any* currently-rendered region, not just
 	 * the current focus's own children — clicking a still-whole sibling Regierungsbezirk expands
 	 * *that* one directly, alongside whatever was already expanded. */
-	/** Computes whatever RB/Kreis ancestors of `entry` are missing from `expanded` — needed only right
-	 * after a click resumes hierarchical drilling from a flat Ebene-select jump (see
-	 * `handleFeatureClick`'s `wasFlatOverride`), since that jump wipes `expanded` to `[]` (onEbeneChange)
-	 * instead of building it up one click at a time. Deliberately read-only (returns the entries to add
+	/** Computes whatever RB/Kreis ancestors of `entry` are missing from `expanded` — needed when the
+	 * Ebene is finer than Regierungsbezirk: the mosaic then starts with (say) every Gemeinde already
+	 * shown, so a click on one never went through its Kreis/Regierungsbezirk first, yet the breadcrumb
+	 * (see `ancestorChain`) is built from `expanded`. Deliberately read-only (returns the entries to add
 	 * instead of writing `expanded` itself): `handleFeatureClick` awaits this *before* touching any
-	 * reactive state, so `flatLevelOverride`/`focused`/`expanded` all land in one atomic update once this
+	 * reactive state, so `focused`/`expanded` both land in one atomic update once this
 	 * resolves — see that function's own comment for why a two-step update breaks the map. Under normal
 	 * step-by-step drilling this always returns `[]`, since every ancestor is already in `expanded` by
 	 * construction (see the module doc above). */
@@ -443,14 +477,10 @@
 	}
 
 	/** Resolving `missingAncestors` needs an `await` (it may have to fetch Kreis geometry that was never
-	 * loaded — the flat override only ever loads one single grain's geojson), so `handleFeatureClick`
-	 * itself is async and awaits it *before* writing `flatLevelOverride`/`focused`/`expanded` — all three
-	 * are then set together in one synchronous block. Setting `flatLevelOverride = null` first (as a
-	 * naive version of this did) lets the mosaic-building effect observe that alongside the *old*,
-	 * still-empty `expanded` for one reactive tick: it rebuilds `displayGeojson` down to just the four
-	 * whole Regierungsbezirke, `scopedGeojson` (fit bounds) comes up empty for the just-focused leaf
-	 * Gemeinde since it isn't in that stale mosaic at all, and MapLibre's camera fits to a degenerate
-	 * empty bbox — a broken view that the *next* tick's correct mosaic never recovers from. */
+	 * loaded), so `handleFeatureClick` itself is async and awaits it *before* writing `focused`/
+	 * `expanded` — both are then set together in one synchronous block, so the mosaic-building effect
+	 * and `scopedGeojson` (fit bounds) never see a focus whose ancestors aren't expanded yet (MapLibre's
+	 * camera would fit to a degenerate empty bbox and never recover). */
 	async function handleFeatureClick(properties: Record<string, unknown>) {
 		if (wahlkreisActive) {
 			selectedWahlkreis = {
@@ -459,12 +489,8 @@
 			};
 			return;
 		}
-		const wasFlatOverride = flatLevelOverride !== null;
 		const grain = properties.__grain as MapLevel | undefined;
-		if (!grain) {
-			flatLevelOverride = null;
-			return;
-		}
+		if (!grain) return;
 
 		// A kreisfreie Stadt's Kreis and its single Gemeinde are the exact same polygon — skip straight
 		// to Gemeinde level on a Kreis-grain click instead of requiring a second, visually no-op click to
@@ -479,14 +505,10 @@
 			if (!expanded.some((n) => n.level === 'Kreis' && n.rs === rs)) {
 				toAdd.push({ level: 'Kreis', rs, name });
 			}
-			if (
-				hasChildren('Gemeinde', rs) &&
-				!expanded.some((n) => n.level === 'Gemeinde' && n.rs === rs)
-			) {
+			if (hasKids('Gemeinde', rs) && !expanded.some((n) => n.level === 'Gemeinde' && n.rs === rs)) {
 				toAdd.push(gemeindeEntry);
 			}
-			const ancestors = wasFlatOverride ? await missingAncestors({ level: 'Kreis', rs, name }) : [];
-			flatLevelOverride = null;
+			const ancestors = await missingAncestors({ level: 'Kreis', rs, name });
 			focused = gemeindeEntry;
 			if (ancestors.length > 0 || toAdd.length > 0)
 				expanded = [...expanded, ...ancestors, ...toAdd];
@@ -498,18 +520,17 @@
 			grain === 'Wahlbezirk'
 				? {
 						level: 'Wahlbezirk',
-						rs: STUTTGART_RS,
+						rs: Number(properties.gemeinde ?? STUTTGART_RS),
 						stationKey: String(properties.AWBEZ_T ?? ''),
 						name: String(properties.name ?? '')
 					}
 				: { level: grain, rs: Number(properties.rs), name: String(properties.name ?? '') };
 		const toAdd: PathEntry[] =
-			hasChildren(entry.level, entry.rs) &&
+			hasKids(entry.level, entry.rs) &&
 			!expanded.some((n) => n.level === entry.level && n.rs === entry.rs)
 				? [entry]
 				: [];
-		const ancestors = wasFlatOverride ? await missingAncestors(entry) : [];
-		flatLevelOverride = null;
+		const ancestors = await missingAncestors(entry);
 		focused = entry;
 		if (ancestors.length > 0 || toAdd.length > 0) expanded = [...expanded, ...ancestors, ...toAdd];
 		hoveredProps = undefined;
@@ -553,7 +574,7 @@
 		focused = LAND_ROOT;
 		wahlkreisActive = false;
 		selectedWahlkreis = null;
-		flatLevelOverride = null;
+		baseLevel = 'Regierungsbezirk';
 		hoveredProps = undefined;
 	}
 
@@ -567,7 +588,6 @@
 			// The left panel keeps showing the rs-hierarchy scope until a Wahlkreis is clicked (see
 			// `selectedWahlkreis`) — Wahlkreis only swaps the map's geometry/colouring, not the drill state (`expanded`/`focused`
 			// are left untouched, matching the previous standalone toggle's behaviour).
-			flatLevelOverride = null;
 			wahlkreisActive = true;
 			hoveredProps = undefined;
 			return;
@@ -575,7 +595,7 @@
 		if (value !== 'Regierungsbezirk' && value !== 'Kreis' && value !== 'Gemeinde') return;
 		expanded = [];
 		focused = LAND_ROOT;
-		flatLevelOverride = value;
+		baseLevel = value;
 		wahlkreisActive = false;
 		hoveredProps = undefined;
 	}
@@ -610,7 +630,7 @@
 	}
 
 	/** Drills the map to `rs` (a Regierungsbezirk, Kreis or Gemeinde) exactly like clicking down to it
-	 * — optionally on to one Stuttgart Wahlbezirk (`wb` = AWBEZ_T). Used by the shared-link restore and
+	 * — optionally on to one of its Wahlbezirke (`wb` = AWBEZ_T). Used by the shared-link restore and
 	 * the search box. */
 	async function focusRs(rs: number, wb?: string) {
 		const level = levelOfRs(rs);
@@ -637,12 +657,12 @@
 		if (level === 'Gemeinde' && !add('Gemeinde', rs, nameIn(gemeindeGeo, rs))) return;
 
 		let focus = chain[chain.length - 1];
-		const wbUrl = wb && rs === STUTTGART_RS ? stuttgartBezirkeUrl(selectedDate) : null;
+		const wbUrl = wb && bezirkGemeinden.has(rs) ? wahlbezirkeUrl(selectedDate) : null;
 		if (wbUrl) {
 			const f = (await loadGeo(wbUrl)).features.find((f) => f.properties?.AWBEZ_T === wb);
 			if (f) {
 				const name = String(f.properties?.name ?? '');
-				focus = { level: 'Wahlbezirk', rs: STUTTGART_RS, stationKey: wb, name };
+				focus = { level: 'Wahlbezirk', rs, stationKey: wb, name };
 			}
 		}
 		// A place lives in the rs hierarchy, so leave the Wahlkreis view (a no-op on URL restore, which
@@ -650,8 +670,7 @@
 		wahlkreisActive = false;
 		selectedWahlkreis = null;
 		hoveredProps = undefined;
-		flatLevelOverride = null;
-		expanded = chain.filter((e) => hasChildren(e.level, e.rs));
+		expanded = chain.filter((e) => hasKids(e.level, e.rs));
 		focused = focus;
 	}
 
@@ -746,16 +765,17 @@
 		const qs = writeShareParams({
 			wahl: selectedElectionType || undefined,
 			datum: selectedDate || undefined,
-			stimme: isBundestagOrLandtag && !splitting ? selectedVoteType : undefined,
+			stimme: hasTwoVotes && !splitting ? selectedVoteType : undefined,
 			modus: selectedVisualMode,
 			vergleich: changing ? selectedCompareDate || undefined : undefined,
 			werte: absoluteValues ? 'absolut' : undefined,
 			partei: usesParty ? selectedParty || undefined : undefined,
 			ebene: wahlkreisActive
 				? 'Wahlkreis'
-				: ((flatLevelOverride as ShareEbene | null) ?? undefined),
-			gebiet:
-				!wahlkreisActive && !flatLevelOverride && focused.rs !== null ? focused.rs : undefined,
+				: baseLevel !== 'Regierungsbezirk'
+					? (baseLevel as ShareEbene)
+					: undefined,
+			gebiet: !wahlkreisActive && focused.rs !== null ? focused.rs : undefined,
 			wb: !wahlkreisActive && focused.level === 'Wahlbezirk' ? focused.stationKey : undefined,
 			wk: panelWk?.ref
 		});
@@ -796,29 +816,15 @@
 		}
 	}
 	// Only Regierungsbezirk/Kreis/Gemeinde are offered as hierarchical jump targets — Wahlbezirk data
-	// only exists for Stuttgart (see rs.ts), so a state-wide "show every Wahlbezirk" view wouldn't be
-	// coherent (reached normally, by drilling into Stuttgart specifically, the select just shows nothing
-	// matching). Wahlkreis is appended as a further option, only for Bundestags-/Landtagswahl.
+	// only exists for a few cities (see wahlbezirkGemeinden), so a state-wide "show every Wahlbezirk"
+	// view wouldn't be coherent (reached normally, by drilling into one of them, the select just shows
+	// nothing matching). Wahlkreis is appended as a further option, only for Bundestags-/Landtagswahl.
 	const ebeneOptions = $derived<SelectOption[]>([
 		...EBENE_LEVELS.map((lvl) => ({ value: lvl, label: levelSingular(lvl) })),
 		...(isBundestagOrLandtag ? [{ value: 'Wahlkreis', label: m.map_mode_wahlkreis() }] : [])
 	]);
-	// This tracks what's *selected* (the panel's own level — Land maps to Regierungsbezirk, its natural
-	// entry point) rather than what's *displayed as children* on the map (`displayLevel`, always one
-	// level deeper): clicking into a Regierungsbezirk shows its Kreise on the map, exactly as before,
-	// but the Ebene control should keep reading "Regierungsbezirk" to match the panel, not jump ahead
-	// to "Kreis" just because that's what the map is currently rendering.
-	const selectedEbeneValue = $derived(
-		wahlkreisActive
-			? 'Wahlkreis'
-			: flatLevelOverride
-				? flatLevelOverride
-				: focused.level === 'Land'
-					? 'Regierungsbezirk'
-					: focused.level === 'Wahlbezirk'
-						? ''
-						: focused.level
-	);
+	// The Ebene is the coarsest grain on the map (see `baseLevel`), not the focused region's level.
+	const selectedEbeneValue = $derived(wahlkreisActive ? 'Wahlkreis' : baseLevel);
 
 	// ---- Geometry loading ----------------------------------------------------------------------
 
@@ -835,6 +841,9 @@
 	/** Tags a feature with which grain it came from — a clicked feature's `__grain` property is what
 	 * lets `handleFeatureClick` above resolve a click on *any* rendered region, not just the current
 	 * scope's own children (see the mosaic built below). */
+	/** The Gemeinde a Wahlbezirk feature belongs to (Stuttgart's own files carry none). */
+	const gemeindeOf = (f: Feature) => Number(f.properties?.gemeinde ?? STUTTGART_RS);
+
 	function tagGrain(f: Feature, grain: MapLevel): Feature {
 		return { ...f, properties: { ...f.properties, __grain: grain } };
 	}
@@ -854,9 +863,10 @@
 		const wk = wahlkreisActive;
 		const et = selectedElectionType;
 		const date = selectedDate;
-		const override = flatLevelOverride;
+		const base = baseLevel;
 		const exp = expanded;
 		const elig = eligibleGemeindeRs;
+		const bezirkCities = bezirkGemeinden;
 
 		if (wk) {
 			const url = et === 3 ? GEO_URL.wahlkreisLandtag : GEO_URL.wahlkreisBundestag;
@@ -868,84 +878,73 @@
 			return;
 		}
 
-		if (override) {
-			// Ebene-select jump ("show every Kreis/Gemeinde from the start"): a flat, unscoped view —
-			// `expanded` is cleared and ignored while this is active (see onEbeneChange).
-			const url =
-				override === 'Regierungsbezirk'
-					? GEO_URL.regierungsbezirk
-					: override === 'Kreis'
-						? GEO_URL.kreis
-						: GEO_URL.gemeinde;
-			loadGeo(url).then((geo) => {
-				const features = geo.features
-					// Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
-					.filter(
-						(f) => override !== 'Gemeinde' || elig === null || elig.has(Number(f.properties?.rs))
-					)
-					.map((f) => tagGrain(f, override));
-				displayGeojson = { type: 'FeatureCollection', features };
-				keyProperty = 'rs';
-				sourceKey = `${override}:flat`;
-			});
-			return;
-		}
-
 		const rbExpansions = exp.filter((n) => n.level === 'Regierungsbezirk');
 		const kreisExpansions = exp.filter((n) => n.level === 'Kreis');
-		const stuttgartExpanded = exp.some((n) => n.level === 'Gemeinde' && n.rs === STUTTGART_RS);
+		// Gemeinden drilled into their Wahlbezirke.
+		const bezirkExpanded = new Set(
+			exp.flatMap((n) =>
+				n.level === 'Gemeinde' && n.rs !== null && bezirkCities.has(n.rs) ? [n.rs] : []
+			)
+		);
+		const wbUrl = bezirkExpanded.size > 0 ? wahlbezirkeUrl(date) : null;
+
+		// Which grains appear at all: everything at `base`, plus the children of expanded regions.
+		const showKreise = base === 'Kreis' || (base === 'Regierungsbezirk' && rbExpansions.length > 0);
+		const showGemeinden = base === 'Gemeinde' || (showKreise && kreisExpansions.length > 0);
 
 		Promise.all([
-			loadGeo(GEO_URL.regierungsbezirk),
-			rbExpansions.length > 0 ? loadGeo(GEO_URL.kreis) : null,
-			kreisExpansions.length > 0 ? loadGeo(GEO_URL.gemeinde) : null,
-			stuttgartExpanded && stuttgartBezirkeUrl(date) ? loadGeo(stuttgartBezirkeUrl(date)!) : null
+			base === 'Regierungsbezirk' ? loadGeo(GEO_URL.regierungsbezirk) : null,
+			showKreise ? loadGeo(GEO_URL.kreis) : null,
+			showGemeinden ? loadGeo(GEO_URL.gemeinde) : null,
+			wbUrl ? loadGeo(wbUrl) : null
 		]).then(([rbGeo, kreisGeo, gemeindeGeo, wbGeo]) => {
 			const combined: Feature[] = [];
 
-			const expandedRbRs = new Set(rbExpansions.map((n) => n.rs));
-			combined.push(
-				...rbGeo.features
-					.filter((f) => !expandedRbRs.has(Number(f.properties?.rs)))
-					.map((f) => tagGrain(f, 'Regierungsbezirk'))
-			);
+			const expandedRbPrefixes = new Set(rbExpansions.map((n) => rsPrefix(n.rs!, 2)));
+			const expandedKreisPrefixes = new Set(kreisExpansions.map((n) => rsPrefix(n.rs!, 4)));
+
+			if (rbGeo) {
+				combined.push(
+					...rbGeo.features
+						.filter((f) => !expandedRbPrefixes.has(rsPrefix(Number(f.properties?.rs), 2)))
+						.map((f) => tagGrain(f, 'Regierungsbezirk'))
+				);
+			}
 
 			if (kreisGeo) {
-				const expandedKreisRs = new Set(kreisExpansions.map((n) => n.rs));
-				for (const rb of rbExpansions) {
-					const prefix = rsPrefix(rb.rs!, 2);
-					combined.push(
-						...kreisGeo.features
-							.filter(
-								(f) =>
-									rsPrefix(Number(f.properties?.rs), 2) === prefix &&
-									!expandedKreisRs.has(Number(f.properties?.rs))
-							)
-							.map((f) => tagGrain(f, 'Kreis'))
-					);
-				}
+				combined.push(
+					...kreisGeo.features
+						.filter((f) => {
+							const rs = Number(f.properties?.rs);
+							return (
+								(base === 'Kreis' || expandedRbPrefixes.has(rsPrefix(rs, 2))) &&
+								!expandedKreisPrefixes.has(rsPrefix(rs, 4))
+							);
+						})
+						.map((f) => tagGrain(f, 'Kreis'))
+				);
 			}
 
 			if (gemeindeGeo) {
-				for (const kreis of kreisExpansions) {
-					const prefix = rsPrefix(kreis.rs!, 4);
-					combined.push(
-						...gemeindeGeo.features
-							.filter(
-								(f) =>
-									rsPrefix(Number(f.properties?.rs), 4) === prefix &&
-									!(stuttgartExpanded && Number(f.properties?.rs) === STUTTGART_RS) &&
-									// Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
-									(elig === null || elig.has(Number(f.properties?.rs)))
-							)
-							.map((f) => tagGrain(f, 'Gemeinde'))
-					);
-				}
+				combined.push(
+					...gemeindeGeo.features
+						.filter((f) => {
+							const rs = Number(f.properties?.rs);
+							return (
+								(base === 'Gemeinde' || expandedKreisPrefixes.has(rsPrefix(rs, 4))) &&
+								!bezirkExpanded.has(rs) &&
+								// Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
+								(elig === null || elig.has(rs))
+							);
+						})
+						.map((f) => tagGrain(f, 'Gemeinde'))
+				);
 			}
 
 			if (wbGeo) {
 				combined.push(
 					...wbGeo.features
+						.filter((f) => bezirkExpanded.has(gemeindeOf(f)))
 						.map((f) => tagGrain(f, 'Wahlbezirk'))
 						// Synthetic `rs`, so Wahlbezirk features can share the same rs-keyed source as
 						// everything else instead of needing MapView to juggle a second keyProperty.
@@ -954,8 +953,12 @@
 							properties: {
 								...f.properties,
 								rs: String(f.properties?.AWBEZ_T ?? ''),
-								// Map label only: many Bezirke share a Stadtbezirk name (e.g. "Möhringen").
-								label: `${f.properties?.name ?? ''} ${f.properties?.AWBEZ_T ?? ''}`
+								// Map label only: in Stuttgart's own files many Bezirke share a Stadtbezirk
+								// name (e.g. "Möhringen"); komm.one's names already start with the number.
+								label:
+									f.properties?.gemeinde === undefined
+										? `${f.properties?.name ?? ''} ${f.properties?.AWBEZ_T ?? ''}`
+										: String(f.properties?.name ?? '')
 							}
 						}))
 				);
@@ -963,7 +966,7 @@
 
 			displayGeojson = { type: 'FeatureCollection', features: combined };
 			keyProperty = 'rs';
-			sourceKey = `mosaic:${exp.map((n) => `${n.level}${n.rs}`).join(',')}`;
+			sourceKey = `mosaic:${base}:${exp.map((n) => `${n.level}${n.rs}`).join(',')}`;
 		});
 	});
 
@@ -973,16 +976,8 @@
 	 * region count; labels use the full mosaic instead (see the MapView props below) since multiple
 	 * branches can be expanded at once now. */
 	const scopedGeojson = $derived.by((): FeatureCollection => {
-		if (wahlkreisActive || flatLevelOverride) return displayGeojson;
-		if (focused.level === 'Land') {
-			return {
-				type: 'FeatureCollection',
-				features: displayGeojson.features.filter(
-					(f) => f.properties?.__grain === 'Regierungsbezirk'
-				)
-			};
-		}
-		if (!hasChildren(focused.level, focused.rs)) {
+		if (wahlkreisActive || focused.level === 'Land') return displayGeojson;
+		if (!hasKids(focused.level, focused.rs)) {
 			if (focused.level === 'Wahlbezirk') {
 				return {
 					type: 'FeatureCollection',
@@ -1000,13 +995,15 @@
 			};
 		}
 		if (focused.level === 'Gemeinde') {
-			// Stuttgart, expanded — its Wahlbezirke.
+			// A Gemeinde with Wahlbezirke, expanded — its Wahlbezirke.
 			return {
 				type: 'FeatureCollection',
-				features: displayGeojson.features.filter((f) => f.properties?.__grain === 'Wahlbezirk')
+				features: displayGeojson.features.filter(
+					(f) => f.properties?.__grain === 'Wahlbezirk' && gemeindeOf(f) === focused.rs
+				)
 			};
 		}
-		const childGrain = childLevel(focused.level)!;
+		const childGrain = displayLevel;
 		const prefixLen = focused.level === 'Regierungsbezirk' ? 2 : 4;
 		const prefix = rsPrefix(focused.rs!, prefixLen);
 		return {
@@ -1036,13 +1033,15 @@
 	 * (see `expanded`) are real, hoverable/clickable regions of their own. Ordered coarsest to finest. */
 	const grainsNeeded = $derived.by((): MapMode[] => {
 		if (wahlkreisActive) return ['Wahlkreis'];
-		// Only ever 'Regierungsbezirk' | 'Kreis' | 'Gemeinde' at runtime (see onEbeneChange) — all valid
-		// MapMode values too.
-		if (flatLevelOverride) return [flatLevelOverride as MapMode];
-		const grains: MapMode[] = ['Regierungsbezirk'];
-		if (expanded.some((n) => n.level === 'Regierungsbezirk')) grains.push('Kreis');
-		if (expanded.some((n) => n.level === 'Kreis')) grains.push('Gemeinde');
-		if (expanded.some((n) => n.level === 'Gemeinde' && n.rs === STUTTGART_RS))
+		const grains: MapMode[] = [];
+		if (baseLevel === 'Regierungsbezirk') grains.push('Regierungsbezirk');
+		const kreise =
+			baseLevel === 'Kreis' ||
+			(baseLevel === 'Regierungsbezirk' && expanded.some((n) => n.level === 'Regierungsbezirk'));
+		if (kreise) grains.push('Kreis');
+		if (baseLevel === 'Gemeinde' || (kreise && expanded.some((n) => n.level === 'Kreis')))
+			grains.push('Gemeinde');
+		if (expanded.some((n) => n.level === 'Gemeinde' && n.rs !== null && bezirkGemeinden.has(n.rs)))
 			grains.push('Wahlbezirk');
 		return grains;
 	});
@@ -1464,16 +1463,17 @@
 			(rs) => !NO_ELECTION_RS.has(rs) && rsPrefix(rs, 4).startsWith(prefix)
 		);
 	});
-	/** Dots for every Gemeinde in scope (or, once Stuttgart is drilled into, its drawn Wahlbezirke),
+	/** Dots for every Gemeinde in scope (or, once one is drilled into, its drawn Wahlbezirke),
 	 * one per `perDot` votes; `perDot` is picked from the total so the map shows ~20–50k dots. */
 	const dotData = $derived.by(() => {
 		if (!dotMode || !gemeindeFeatures) return null;
 		const wbFeatures = displayGeojson.features.filter(
 			(f) => f.properties?.__grain === 'Wahlbezirk'
 		);
+		const drawnAsBezirke = new Set(wbFeatures.map(gemeindeOf));
 		const places = [
 			...dotScopeRs
-				.filter((rs) => !(wbFeatures.length > 0 && rs === STUTTGART_RS))
+				.filter((rs) => !drawnAsBezirke.has(rs))
 				.map((rs) => ({ key: String(rs), feature: gemeindeFeatures!.get(rs) })),
 			...wbFeatures.map((f) => ({ key: String(f.properties?.rs), feature: f }))
 		];
@@ -1513,37 +1513,54 @@
 				? landBreakdown
 				: breakdownCache.get(panelKey)
 	);
-	// ---- Bundestag mandates per Wahlkreis (official, see server/map/mandates.ts) -----------------
+	// ---- Bundestag/Landtag mandates per Wahlkreis (official, see server/map/mandates.ts) ----------
 
 	type Mandates = {
 		direct: { name: string | null; party: string; percent: number | null; seat: boolean } | null;
 		list: { name: string; party: string; listPlace: number | null }[];
+		/** The Gemeinden (rs) the Wahlkreis covers. */
+		rs: string[];
+		/** Wahlbezirke in it of Gemeinden spanning several Wahlkreise ("001-01"). */
+		bezirke: string[];
 	};
 	let mandatesByWk = $state<Record<string, Mandates>>({});
 	$effect(() => {
 		const date = selectedDate;
+		const electionType = selectedElectionType;
 		mandatesByWk = {};
-		if (selectedElectionType !== 2 || !date) return;
+		if (!isBundestagOrLandtag || !date) return;
+		let stale = false;
 		// untrack: see the note on the breakdown effect (rumble results are reactive proxies).
 		untrack(() =>
 			client.query
 				.wahlkreisMandates({
-					__args: { date },
+					__args: { date, electionType },
 					districtId: true,
 					direct: { name: true, party: true, percent: true, seat: true },
-					list: { name: true, party: true, listPlace: true }
+					list: { name: true, party: true, listPlace: true },
+					rs: true,
+					bezirke: true
 				})
 				.then((rows) =>
 					untrack(() => {
+						if (stale) return;
 						mandatesByWk = Object.fromEntries(
 							(rows as unknown as (Mandates & { districtId: string })[]).map((r) => [
 								r.districtId,
-								{ direct: r.direct, list: r.list }
+								{
+									direct: r.direct,
+									list: r.list,
+									rs: r.rs,
+									bezirke: r.bezirke
+								}
 							])
 						);
 					})
 				)
 		);
+		return () => {
+			stale = true;
+		};
 	});
 	/** A party's colour from the panel's rows ("Die Linke" in the Bundeswahlleiterin's data vs. our
 	 * family name "DIE LINKE"). */
@@ -1551,14 +1568,62 @@
 		const p = party.toLowerCase();
 		return panelBreakdown?.rows.find((r) => r.partyName?.toLowerCase() === p)?.color ?? null;
 	}
+	/** The Wahlkreise whose members the panel shows: the focused Wahlkreis, or those of the focused
+	 * Gemeinde (several for Stuttgart, Mannheim, …) or Wahlbezirk. */
+	const mandateWks = $derived.by((): string[] => {
+		if (panelWk) return [panelWk.ref];
+		const f = focused;
+		const byRs = (wk: string) => f.rs !== null && mandatesByWk[wk].rs.includes(String(f.rs));
+		const byBezirk = (wk: string) =>
+			!!f.stationKey && mandatesByWk[wk].bezirke.includes(f.stationKey);
+		// A Wahlbezirk of a Gemeinde in a single Wahlkreis is listed by its Gemeinde only.
+		const inWk =
+			f.level === 'Wahlbezirk'
+				? Object.keys(mandatesByWk).some(byBezirk)
+					? byBezirk
+					: byRs
+				: f.level === 'Gemeinde'
+					? byRs
+					: null;
+		return inWk
+			? Object.keys(mandatesByWk)
+					.filter(inWk)
+					.sort((a, b) => Number(a) - Number(b))
+			: [];
+	});
 	const mandateGroups = $derived.by((): PeopleGroup[] => {
-		const m_ = panelWk ? mandatesByWk[panelWk.ref] : undefined;
-		if (!m_) return [];
+		// Landtag until 2021: Erst-/Zweitmandate — Zweitmandate also went to Wahlkreis candidates (no
+		// party lists). Since 2026 it has Landeslisten, and its mandates read like the Bundestag's.
+		const landtag = selectedElectionType === 3 && !hasTwoVotes;
+		const groups: PeopleGroup[] = [];
+		for (const wk of mandateWks) {
+			const m_ = mandatesByWk[wk];
+			if (m_) groups.push(...mandateGroupsOf(m_, landtag, panelWk ? null : wk));
+		}
+		// Credit the source under the last group (Bundestag: Datenlizenz Deutschland – Namensnennung).
+		const last = groups[groups.length - 1];
+		const source = landtag
+			? m.map_mandate_source_landtag()
+			: selectedElectionType === 3
+				? m.map_mandate_source_statistik_bw()
+				: m.map_mandate_source();
+		if (last) last.note = [last.note, source].filter(Boolean).join('\n');
+		return groups;
+	});
+	/** `wk`: set in a Gemeinde's panel, where the titles name the Wahlkreis. */
+	function mandateGroupsOf(m_: Mandates, landtag: boolean, wk: string | null): PeopleGroup[] {
+		const titled = (title: string) => (wk ? m.map_mandate_title_wk({ title, nr: wk }) : title);
 		const groups: PeopleGroup[] = [];
 		const d = m_.direct;
 		if (d)
 			groups.push({
-				title: d.seat ? m.map_mandate_direct() : m.map_mandate_winner_no_seat(),
+				title: titled(
+					landtag
+						? m.map_mandate_first()
+						: d.seat
+							? m.map_mandate_direct()
+							: m.map_mandate_winner_no_seat()
+				),
 				people: [
 					{
 						name: d.name ?? d.party,
@@ -1570,7 +1635,7 @@
 			});
 		if (m_.list.length > 0)
 			groups.push({
-				title: m.map_mandate_list(),
+				title: titled(landtag ? m.map_mandate_second() : m.map_mandate_list()),
 				people: m_.list.map((l) => ({
 					name: l.name,
 					detail:
@@ -1580,11 +1645,8 @@
 					color: partyColor(l.party)
 				}))
 			});
-		// Datenlizenz Deutschland – Namensnennung: credit the source under the last group.
-		const last = groups[groups.length - 1];
-		if (last) last.note = [last.note, m.map_mandate_source()].filter(Boolean).join('\n');
 		return groups;
-	});
+	}
 
 	const panelSecond = $derived(
 		!splitting && !changing
@@ -1667,6 +1729,60 @@
 	$effect(() => {
 		void panelKey;
 		sonstigeExpanded = false;
+	});
+
+	// ---- Candidates of one list ---------------------------------------------------------------
+	// Gemeinderats-/Kreistagswahl in one Gemeinde or Stuttgart Wahlbezirk: clicking a party row lists
+	// that list's candidates with their votes there (server/map/queries.ts `getCandidateResults`).
+
+	type Candidate = { name: string; votes: number; elected: boolean };
+	const candidatesAvailable = $derived(
+		(selectedElectionType === GEMEINDERATSWAHL_TYPE ||
+			selectedElectionType === KREISTAGSWAHL_TYPE) &&
+			!panelWk &&
+			!splitting &&
+			(focused.level === 'Gemeinde' || focused.level === 'Wahlbezirk')
+	);
+	let candidateParty = $state<string | null>(null);
+	/** null while loading. */
+	let candidates = $state<Candidate[] | null>(null);
+	$effect(() => {
+		void panelKey;
+		void selectedDate;
+		void selectedElectionType;
+		candidateParty = null;
+	});
+	$effect(() => {
+		const party = candidateParty;
+		const rs = focused.rs;
+		const station = focused.level === 'Wahlbezirk' ? focused.stationKey : undefined;
+		const args = { electionType: selectedElectionType, date: selectedDate, party: party ?? '' };
+		candidates = null;
+		if (!party || rs === null) return;
+		let stale = false;
+		// untrack: see the note on the breakdown effect (rumble results are reactive proxies).
+		untrack(() =>
+			client.query
+				.candidateResults({
+					__args: { ...args, rs: String(rs), station },
+					name: true,
+					votes: true,
+					elected: true
+				})
+				.then((rows) =>
+					untrack(() => {
+						if (!stale)
+							candidates = (rows as unknown as Candidate[]).map((c) => ({
+								name: c.name,
+								votes: c.votes,
+								elected: c.elected
+							}));
+					})
+				)
+		);
+		return () => {
+			stale = true;
+		};
 	});
 
 	// ---- Hover ----------------------------------------------------------------------------------
@@ -1794,10 +1910,7 @@
 		}
 		const grain = hoveredGrain;
 		const canDrillFurther =
-			grain !== null &&
-			grain !== 'Wahlbezirk' &&
-			hoveredRs !== null &&
-			hasChildren(grain, hoveredRs);
+			grain !== null && grain !== 'Wahlbezirk' && hoveredRs !== null && hasKids(grain, hoveredRs);
 		// The rows shown adapt to what's actually being coloured by: a top-5 party breakdown isn't
 		// relevant in Wahlbeteiligung mode (turnout is already the headline stat below), and in
 		// Hochburg mode the one party being visualised is what matters, not the overall ranking.
@@ -1810,9 +1923,11 @@
 		const wkDirect = wahlkreisActive ? mandatesByWk[String(hoveredProps.ref)]?.direct : null;
 		const drillHint = wahlkreisActive
 			? wkDirect?.name
-				? wkDirect.seat
-					? m.map_mandate_hover({ name: wkDirect.name, party: wkDirect.party })
-					: m.map_mandate_hover_no_seat({ name: wkDirect.name, party: wkDirect.party })
+				? selectedElectionType === 3 && !hasTwoVotes
+					? m.map_mandate_hover_first({ name: wkDirect.name, party: wkDirect.party })
+					: wkDirect.seat
+						? m.map_mandate_hover({ name: wkDirect.name, party: wkDirect.party })
+						: m.map_mandate_hover_no_seat({ name: wkDirect.name, party: wkDirect.party })
 				: ''
 			: canDrillFurther
 				? m.map_hover_click_opens({ level: levelPlural(childLevel(grain!)!) })
@@ -1905,7 +2020,7 @@
 		// Always name the Stimme when there are two, so the panel can't be misread.
 		splitting
 			? m.map_split_diff_label({ party: selectedParty })
-			: !isBundestagOrLandtag
+			: !hasTwoVotes
 				? m.map_rows_heading_stimmenanteile()
 				: selectedVoteType === '0'
 					? m.map_erststimmen()
@@ -1929,13 +2044,14 @@
 					? m.map_stat_sitze()
 					: ''
 	);
+	// Empty = no third stat (a leaf has no sub-areas to count).
 	const panelUnitLabel = $derived(
 		panelBreakdown?.seatTotal != null
 			? m.map_stat_sitze()
 			: panelWk
 				? m.map_mode_wahlkreis()
 				: leaf
-					? m.map_stat_urne()
+					? ''
 					: levelPlural(displayLevel)
 	);
 	const panelUnitValue = $derived(
@@ -1943,9 +2059,7 @@
 			? String(panelBreakdown.seatTotal)
 			: panelWk
 				? panelWk.ref
-				: leaf
-					? '1'
-					: String(scopedGeojson.features.length)
+				: String(scopedGeojson.features.length)
 	);
 	const PANEL_TOP_N = 9;
 	/** Veränderung: "old → new" under the name and the change in points as the value. */
@@ -1988,6 +2102,7 @@
 		)
 	);
 	function toPanelRow(r: ReturnType<typeof toRows>[number]): PanelRow {
+		const open = candidatesAvailable && candidateParty === r.key;
 		const row = {
 			key: r.key,
 			color: r.color,
@@ -1995,7 +2110,16 @@
 			secondary: null,
 			pct: r.pct,
 			seats: r.seats,
-			widthPercent: r.widthPercent
+			widthPercent: r.widthPercent,
+			...(candidatesAvailable && r.key !== 'unknown'
+				? {
+						onSelect: () => (candidateParty = open ? null : r.key),
+						expanded: open,
+						candidates: open
+							? (candidates?.map((c) => ({ ...c, votes: fmtNum(c.votes) })) ?? null)
+							: null
+					}
+				: {})
 		};
 		const find = (b: RegionBreakdown | null | undefined) =>
 			b?.rows.find((x) => x.partyName === r.key);
@@ -2117,6 +2241,29 @@
 			? m.map_panel_joint_list_note()
 			: null
 	);
+	/** Election dates whose Stuttgart Wahlbezirk results carry no postal votes: in 2019 (and the
+	 * Landtagswahl 2016, on the same Bezirke) the postal districts didn't map 1:1 onto urn districts
+	 * and the city never published the assignment (see stuttgart-districts/2019-05-26.json), so each
+	 * Wahlbezirk shows urn votes only. */
+	const STUTTGART_URN_ONLY_DATES = new Set(['2019-05-26', '2016-03-13']);
+	const urnOnlyNote = $derived(
+		STUTTGART_URN_ONLY_DATES.has(selectedDate) &&
+			!panelWk &&
+			focused.rs === STUTTGART_RS &&
+			(focused.level === 'Wahlbezirk' || (focused.level === 'Gemeinde' && !leaf))
+			? m.map_panel_stuttgart_urn_only_note()
+			: null
+	);
+	const postalEstimatedNote = $derived(
+		wahlbezirkPostalEstimated(selectedDate) &&
+			!panelWk &&
+			(focused.level === 'Wahlbezirk' ||
+				(focused.level === 'Gemeinde' && focused.rs !== null && bezirkGemeinden.has(focused.rs)))
+			? focused.rs === STUTTGART_RS
+				? m.map_panel_postal_estimated_note_stuttgart()
+				: m.map_panel_postal_estimated_note()
+			: null
+	);
 	const panelFootnote = $derived(
 		panelWk || leaf ? m.map_panel_footnote_leaf() : m.map_panel_footnote_drill()
 	);
@@ -2128,7 +2275,7 @@
 			? m.map_mode_wahlkreis()
 			: splitting || changing || dotMode
 				? visualModeLabel(selectedVisualMode)
-				: isBundestagOrLandtag
+				: hasTwoVotes
 					? selectedVoteType === '0'
 						? m.map_erststimmen()
 						: m.map_zweitstimmen()
@@ -2165,7 +2312,7 @@
 	);
 	const legendNote = $derived(
 		legendMode === 'party'
-			? isBundestagOrLandtag
+			? hasTwoVotes
 				? selectedVoteType === '0'
 					? m.map_legend_note_erststimme()
 					: m.map_legend_note_zweitstimme()
@@ -2283,6 +2430,8 @@
 			notes={[
 				missingNote,
 				jointListNote,
+				urnOnlyNote,
+				postalEstimatedNote,
 				panelBreakdown?.postalElsewhere ? m.map_panel_postal_elsewhere_note() : null
 			].filter((n) => n !== null)}
 			explanation={splitting

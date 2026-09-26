@@ -14,3 +14,10 @@ bun.lockb
 /Docker/
 /SQL/
 /00_daten/
+
+# Generated / minified data
+/graphify-out/
+/src/lib/geo/*.json
+/.claude/
+/project.inlang/.meta.json
+/project.inlang/README.md

@@ -165,12 +165,35 @@ interface FetchResult<T> {
 	content: T | null;
 }
 
+const cp1252 = new TextDecoder('windows-1252');
+
+/**
+ * Some Gemeinden's komm.one data carries legacy-codepage bytes as C1 control characters (U+0080–U+009F,
+ * never valid in a name): mostly Windows-1252 ("Ne\x9Ea \x8Eupan" is "Neža Župan"), plus 0x81
+ * for "ü" from the old DOS codepage — sometimes as a stray byte right next to a correct "ü". Only
+ * unambiguous cases are repaired; bytes Windows-1252 leaves undefined (0x8D, …) stay as they are.
+ */
+export function fixC1Mojibake(s: string): string {
+	if (!/[\u0080-\u009f]/.test(s)) return s;
+	return s
+		.replace(/\u0081(?=ü)|(?<=ü)\u0081/g, '')
+		.replace(/\u0081/g, 'ü')
+		.replace(/[\u0080-\u009f]/g, (c) => cp1252.decode(Uint8Array.of(c.charCodeAt(0))));
+}
+
+/** `res.json()`, with every string passed through `fixC1Mojibake`. */
+export async function parseJson<T>(res: Response): Promise<T> {
+	return JSON.parse(await res.text(), (_key, value) =>
+		typeof value === 'string' ? fixC1Mojibake(value) : value
+	) as T;
+}
+
 async function fetchJson<T>(url: string): Promise<FetchResult<T>> {
 	try {
 		const res = await fetch(url);
 		let content: T | null = null;
 		try {
-			content = (await res.json()) as T;
+			content = await parseJson<T>(res);
 		} catch {
 			content = null;
 		}

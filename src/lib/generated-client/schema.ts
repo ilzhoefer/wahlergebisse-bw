@@ -293,6 +293,37 @@ export const schema = {
 				],
 				interfaces: []
 			},
+			{
+				kind: 'OBJECT',
+				name: 'CandidateResult',
+				fields: [
+					{
+						name: 'elected',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Boolean', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'name',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'votes',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Float', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
 			{ kind: 'SCALAR', name: 'Date' },
 			{ kind: 'SCALAR', name: 'DateTime' },
 			{
@@ -1479,6 +1510,53 @@ export const schema = {
 						args: []
 					},
 					{
+						name: 'candidateResults',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'CandidateResult', kind: 'OBJECT', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: [
+							{
+								name: 'date',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'party',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'rs',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'station',
+								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
+							}
+						]
+					},
+					{
 						name: 'electionTypes',
 						type: {
 							kind: 'NON_NULL',
@@ -1715,6 +1793,13 @@ export const schema = {
 								type: {
 									kind: 'NON_NULL',
 									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
 								}
 							}
 						]
@@ -2081,6 +2166,34 @@ export const schema = {
 								ofType: {
 									kind: 'NON_NULL',
 									ofType: { name: 'MandateList', kind: 'OBJECT', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'rs',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'bezirke',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
 								}
 							}
 						},

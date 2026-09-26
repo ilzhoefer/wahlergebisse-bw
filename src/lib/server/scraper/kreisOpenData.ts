@@ -8,7 +8,7 @@ import {
 	electionResultPs,
 	pollingStations
 } from '$lib/server/db/schema';
-import { BASE, formatDateForUrl, padAgs, type Logger } from './client';
+import { BASE, formatDateForUrl, padAgs, parseJson, type Logger } from './client';
 import { getElectionIds } from './elections';
 
 type Db = typeof DbType;
@@ -38,12 +38,17 @@ export function normalizeGemeindeName(name: string): string {
 		.trim();
 }
 
-/** Semicolon CSV → header-keyed records (votemanager open data has no quoted fields). */
+/** Semicolon CSV → header-keyed records. Names containing ";" are quoted ("Briefwahl Wbz. 45;
+ * Wahlbezirke 01 bis 04"); no field spans lines. */
 export function parseOpenDataCsv(text: string): Record<string, string>[] {
 	const [head, ...lines] = text
 		.trim()
 		.split('\n')
-		.map((l) => l.replace(/\r$/, '').split(';'));
+		.map((l) =>
+			[...l.replace(/\r$/, '').matchAll(/(?:^|;)("(?:[^"]|"")*"|[^;]*)/g)].map((m) =>
+				m[1].startsWith('"') ? m[1].slice(1, -1).replaceAll('""', '"') : m[1]
+			)
+		);
 	return lines.map((cells) => Object.fromEntries(head.map((h, i) => [h, cells[i] ?? ''])));
 }
 
@@ -130,7 +135,7 @@ export async function importKreisOpenData(
 async function fetchJson<T>(url: string): Promise<T | null> {
 	try {
 		const res = await fetch(url);
-		return res.ok ? ((await res.json()) as T) : null;
+		return res.ok ? await parseJson<T>(res) : null;
 	} catch {
 		return null;
 	}

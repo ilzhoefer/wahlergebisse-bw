@@ -16,7 +16,7 @@ export function isSameRegierungsbezirk(childRs: number, regierungsbezirkRs: numb
 	return rsPrefix(childRs, 2) === rsPrefix(regierungsbezirkRs, 2);
 }
 
-/** Stuttgart's rs — the only municipality with a Wahlbezirk-level drill-down target. */
+/** Stuttgart's rs — the one Gemeinde with Wahlbezirk boundaries of its own until 2025. */
 export const STUTTGART_RS = 81110000000;
 
 /**

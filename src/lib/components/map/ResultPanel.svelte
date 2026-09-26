@@ -24,6 +24,11 @@
 		/** Renders this row as a plain clickable label instead of a party row (swatch + bar) — used for
 		 * the "Sonstige" (others) expand/collapse toggle. */
 		onToggle?: () => void;
+		/** Makes the party name a toggle that lists the list's candidates below the row. */
+		onSelect?: () => void;
+		expanded?: boolean;
+		/** The open row's candidates, votes pre-formatted; null while loading. */
+		candidates?: { name: string; votes: string; elected: boolean }[] | null;
 	}
 
 	interface Props {
@@ -38,6 +43,7 @@
 		turnoutValue: string;
 		eligibleLabel: string;
 		eligibleValue: string;
+		/** Empty hides the stat. */
 		unitLabel: string;
 		unitValue: string;
 		rowsHeadingLeft: string;
@@ -124,10 +130,12 @@
 			<div class="map-lbl stat-label">{eligibleLabel}</div>
 			<div class="stat-value">{eligibleValue}</div>
 		</div>
-		<div class="stat">
-			<div class="map-lbl stat-label">{unitLabel}</div>
-			<div class="stat-value">{unitValue}</div>
-		</div>
+		{#if unitLabel}
+			<div class="stat">
+				<div class="map-lbl stat-label">{unitLabel}</div>
+				<div class="stat-value">{unitValue}</div>
+			</div>
+		{/if}
 	</div>
 
 	{#each notes as note (note)}
@@ -204,7 +212,20 @@
 					<div class="row-top">
 						<span class="swatch" style="background: {r.color}"></span>
 						<span class="labels">
-							<span class="primary">{r.primary}</span>
+							{#if r.onSelect}
+								<button
+									type="button"
+									class="primary primary-button"
+									aria-expanded={r.expanded}
+									title={m.map_panel_candidates_show()}
+									onclick={r.onSelect}
+									>{r.primary}<span class="chevron" aria-hidden="true"
+										>{r.expanded ? '▾' : '▸'}</span
+									></button
+								>
+							{:else}
+								<span class="primary">{r.primary}</span>
+							{/if}
 							{#if r.secondary}
 								<span class="map-lbl secondary">{r.secondary}</span>
 							{/if}
@@ -225,6 +246,31 @@
 						{/if}
 					</div>
 					{@render bars(r)}
+					{#if r.expanded}
+						<div class="candidates">
+							{#if r.candidates == null}
+								<span class="cand-note">{m.map_panel_candidates_loading()}</span>
+							{:else if r.candidates.length === 0}
+								<span class="cand-note">{m.map_panel_candidates_none()}</span>
+							{:else}
+								<div class="map-lbl cand-heading">
+									<span>{m.map_panel_candidates_heading()}</span>
+									<span>{m.map_values_votes()}</span>
+								</div>
+								{#each r.candidates as c, i (`${i}:${c.name}`)}
+									<div class="cand">
+										<span class="cand-name">{c.name}</span>
+										{#if c.elected}
+											<span class="cand-elected" title={m.map_panel_candidate_elected()}
+												>✓<span class="sr-only">{m.map_panel_candidate_elected()}</span></span
+											>
+										{/if}
+										<span class="cand-votes">{c.votes}</span>
+									</div>
+								{/each}
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		{/each}
@@ -406,6 +452,70 @@
 	.secondary {
 		color: var(--map-ink-muted);
 		margin-top: 2px;
+	}
+	.primary-button {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 5px;
+		padding: 0;
+		border: none;
+		background: none;
+		font-family: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+	.primary-button:hover {
+		color: var(--map-accent);
+	}
+	.chevron {
+		font-size: 10px;
+		color: var(--map-ink-muted);
+	}
+	.candidates {
+		margin: 8px 0 4px;
+		padding: 8px 10px;
+		border: 1px solid var(--map-border-soft);
+		border-radius: 6px;
+		background: var(--map-bg-list-a);
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-height: 280px;
+		overflow-y: auto;
+	}
+	.cand-heading {
+		display: flex;
+		justify-content: space-between;
+		color: var(--map-ink-muted);
+		margin-bottom: 2px;
+	}
+	.cand {
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+		font-size: 12px;
+		color: var(--map-ink-2);
+	}
+	.cand-name {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.cand-elected {
+		flex: none;
+		font-weight: 700;
+		color: var(--map-success-text);
+	}
+	.cand-votes {
+		flex: none;
+		font: 500 11.5px var(--map-font-mono);
+		color: var(--map-ink);
+	}
+	.cand-note {
+		font-size: 11.5px;
+		color: var(--map-ink-muted);
 	}
 	.pct {
 		font: 500 12.5px var(--map-font-mono);

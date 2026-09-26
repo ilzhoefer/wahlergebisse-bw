@@ -4,6 +4,9 @@
  * server then serves them precompressed with a one-year immutable Cache-Control, and a regenerated
  * file gets a new URL automatically. (Plain `static/` files got neither.)
  */
+import { STUTTGART_RS } from './rs';
+import wahlbezirkCities from './wahlbezirk-cities.json';
+
 const urls = import.meta.glob<string>('../geo/*.json', {
 	query: '?url',
 	import: 'default',
@@ -24,7 +27,36 @@ export const GEO_URL = {
 	wahlkreisLandtag: geoUrl('wahlkreis-landtag')
 };
 
-/** Stuttgart's Wahlbezirk boundaries as of one election date, or null when none exist for it. */
-export function stuttgartBezirkeUrl(date: string): string | null {
-	return urls[`../geo/stuttgart-bezirke-${date}.json`] ?? null;
+/** Elections held on the same Wahlbezirke as one we have boundaries for (compared via komm.one's
+ * station lists): Landtagswahl 2021 = the 260 Bezirke of Sept. 2021, 2016 = the 350 of 2019. */
+export const STUTTGART_BEZIRKE_SAME_AS: Record<string, string> = {
+	'2021-03-14': '2021-09-26',
+	'2016-03-13': '2019-05-26'
+};
+
+/** Stuttgart's own Wahlbezirk boundaries as of one election date, or null when none exist for it. */
+function stuttgartBezirkeUrl(date: string): string | null {
+	const d = STUTTGART_BEZIRKE_SAME_AS[date] ?? date;
+	return urls[`../geo/stuttgart-bezirke-${d}.json`] ?? null;
+}
+
+/**
+ * Wahlbezirk boundaries as of one election date, or null when none exist: Stuttgart's own files until
+ * 2025; from 2026 komm.one's, for every city that publishes them (scripts/prepare-wahlbezirke.ts). A
+ * feature's `AWBEZ_T` is the station key, `gemeinde` its city's rs (absent = Stuttgart).
+ */
+export function wahlbezirkeUrl(date: string): string | null {
+	return urls[`../geo/wahlbezirke-${date}.json`] ?? stuttgartBezirkeUrl(date);
+}
+
+/** The Gemeinden (rs) that open into Wahlbezirke for this election date. */
+export function wahlbezirkGemeinden(date: string): ReadonlySet<number> {
+	const rs = (wahlbezirkCities as Record<string, number[]>)[date];
+	return new Set(rs ?? (stuttgartBezirkeUrl(date) ? [STUTTGART_RS] : []));
+}
+
+/** Whether this date's Wahlbezirk figures include an estimated share of the postal votes (see
+ * wahlbezirkAggregates.ts) — the komm.one boundaries' dates, not Stuttgart's own files. */
+export function wahlbezirkPostalEstimated(date: string): boolean {
+	return date in wahlbezirkCities;
 }

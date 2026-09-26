@@ -1,6 +1,6 @@
 import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
-import { KREISFREIE_STADT_RS, STUTTGART_RS } from '$lib/map/rs';
+import { KREISFREIE_STADT_RS } from '$lib/map/rs';
 import { mixColors } from '$lib/map/colors';
 import { postalElsewhereRs } from '$lib/server/scraper/kreisOpenData';
 import {
@@ -385,7 +385,9 @@ export async function getMapInformation(db: Db, params: MapInformationParams) {
 					votetypeId: electionResultAggregatePartyRegion.votetypeId,
 					votePercent: electionResultAggregatePartyRegion.votePercent,
 					color: electionResultAggregatePartyRegion.color,
-					nameShort: party.nameShort
+					nameShort: party.nameShort,
+					partyFamilyId: electionResultAggregatePartyRegion.partyFamilyId,
+					voteCount: sql<number | null>`${electionResultAggregatePartyRegion.voteCount}::float8`
 				})
 				.from(electionResultAggregatePartyRegion)
 				.innerJoin(party, eq(electionResultAggregatePartyRegion.partyFamilyId, party.partyFamilyId))
@@ -403,17 +405,40 @@ export async function getMapInformation(db: Db, params: MapInformationParams) {
 	const valueOf = (r: (typeof raw)[number]) =>
 		r.votePercent === null ? null : Number(r.votePercent);
 
+	const ranking =
+		selectedMapInformation === 'Stärkste Partei' || selectedMapInformation === '2. Stärkste Partei';
+	// Rank ballot lists, not families: a catch-all family ("Wählervereinigungen") sums unrelated local
+	// lists — six of them together out-poll Pforzheim's CDU in 2019 though none alone comes close. Same
+	// grains as the panel's list split (see getRegionBreakdowns).
+	const splitGrain =
+		selectedMapMode === 'Gemeinde'
+			? 'gemeinde'
+			: selectedMapMode === 'Kreis' && selectedElectionType === KREISTAGSWAHL_TYPE
+				? 'kreis'
+				: null;
+	const ranked =
+		ranking && splitGrain && !isDistrict
+			? await splitForRanking(
+					db,
+					raw.filter((r) => 'rs' in r),
+					splitGrain,
+					selectedElectionType,
+					selectedDate
+				)
+			: raw;
+
 	if (selectedMapInformation === 'Stärkste Partei')
-		return sliceMaxByGroup(raw, groupKey, valueOf, 1);
+		return sliceMaxByGroup(ranked, groupKey, valueOf, 1);
 	if (selectedMapInformation === '2. Stärkste Partei')
-		return secondPlaceByGroup(raw, groupKey, valueOf);
+		return secondPlaceByGroup(ranked, groupKey, valueOf);
 	// Hochburg / Stimmensplitting (the latter keeps both votetypes; the resolver pairs them up)
 	return raw.filter((r) => r.nameShort === selectedParty);
 }
 
 /**
- * Port of shiny_map_information_ps: polling-station grain, currently only meaningfully populated for
- * Stuttgart (see electionResultAggregatePartyPs/MetaPs table comments).
+ * Port of shiny_map_information_ps: polling-station grain, populated for the Gemeinden with
+ * Wahlbezirk boundaries (Stuttgart until 2025, see stuttgartMapping.ts; more since 2026, see
+ * wahlbezirkAggregates.ts).
  */
 export async function getMapInformationPs(
 	db: Db,
@@ -455,6 +480,7 @@ export async function getMapInformationPs(
 			votePercent: electionResultAggregatePartyPs.votePercent,
 			color: electionResultAggregatePartyPs.color,
 			nameShort: party.nameShort,
+			partyFamilyId: electionResultAggregatePartyPs.partyFamilyId,
 			name: pollingStations.name
 		})
 		.from(electionResultAggregatePartyPs)
@@ -478,11 +504,60 @@ export async function getMapInformationPs(
 	const valueOf = (r: (typeof raw)[number]) =>
 		r.votePercent === null ? null : Number(r.votePercent);
 
-	if (selectedMapInformation === 'Stärkste Partei')
-		return sliceMaxByGroup(raw, groupKey, valueOf, 1);
-	if (selectedMapInformation === '2. Stärkste Partei')
-		return secondPlaceByGroup(raw, groupKey, valueOf);
+	if (
+		selectedMapInformation === 'Stärkste Partei' ||
+		selectedMapInformation === '2. Stärkste Partei'
+	) {
+		// Like getMapInformation's region split: a catch-all family ranks by its largest single list.
+		const largest = await largestCatchAllListPs(db, selectedElectionType, selectedDate);
+		const ranked = raw.map((r) => {
+			const share = largest.get(`${r.psId}:${r.votetypeId}:${r.partyFamilyId}`);
+			return share === undefined ? r : { ...r, votePercent: String(share) };
+		});
+		return selectedMapInformation === 'Stärkste Partei'
+			? sliceMaxByGroup(ranked, groupKey, valueOf, 1)
+			: secondPlaceByGroup(ranked, groupKey, valueOf);
+	}
 	return raw.filter((r) => r.nameShort === selectedParty);
+}
+
+/**
+ * Stuttgart Wahlbezirke: per (ps_id, votetype, catch-all family), the share of that family's largest
+ * single list — urn votes plus its mapped postal district's, like `election_result_aggregate_party_ps`
+ * (see stuttgartMapping.ts), and scaled by that table's own share-per-vote.
+ */
+async function largestCatchAllListPs(
+	db: Db,
+	electionType: number,
+	date: string
+): Promise<Map<string, number>> {
+	const result = await db.execute(sql`
+		WITH lists AS (
+			SELECT m.ps_id, er.votetype_id, epf.party_family_id, er.party_id,
+				SUM(er.vote_count)::float8 AS votes
+			FROM election_ps_postal_mapping m
+			JOIN elections e ON e.rs = m.rs AND e.date = m.date AND e.election_type = m.election_type
+			JOIN election_result er ON er.rs = m.rs AND er.election_id = e.election_id
+				AND er.ps_id IN (m.ps_id, m.ps_id_postal)
+			JOIN election_party_family epf ON epf.rs = er.rs AND epf.election_id = er.election_id
+				AND epf.party_id = er.party_id AND epf.votetype_id = er.votetype_id
+			WHERE m.election_type = ${electionType} AND m.date = ${date}
+				AND epf.party_family_id IN (${sql.join(CATCH_ALL_FAMILIES, sql`, `)})
+			GROUP BY 1, 2, 3, 4
+		)
+		SELECT l.ps_id, l.votetype_id, l.party_family_id,
+			MAX(l.votes) * MAX(a.vote_percent::float8 / NULLIF(a.vote_count::float8, 0)) AS share
+		FROM lists l
+		JOIN election_result_aggregate_party_ps a ON a.ps_id = l.ps_id AND a.votetype_id = l.votetype_id
+			AND a.party_family_id = l.party_family_id AND a.election_type = ${electionType}
+			AND a.date = ${date}
+		GROUP BY 1, 2, 3
+	`);
+	const out = new Map<string, number>();
+	for (const r of result as unknown as Record<string, unknown>[])
+		if (r.share !== null)
+			out.set(`${r.ps_id}:${r.votetype_id}:${r.party_family_id}`, Number(r.share));
+	return out;
 }
 
 /**
@@ -579,7 +654,7 @@ async function getErststimmeCandidates(
 					? kreisOrRb(2)
 					: grain === 'wahlkreis'
 						? sql`m.district_id::text`
-						: sql`left(coalesce(ps.name, ''), 6)`;
+						: sql`split_part(coalesce(ps.name, ''), ' ', 1)`;
 	const join =
 		grain === 'wahlkreis'
 			? sql`JOIN election_vote_district_mapping m ON m.rs = er.rs AND m.election_type = e.election_type
@@ -592,7 +667,8 @@ async function getErststimmeCandidates(
 		grain === 'wahlkreis'
 			? sql``
 			: grain === 'wahlbezirk'
-				? sql`AND er.rs = ${STUTTGART_RS}`
+				? sql`AND er.rs IN (SELECT rs FROM election_result_aggregate_meta_ps
+					WHERE election_type = ${electionType} AND date = ${date})`
 				: rsList.length === 0
 					? sql`AND false`
 					: grain === 'gemeinde' // plain column → uses election_result's rs index
@@ -678,7 +754,7 @@ async function getRegionBreakdownsBase(
 	if (grain === 'wahlbezirk') {
 		const metaRows = await db
 			.selectDistinct({
-				key: sql<string>`left(coalesce(${pollingStations.name}, ''), 6)`,
+				key: sql<string>`split_part(coalesce(${pollingStations.name}, ''), ' ', 1)`,
 				votetypeId: electionResultAggregateMetaPs.votetypeId,
 				votesEligible: electionResultAggregateMetaPs.votesEligible,
 				turnout: electionResultAggregateMetaPs.turnout
@@ -700,7 +776,7 @@ async function getRegionBreakdownsBase(
 			);
 		const partyRows = await db
 			.selectDistinct({
-				key: sql<string>`left(coalesce(${pollingStations.name}, ''), 6)`,
+				key: sql<string>`split_part(coalesce(${pollingStations.name}, ''), ' ', 1)`,
 				votetypeId: electionResultAggregatePartyPs.votetypeId,
 				votePercent: electionResultAggregatePartyPs.votePercent,
 				voteCount: electionResultAggregatePartyPs.voteCount,
@@ -906,7 +982,14 @@ function splitLists<
 		color: string | null;
 		seats: number | null;
 	}
->(rows: T[], lists: SplitList[], seatsByParty: Map<string, Map<number, number>> | null): T[] {
+>(
+	rows: T[],
+	lists: SplitList[],
+	seatsByParty: Map<string, Map<number, number>> | null,
+	/** Map colouring: a local list keeps its catch-all family's name and colour ("Wählervereinigungen"),
+	 * so the legend gets one entry instead of every local list's name. */
+	familyLookForLocalLists = false
+): T[] {
 	const out = rows.map((r) => ({ ...r }));
 	const reduced = new Set<T>();
 	// Rows of the lists themselves, kept apart so a later list never mistakes one for a family row.
@@ -933,11 +1016,13 @@ function splitLists<
 		const areaKey = `${l.rs}:${l.votetypeId}`;
 		const i = localIndex.get(areaKey) ?? 0;
 		if (realPartners.length === 0) localIndex.set(areaKey, i + 1);
+		const keepFamilyLook = familyLookForLocalLists && realPartners.length === 0;
 		added.push({
 			...template,
-			nameShort: l.name,
-			color:
-				realPartners.length > 0
+			nameShort: keepFamilyLook ? template.nameShort : l.name,
+			color: keepFamilyLook
+				? template.color
+				: realPartners.length > 0
 					? mixColors(realPartners.map((r) => r.color).filter((c): c is string => !!c))
 					: LOCAL_LIST_COLORS[i % LOCAL_LIST_COLORS.length],
 			voteCount: l.voteCount,
@@ -948,6 +1033,38 @@ function splitLists<
 	}
 	// Drop what's left of a family that only contained split lists (half a vote of float slack).
 	return [...out.filter((r) => !reduced.has(r) || (r.voteCount ?? 0) > 0.5), ...added];
+}
+
+/**
+ * Splits catch-all and joint lists out of region-grain family rows (see `splitLists`) so the map's
+ * "Stärkste Partei"/"2. Stärkste Partei" rank actual ballot lists. Independent Bundestag/Landtag
+ * Erststimme candidates stay one "Sonstige" row, as in the panel.
+ */
+async function splitForRanking<
+	T extends {
+		rs: number;
+		votetypeId: number;
+		partyFamilyId: number;
+		votePercent: string | null;
+		voteCount: number | null;
+		nameShort: string | null;
+		color: string | null;
+	}
+>(db: Db, rows: T[], grain: 'gemeinde' | 'kreis', electionType: number, date: string) {
+	const rsList = [...new Set(rows.map((r) => r.rs))];
+	if (rsList.length === 0) return rows;
+	const independentsOnly = (l: SplitList) =>
+		(electionType === 2 || electionType === 3) && l.families.every((f) => f === SONSTIGE_FAMILY);
+	const lists = (await getSplitLists(db, rsList, grain, electionType, date)).filter(
+		(l) => !independentsOnly(l)
+	);
+	if (lists.length === 0) return rows;
+	return splitLists(
+		rows.map((r) => ({ ...r, seats: null })),
+		lists,
+		null,
+		true
+	);
 }
 
 interface KeyedMetaRow {
@@ -1088,4 +1205,91 @@ export async function getVoteDistrictLookup(db: Db, electionTypeId: number, date
 				eq(electionVoteDistrictMapping.date, date)
 			)
 		);
+}
+
+export interface CandidateResult {
+	name: string;
+	votes: number;
+	elected: boolean;
+}
+
+/** "Mustermann, Max" (elected-members table) and "Dr. Max Mustermann" (results) → same key. */
+function nameKey(name: string): string {
+	return name
+		.toLowerCase()
+		.split(/[\s,]+/)
+		.filter((t) => t && !/^(dr|prof|dipl|ing)\.?$/.test(t) && !t.endsWith('.'))
+		.sort()
+		.join(' ');
+}
+
+/**
+ * Every candidate of one ballot list in one Gemeinde (Gemeinderats-/Kreistagswahl), with their votes
+ * there and whether they won a seat. `party` is the panel row's label: a list's own name (split
+ * local/joint lists, see `splitLists`) or a real party family's short name. `station` narrows it to one
+ * Stuttgart Wahlbezirk (AWBEZ_T), urn votes plus its mapped postal district's.
+ */
+export async function getCandidateResults(
+	db: Db,
+	params: { electionType: number; date: string; rs: number; party: string; station?: string }
+): Promise<CandidateResult[]> {
+	const { electionType, date, rs, party, station } = params;
+	const stationFilter = station
+		? sql`AND er.ps_id IN (
+				SELECT m.ps_id FROM election_ps_postal_mapping m
+				JOIN polling_stations p ON p.ps_id = m.ps_id AND p.rs = m.rs AND p.date = m.date
+				WHERE m.rs = ${rs} AND m.date = ${date} AND m.election_type = ${electionType}
+					AND p.election_id = el.election_id AND split_part(p.name, ' ', 1) = ${station}
+				UNION
+				SELECT m.ps_id_postal FROM election_ps_postal_mapping m
+				JOIN polling_stations p ON p.ps_id = m.ps_id AND p.rs = m.rs AND p.date = m.date
+				WHERE m.rs = ${rs} AND m.date = ${date} AND m.election_type = ${electionType}
+					AND p.election_id = el.election_id AND split_part(p.name, ' ', 1) = ${station}
+			)`
+		: sql``;
+	const rows = (await db.execute(sql`
+		WITH el AS (
+			SELECT election_id, rs FROM elections
+			WHERE rs = ${rs} AND election_type = ${electionType} AND date = ${date}
+		),
+		fams AS (
+			SELECT epf.election_id, epf.party_id, epf.votetype_id,
+				array_agg(DISTINCT epf.party_family_id) AS fams
+			FROM election_party_family epf JOIN el ON el.election_id = epf.election_id AND el.rs = epf.rs
+			GROUP BY 1, 2, 3
+		)
+		SELECT er.party_id, er.candidate_name AS name, SUM(er.vote_count)::float8 AS votes
+		FROM election_result er
+		JOIN el ON el.election_id = er.election_id AND el.rs = er.rs
+		JOIN election_party ep ON ep.rs = er.rs AND ep.election_id = er.election_id
+			AND ep.party_id = er.party_id AND ep.votetype_id = er.votetype_id
+		LEFT JOIN fams f ON f.election_id = er.election_id AND f.party_id = er.party_id
+			AND f.votetype_id = er.votetype_id
+		WHERE er.candidate_name <> '' ${stationFilter}
+			AND (ep.name = ${party} OR (
+				cardinality(f.fams) = 1
+				AND NOT f.fams[1] = ANY(${sql.raw(`ARRAY[${CATCH_ALL_FAMILIES.join(',')}]`)})
+				AND EXISTS (SELECT 1 FROM party p WHERE p.party_family_id = f.fams[1] AND p.name_short = ${party})
+			))
+		GROUP BY 1, 2
+		ORDER BY 3 DESC, 2
+	`)) as unknown as { party_id: number; name: string; votes: number }[];
+	if (rows.length === 0) return [];
+
+	const elected = await db
+		.select({ partyId: electionElectedCandidates.partyId, name: electionElectedCandidates.name })
+		.from(electionElectedCandidates)
+		.where(
+			and(
+				eq(electionElectedCandidates.rs, rs),
+				eq(electionElectedCandidates.electionType, electionType),
+				eq(electionElectedCandidates.date, date)
+			)
+		);
+	const electedKeys = new Set(elected.map((e) => `${e.partyId}:${nameKey(e.name)}`));
+	return rows.map((r) => ({
+		name: r.name,
+		votes: Number(r.votes),
+		elected: electedKeys.has(`${r.party_id}:${nameKey(r.name)}`)
+	}));
 }

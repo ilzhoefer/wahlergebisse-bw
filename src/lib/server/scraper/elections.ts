@@ -1,6 +1,11 @@
 import { eq, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
-import { elections, electionsVotetypes, electionType } from '$lib/server/db/schema';
+import {
+	elections,
+	electionsVotetypes,
+	electionType,
+	pollingStations
+} from '$lib/server/db/schema';
 import {
 	BASE,
 	padAgs,
@@ -164,7 +169,16 @@ export async function updateElectionDates(
 						date,
 						resultId: row.resultId
 					})
-					.onConflictDoNothing();
+					// Fill in a result id first seen on a later run (e.g. found before the results were
+					// linked) — but only while nothing was imported: a null result_id on a row that has
+					// stations marks it as imported from open data (see importHtml5OpenData).
+					.onConflictDoUpdate({
+						target: [elections.electionId, elections.rs],
+						set: { resultId: row.resultId },
+						setWhere: sql`${elections.resultId} IS NULL AND ${row.resultId}::text IS NOT NULL
+							AND NOT EXISTS (SELECT 1 FROM ${pollingStations} p
+								WHERE p.rs = ${elections.rs} AND p.election_id = ${elections.electionId})`
+					});
 			}
 			for (const row of rows) {
 				await db
