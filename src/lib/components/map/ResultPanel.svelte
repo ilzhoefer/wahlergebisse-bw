@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SiteLinks from '$lib/components/SiteLinks.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
@@ -283,6 +284,7 @@
 		<span class="footnote">{footnote}</span>
 		<a class="csv" href={resolve('/daten')}>{m.map_panel_csv_button()}</a>
 	</div>
+	<SiteLinks class="site-links-row" />
 </div>
 
 <style>
@@ -615,6 +617,11 @@
 		font-size: 11.5px;
 		line-height: 1.4;
 		color: var(--map-ink-3);
+	}
+	.panel :global(.site-links-row) {
+		padding: 0 20px 12px;
+		color: var(--map-ink-3);
+		font-size: 11.5px;
 	}
 	.csv {
 		padding: 9px 12px;

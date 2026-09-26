@@ -20,6 +20,8 @@ What works today:
     density).
   - **Side panel:** results per region, candidate results, and search by place or candidate name.
   - **Share links:** every view can be copied as a link that restores it.
+- **About, Impressum, Datenschutz** (`/ueber`, `/impressum`, `/datenschutz`), linked from the map's
+  side panel and every other page. The About page credits every data source below.
 - **Data export** (`/daten`): CSV of turnout, party or candidate results per Gemeinde or per
   polling district, and polling-station metadata, for any selection of Gemeinden.
 - **Admin** (`/admin`, password from `ADMIN_PASSWORD`): starts a crawl for one election date and
@@ -50,8 +52,6 @@ elections on komm.one.
 
 - Stuttgart's Wahlbezirk turnout for 13.03.2016 and 26.05.2019 is too low. No postal-to-urn
   district mapping exists for those dates, so each Bezirk counts only its urn voters.
-- Of the data sources below, only OpenStreetMap is credited inside the app so far. The others ask
-  for attribution too.
 
 ## Data sources
 
@@ -194,7 +194,8 @@ under `src/lib/` are bundled into the build; everything else lives in PostgreSQL
 deployment:
 
 1. Provide a PostgreSQL database and set `DATABASE_URL`, `ADMIN_PASSWORD` and `SESSION_SECRET` for
-   the container.
+   the container, plus `OPERATOR_NAME`, `OPERATOR_ADDRESS` and `OPERATOR_EMAIL` for the Impressum and
+   Datenschutz pages. They are read at runtime and kept out of the repo, see `.env.example`.
 2. From a checkout of this repo, with `DATABASE_URL` pointing at that database, run
    `bun run db:migrate` and `bun run db:seed`. The container does neither on startup.
 3. Log in at `/admin` and crawl each election you want to show. The crawl also runs the open-data
