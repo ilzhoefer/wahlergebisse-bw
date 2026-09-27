@@ -58,6 +58,8 @@
 	import { turnoutColorScale, partyColorScale, diffColorScale, paleColor } from '$lib/map/colors';
 	import type { MapMode, MapInformationMode, RegionBreakdown } from '$lib/server/map/queries';
 	import { client } from '$lib/generated-client/client';
+	import type { LiveStatus } from './api/live/+server';
+	import { formatBerlin } from '$lib/berlinTime';
 	import * as m from '$lib/paraglide/messages';
 
 	let { data } = $props();
@@ -791,6 +793,52 @@
 		`<iframe src="${page.url.origin}${resolve('/')}?${viewQs ? `${viewQs}&` : ''}embed=1" ` +
 			`title="${m.map_brand_name()} ${m.map_brand_region()}" width="100%" height="600" ` +
 			`style="border:0" loading="lazy"></iframe>`
+	);
+
+	// ---- Election night ------------------------------------------------------------------------
+	// While a crawl of the shown election runs (or the admin schedule covers now), poll its status;
+	// once a newer run has finished, offer a reload — the whole view is in the URL, so nothing is lost.
+	// Embeds reload on their own, since nobody is there to click.
+
+	const LIVE_POLL_MS = 60_000;
+	let live = $state<LiveStatus | null>(null);
+	let liveFirstUpdate = $state<string | null | undefined>(undefined);
+	$effect(() => {
+		const et = selectedElectionType;
+		const d = selectedDate;
+		live = null;
+		liveFirstUpdate = undefined;
+		if (!et || !d) return;
+		let stopped = false;
+		const poll = async () => {
+			const res = await fetch(`/api/live?${new URLSearchParams({ wahl: String(et), datum: d })}`);
+			if (stopped || !res.ok) return;
+			const status = (await res.json()) as LiveStatus;
+			if (liveFirstUpdate === undefined) liveFirstUpdate = status.updatedAt;
+			live = status;
+			if (embed && status.updatedAt !== liveFirstUpdate) location.reload();
+		};
+		void poll();
+		const timer = setInterval(() => {
+			if (live?.live) void poll();
+		}, LIVE_POLL_MS);
+		return () => {
+			stopped = true;
+			clearInterval(timer);
+		};
+	});
+	const liveText = $derived(
+		live
+			? [
+					m.live_counting({ n: fmtNum(live.gemeinden), total: fmtNum(live.total) }),
+					live.updatedAt ? m.live_as_of({ time: formatBerlin(new Date(live.updatedAt)) }) : null
+				]
+					.filter(Boolean)
+					.join(' · ')
+			: ''
+	);
+	const liveNewer = $derived(
+		live !== null && liveFirstUpdate !== undefined && live.updatedAt !== liveFirstUpdate
 	);
 
 	function levelSingular(level: MapLevel): string {
@@ -2306,6 +2354,20 @@
 
 <PageMeta {...data.meta} />
 
+<!-- Over the map on desktop; a strip above it on phones, where the map's top is crowded. Only one
+     of the two is displayed at a time (CSS), so only one is announced. -->
+{#snippet liveBanner(placement: 'live-overlay' | 'live-strip')}
+	<div class="live {placement}" role="status">
+		{#if live?.live}
+			<span class="live-dot" aria-hidden="true"></span>
+			<span>{liveText}</span>
+		{/if}
+		{#if liveNewer}
+			<button type="button" onclick={() => location.reload()}>{m.live_reload()}</button>
+		{/if}
+	</div>
+{/snippet}
+
 <div class="map-root app" class:embed>
 	{#if !embed}
 		<Toolbar
@@ -2323,6 +2385,8 @@
 			onReset={resetView}
 		/>
 	{/if}
+
+	{#if live?.live || liveNewer}{@render liveBanner('live-strip')}{/if}
 
 	<div class="body">
 		{#if !embed}
@@ -2446,6 +2510,8 @@
 
 			<StatusLine text={statusLineText} />
 
+			{#if live?.live || liveNewer}{@render liveBanner('live-overlay')}{/if}
+
 			{#if embed}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- viewHref is resolve('/') plus the view's query string -->
 				<a class="embed-link" href={viewHref} target="_blank" rel="noopener"
@@ -2482,6 +2548,57 @@
 		position: relative;
 		overflow: hidden;
 		background: var(--map-bg-surface-muted);
+	}
+	.live {
+		position: absolute;
+		left: 50%;
+		top: 60px; /* below the breadcrumb/mode-badge row; the bottom belongs to the legend */
+		transform: translateX(-50%);
+		z-index: 3;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		max-width: calc(100% - 24px);
+		padding: 7px 12px;
+		border-radius: 18px;
+		background: var(--map-bg-surface);
+		border: 1px solid var(--map-border-strong);
+		box-shadow: var(--map-shadow-card);
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--map-ink);
+	}
+	.live-strip {
+		display: none;
+	}
+	.live-dot {
+		flex: none;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--map-accent);
+		animation: live-pulse 1.6s ease-in-out infinite;
+	}
+	@keyframes live-pulse {
+		50% {
+			opacity: 0.3;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+		}
+	}
+	.live button {
+		flex: none;
+		white-space: nowrap;
+		font: 600 12px var(--map-font-body);
+		padding: 4px 10px;
+		border-radius: 12px;
+		border: none;
+		background: var(--map-ink);
+		color: var(--map-on-dark);
+		cursor: pointer;
 	}
 	.embed-link {
 		position: absolute;
@@ -2523,6 +2640,18 @@
 		.embed-link {
 			bottom: auto;
 			top: 52px;
+		}
+		.live-overlay {
+			display: none;
+		}
+		.live-strip {
+			display: flex;
+			position: static;
+			transform: none;
+			max-width: none;
+			border-radius: 0;
+			border-width: 0 0 1px;
+			box-shadow: none;
 		}
 	}
 </style>

@@ -426,6 +426,7 @@
 			<a class="link" href={resolve('/')}>{m.admin_nav_map()}</a>
 			<a class="link" href={resolve('/daten')}>{m.nav_daten_export()}</a>
 			<a class="link" href={resolve('/admin/qualitaet')}>{m.quality_title()}</a>
+			<a class="link" href={resolve('/admin/zeitplan')}>{m.schedule_title()}</a>
 			<form method="POST" action="/admin/logout">
 				<button type="submit" class="link">{m.admin_logout()}</button>
 			</form>

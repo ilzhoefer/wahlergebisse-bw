@@ -20,13 +20,27 @@ What works today:
     density).
   - **Side panel:** results per region, candidate results, and search by place or candidate name.
   - **Share links:** every view can be copied as a link that restores it.
+  - **Embedding:** `?embed=1` shows the map alone; the panel's "Einbetten" button copies an iframe
+    snippet of the current view. Shared links render a title and description for link previews.
+  - **Election night:** while a crawl of the shown election runs (or the admin schedule covers
+    now), the map shows "Auszählung läuft" and offers to load newer results; embeds reload by
+    themselves.
+- **Gemeinde pages** (`/gemeinde/[rs]`): every election in one municipality — latest result with
+  seats, a trend chart per party family, turnout over time, the current Gemeinderat and its
+  Listenspringer. Listed in `/sitemap.xml`.
+- **Candidate pages** (`/kandidat/[name]`): every Gemeinderat/Kreistag candidacy under a name, with
+  list position, votes, rank within the list and whether elected.
+- **Listenspringer** (`/listenspringer`): how many Gemeinderat seats went to candidates from
+  further down their list, the biggest jumps and the Gemeinden with the most.
 - **About, Impressum, Datenschutz** (`/ueber`, `/impressum`, `/datenschutz`), linked from the map's
   side panel and every other page. The About page credits every data source below.
 - **Data export** (`/daten`): CSV of turnout, party or candidate results per Gemeinde or per
   polling district, and polling-station metadata, for any selection of Gemeinden.
 - **Admin** (`/admin`, password from `ADMIN_PASSWORD`): starts a crawl for one election date and
   type, with live per-city progress. It runs the discovery, results, open-data import and
-  aggregation steps in order.
+  aggregation steps in order. `/admin/qualitaet` checks an election for missing or inconsistent
+  data; `/admin/zeitplan` re-runs a crawl on a schedule for election night (single server
+  instance only — the scheduler and the crawl lock live in the process).
 
 Wahlbezirk boundaries exist only where a city publishes them. That means Stuttgart (every election
 with a boundary file, see below), plus 10 cities for the Landtagswahl 2026.

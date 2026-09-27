@@ -6,6 +6,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 import { SESSION_COOKIE_NAME, verifySessionToken } from '$lib/server/auth/session';
 import { db } from '$lib/server/db';
 import { crawlRun } from '$lib/server/db/schema';
+import { startScheduler } from '$lib/server/scheduler';
 
 // A crawl runs in-process, so any `running` row at startup belongs to a process that died mid-run —
 // without this the admin page would show it as live forever.
@@ -14,6 +15,7 @@ export const init: ServerInit = async () => {
 		.update(crawlRun)
 		.set({ status: 'error', error: 'interrupted', finishedAt: new Date() })
 		.where(eq(crawlRun.status, 'running'));
+	startScheduler();
 };
 
 const handleParaglide: Handle = ({ event, resolve }) =>

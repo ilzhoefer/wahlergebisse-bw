@@ -20,6 +20,12 @@ tree and live only in git history.
   mapping), so keep the order. Started from `/admin` via `src/lib/server/crawl-runner/`.
 - `src/lib/server/map/queries.ts` + `src/lib/server/graphql/index.ts` — map read queries, memoized
   per process until the next crawl (`src/lib/server/queryCache.ts`).
+- `election_candidate` (per-candidate votes, ballot position, elected, alphabetical list) is
+  derived data built by `updateCandidates` at the end of each crawl; `scripts/build-candidates.ts`
+  rebuilds it for elections already in the database. It feeds the candidate pages and the
+  Listenspringer analysis (`src/lib/server/listJumps.ts`).
+- The crawl lock, the query memo and the election-night scheduler (`src/lib/server/scheduler.ts`)
+  are per process: the app assumes a single server instance.
 - `scripts/prepare-*.ts` regenerate the boundary/Wahlkreis files in `src/lib/geo/` and
   `src/lib/server/scraper/vote-districts/` from the raw inputs in `scripts/source-data/`.
 - `docker-compose.yaml` is for **local dev only** (Postgres + pgAdmin). Deployment images are built

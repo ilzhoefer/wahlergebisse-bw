@@ -711,3 +711,20 @@ export const crawlRun = pgTable('crawl_run', {
 	startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 	finishedAt: timestamp('finished_at', { withTimezone: true })
 });
+
+/**
+ * The one scheduled crawl (election night): while `active` and now is within [startsAt, endsAt], the
+ * scheduler (src/lib/server/scheduler.ts) re-runs the crawl for this election `intervalMinutes` after
+ * the previous run ended. At most one row — the admin page edits it in place.
+ */
+export const crawlSchedule = pgTable('crawl_schedule', {
+	id: integer('id').primaryKey(),
+	electionType: integer('election_type')
+		.notNull()
+		.references(() => electionType.electionType),
+	date: date('date', { mode: 'string' }).notNull(),
+	intervalMinutes: integer('interval_minutes').notNull(),
+	startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+	endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+	active: boolean('active').notNull()
+});
