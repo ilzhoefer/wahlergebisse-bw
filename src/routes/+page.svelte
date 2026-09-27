@@ -101,18 +101,18 @@
 	const usesParty = $derived(selectedVisualMode === 'Hochburg' || splitting || changing);
 	$effect(() => {
 		if (!selectedDate) return;
-		if ((splitting && !hasTwoVotes) || (changing && datesForType.length < 2))
+		if ((splitting && !hasTwoVotes) || (changing && compareDates.length === 0))
 			selectedVisualMode = 'Stärkste Partei';
 	});
 
-	/** Veränderung: the earlier (or, failing that, any other) date of the same election type. */
+	/** Veränderung: an earlier date of the same election type — the baseline is always the older
+	 * election, so every comparison reads "then → now". */
 	let selectedCompareDate = $state<string>(shared.vergleich ?? '');
 	/** Left panel: vote counts instead of shares ("Stimmen" / "Anteil" switch, or click a value). */
 	let absoluteValues = $state(shared.werte === 'absolut');
-	const compareDates = $derived(datesForType.filter((d) => d !== selectedDate));
+	const compareDates = $derived(datesForType.filter((d) => d < selectedDate));
 	$effect(() => {
-		if (!compareDates.includes(selectedCompareDate))
-			selectedCompareDate = compareDates.find((d) => d < selectedDate) ?? compareDates[0] ?? '';
+		if (!compareDates.includes(selectedCompareDate)) selectedCompareDate = compareDates[0] ?? '';
 	});
 
 	const currentElectionDescription = $derived(
@@ -236,7 +236,7 @@
 		VISUAL_MODES.map((mode) => {
 			const available =
 				(mode !== 'Stimmensplitting' || hasTwoVotes) &&
-				(mode !== 'Veränderung' || datesForType.length > 1);
+				(mode !== 'Veränderung' || compareDates.length > 0);
 			return {
 				key: mode,
 				label: visualModeLabel(mode),
