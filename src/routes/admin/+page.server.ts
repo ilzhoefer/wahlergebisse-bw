@@ -3,7 +3,8 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { crawlRun, electionType, elections, cities, electionResult } from '$lib/server/db/schema';
 import { maxParallelism } from '$lib/server/crawl-runner';
-import { statistikBwDates } from '$lib/server/scraper/statistikBw';
+import { BASE as KOMM_ONE_BASE } from '$lib/server/scraper/client';
+import { statistikBwDates, SOURCES as STATISTIK_BW_SOURCES } from '$lib/server/scraper/statistikBw';
 
 /**
  * Bürgermeisterwahl (7) and Bürgerentscheid (9) each happen on whatever date one specific municipality
@@ -42,6 +43,7 @@ const SMALL_DATE_CITY_THRESHOLD = 5;
 export const load: PageServerLoad = async () => {
 	const [lastRun] = await db.select().from(crawlRun).orderBy(desc(crawlRun.id)).limit(1);
 	const electionTypes = await db.select().from(electionType).orderBy(electionType.electionType);
+	const [{ cityTotal }] = await db.select({ cityTotal: sql<number>`count(*)::int` }).from(cities);
 
 	// One row per (date, electionType, city) already discovered/classified by a previous crawl or a
 	// "Termine aktualisieren" run — used to filter the date dropdown down to dates that actually have
@@ -151,6 +153,14 @@ export const load: PageServerLoad = async () => {
 		typesToDates,
 		citySpecificTypes: CITY_SPECIFIC_TYPES,
 		cityDatesByType,
-		maxParallel: maxParallelism()
+		maxParallel: maxParallelism(),
+		/** All Gemeinden — the denominator of the "n von … haben bereits Ergebnisse" line. */
+		cityTotal,
+		/** Shown read-only as the crawl's source: komm.one's base URL, or the Statistisches Landesamt
+		 * CSV for the Landtagswahlen imported from there. */
+		kommOneBase: KOMM_ONE_BASE,
+		statistikBwCsv: Object.fromEntries(
+			Object.entries(STATISTIK_BW_SOURCES).map(([date, s]) => [date, s.csv])
+		)
 	};
 };

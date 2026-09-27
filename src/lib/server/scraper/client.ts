@@ -71,7 +71,18 @@ export interface ProgressTick {
  * `message` is the human-readable log line (unchanged from before). `progress`, when present, updates
  * the structured progress display; most call sites never pass it and behave exactly as before.
  */
-export type Logger = (message: string, progress?: ProgressTick) => void;
+export type Logger = (message: string, progress?: ProgressTick, level?: LogLevel) => void;
+
+/** `warn`: something was left out or could not be matched; `ok`: the run finished. */
+export type LogLevel = 'info' | 'warn' | 'ok';
+
+/** One persisted line of a crawl's log (`crawl_run.log`). `t` is an ISO timestamp; null for lines
+ * migrated from the old plain-text log, which had no times. */
+export interface CrawlLogEntry {
+	t: string | null;
+	level: LogLevel;
+	text: string;
+}
 
 export interface ProgressState {
 	step?: ProgressTick;

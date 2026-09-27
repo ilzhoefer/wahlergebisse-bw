@@ -297,5 +297,27 @@
 	"daten_cta_no_kinds": "No data type selected",
 	"daten_cta_loading": "Creating export …",
 	"daten_cta_error": "Export failed ({status})",
-	"daten_cta_note": "Results are available per municipality and polling district. Government regions and districts only help with the selection."
+	"daten_cta_note": "Results are available per municipality and polling district. Government regions and districts only help with the selection.",
+
+	"admin_date_coverage": "{n} of {total} municipalities already have results",
+	"admin_source_label": "Source",
+	"admin_advanced": "Advanced · {n} parallel",
+	"admin_advanced_fullrun": "full rerun",
+	"admin_confirm_text": "Existing data for {what} will be deleted and loaded again from scratch.",
+	"admin_confirm_yes": "Delete and reload",
+	"admin_confirm_no": "Cancel",
+	"admin_button_again": "Fetch again",
+	"admin_button_full": "Reload completely",
+	"admin_button_running": "Crawl running …",
+	"admin_progress_title": "Progress · {done}/{total} municipalities",
+	"admin_progress_last": "Last run · {what}",
+	"admin_progress_none": "No run yet",
+	"admin_counter_running": "Running",
+	"admin_counter_open": "Open",
+	"admin_fetches_heading": "Fetches · polling districts",
+	"admin_log_warn_filter_one": "1 warning · filter",
+	"admin_log_warn_filter": "{n} warnings · filter",
+	"admin_log_show_all": "All {n} entries",
+	"admin_throughput": "≈ {n} municipalities/min",
+	"admin_status_pill_meta": "{type} {date}"
 }

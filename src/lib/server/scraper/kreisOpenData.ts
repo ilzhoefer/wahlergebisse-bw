@@ -94,7 +94,9 @@ export async function importKreisOpenData(
 		const csvs = index?.csvs.filter((c) => c.ebene === 'Gemeinde') ?? [];
 		if (csvs.length === 0) {
 			log(
-				`Kreis ${kreisAgs}: keine Open-Data-Datei je Gemeinde, ${cities.length} Gemeinden fehlen`
+				`Kreis ${kreisAgs}: keine Open-Data-Datei je Gemeinde, ${cities.length} Gemeinden fehlen`,
+				undefined,
+				'warn'
 			);
 			continue;
 		}
@@ -107,13 +109,21 @@ export async function importKreisOpenData(
 				kreisElections.find((e) => e.title.startsWith(csv.wahl)) ??
 				(await electionOfKreisGemeinden(db, kreisAgs, date, csv.wahl));
 			if (!election) {
-				log(`Kreis ${kreisAgs}: Wahl "${csv.wahl}" nicht im Kreis-Termin gefunden, überspringe`);
+				log(
+					`Kreis ${kreisAgs}: Wahl "${csv.wahl}" nicht im Kreis-Termin gefunden, überspringe`,
+					undefined,
+					'warn'
+				);
 				continue;
 			}
 			const res = await fetch(`${base}/daten/opendata/${csv.url}`).catch(() => null);
 			const rows = res?.ok ? parseOpenDataCsv(await res.text()) : [];
 			if (!rows[0] || !('F' in rows[0]) || !('B1' in rows[0])) {
-				log(`Kreis ${kreisAgs}: "${csv.wahl}" hat kein unterstütztes Format, überspringe`);
+				log(
+					`Kreis ${kreisAgs}: "${csv.wahl}" hat kein unterstütztes Format, überspringe`,
+					undefined,
+					'warn'
+				);
 				continue;
 			}
 			const parties = await landeslisten(db, date, csv.wahl);

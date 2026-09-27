@@ -120,7 +120,7 @@ async function runStatistikBwCrawl(db: Db, params: CrawlParams, log: Logger) {
 		stepTick(3);
 		await updateWahlbezirkAggregates(db, postal, params.date, params.electionTypeId, log);
 	}
-	log('Crawl abgeschlossen');
+	log('Crawl abgeschlossen', undefined, 'ok');
 }
 
 export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
@@ -220,5 +220,5 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	stepTick('Gewählte Mitglieder abrufen');
 	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
 
-	log('Crawl abgeschlossen');
+	log('Crawl abgeschlossen', undefined, 'ok');
 }

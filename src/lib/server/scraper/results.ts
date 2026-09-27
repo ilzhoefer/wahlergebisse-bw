@@ -273,14 +273,18 @@ export async function getResultsCity(
 				);
 
 			if (!relevantElection) {
-				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
-					level: 'city',
-					index: ++completed,
-					total: cityList.length,
-					label: cityLabel,
-					rs: city.rs,
-					cityStatus: 'skipped'
-				});
+				log(
+					`${cityLabel}: keine passende Wahl gefunden, überspringe`,
+					{
+						level: 'city',
+						index: ++completed,
+						total: cityList.length,
+						label: cityLabel,
+						rs: city.rs,
+						cityStatus: 'skipped'
+					},
+					'warn'
+				);
 				return;
 			}
 
@@ -389,7 +393,7 @@ export async function getResultsCity(
 					});
 
 					if ('error' in result) {
-						log(result.error);
+						log(result.error, undefined, 'warn');
 						continue;
 					}
 

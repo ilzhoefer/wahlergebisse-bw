@@ -162,7 +162,11 @@ export async function updateMappingStuttgart(
 		const psId = inPersonStation?.psId ?? null;
 
 		if (psId === null) {
-			log(`Stuttgart-Bezirk "${row.AWBEZ_T}": kein Wahlbezirk gefunden, überspringe`);
+			log(
+				`Stuttgart-Bezirk "${row.AWBEZ_T}": kein Wahlbezirk gefunden, überspringe`,
+				undefined,
+				'warn'
+			);
 			continue;
 		}
 

@@ -78,7 +78,7 @@ export async function updateWahlbezirkAggregates(
 				return urn === undefined ? [] : [[urn, w] as [number, number]];
 			});
 			if (psId === undefined || targets.length === 0) {
-				log(`${rs}: Briefwahlbezirk ${key} nicht zuordenbar, ohne Verteilung`);
+				log(`${rs}: Briefwahlbezirk ${key} nicht zuordenbar, ohne Verteilung`, undefined, 'warn');
 				continue;
 			}
 			// No Wahlschein holders at all (can't happen with real data) → an even split.

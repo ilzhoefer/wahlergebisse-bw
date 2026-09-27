@@ -10,8 +10,10 @@ import {
 	timestamp,
 	foreignKey,
 	unique,
-	index
+	index,
+	jsonb
 } from 'drizzle-orm/pg-core';
+import type { CityStatus, CrawlLogEntry } from '../scraper/client';
 
 /**
  * Domain notes (ported from SQL/createdb.sql, which documents but no longer defines the schema):
@@ -652,8 +654,10 @@ export const crawlRun = pgTable('crawl_run', {
 	/** 'running' | 'done' | 'error' */
 	status: text('status').notNull(),
 	currentStep: text('current_step'),
-	/** Newline-joined progress log, latest entries only (truncated to a reasonable size). */
-	log: text('log'),
+	/** Progress log entries, latest only (truncated to a reasonable size). */
+	log: jsonb('log').$type<CrawlLogEntry[]>(),
+	/** `rs -> status` once the run has ended, so the admin map can show it after a reload. */
+	cityStatus: jsonb('city_status').$type<Record<number, CityStatus>>(),
 	error: text('error'),
 	startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 	finishedAt: timestamp('finished_at', { withTimezone: true })

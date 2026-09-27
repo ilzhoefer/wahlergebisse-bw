@@ -9,6 +9,8 @@ import {
 	DEFAULT_PARALLEL,
 	EMPTY_PROGRESS,
 	type CityStatus,
+	type CrawlLogEntry,
+	type LogLevel,
 	type ProgressState,
 	type ProgressTick
 } from '$lib/server/scraper/client';
@@ -21,12 +23,15 @@ export interface CrawlState {
 	date: string;
 	electionType: number;
 	status: 'running' | 'done' | 'error';
-	log: string[];
+	log: CrawlLogEntry[];
 	error: string | null;
 	/** ISO timestamp; lets the client render/tick a "running for"/"completed in" duration. */
 	startedAt: string;
+	/** ISO timestamp once the run has ended. */
+	finishedAt: string | null;
 	progress: ProgressState;
-	/** `rs -> CityStatus`, for the admin map view; see `createCityStatusTracker`. */
+	/** `rs -> CityStatus`, for the admin map view: the current step's while running (see
+	 * `createCityStatusTracker`), the whole run's once it has ended (see `runStatus` below). */
 	cityStatus: Record<number, CityStatus>;
 }
 
@@ -92,6 +97,9 @@ export async function startCrawl(params: {
 	}
 
 	const cityStatusTracker = createCityStatusTracker();
+	// The tracker starts over with every step; this keeps each Gemeinde's outcome across the whole run
+	// (skipped in any step stays skipped) — persisted at the end so the map survives a reload.
+	const runStatus: Record<number, CityStatus> = {};
 	current = {
 		runId: row.id,
 		date: params.date,
@@ -100,29 +108,35 @@ export async function startCrawl(params: {
 		log: [],
 		error: null,
 		startedAt: row.startedAt.toISOString(),
+		finishedAt: null,
 		progress: EMPTY_PROGRESS,
 		cityStatus: cityStatusTracker.status
 	};
 	notify();
 
-	const log = (message: string, progress?: ProgressTick) => {
+	const log = (message: string, progress?: ProgressTick, level: LogLevel = 'info') => {
 		if (!current) return;
 		// A pure progress tick (empty message — see pollingStations.ts/results.ts's per-station ticks)
 		// updates only the structured progress, skipping the log array and the DB write so a large
 		// city's hundreds of stations don't flood Postgres with one UPDATE per tick.
 		if (message) {
-			current.log.push(message);
+			current.log.push({ t: new Date().toISOString(), level, text: message });
 			if (current.log.length > MAX_LOG_LINES) current.log.shift();
 			// Drizzle query builders are lazy thenables — they only actually execute once something calls
 			// .then()/.catch()/is awaited. A bare `void db.update(...)` here would silently never run.
 			db.update(crawlRun)
-				.set({ log: current.log.join('\n'), currentStep: message })
+				.set({ log: current.log, currentStep: message })
 				.where(eq(crawlRun.id, row.id))
 				.catch(() => {});
 		}
 		if (progress) {
 			current.progress = mergeProgressTick(current.progress, progress);
 			cityStatusTracker.apply(progress);
+			if (progress.level === 'city' && progress.rs !== undefined) {
+				if (progress.cityStatus === 'skipped') runStatus[progress.rs] = 'skipped';
+				else if (progress.cityStatus === 'done' && runStatus[progress.rs] !== 'skipped')
+					runStatus[progress.rs] = 'done';
+			}
 		}
 		notify();
 	};
@@ -141,21 +155,29 @@ export async function startCrawl(params: {
 				log
 			);
 			cityStatusTracker.finish();
-			if (current?.runId === row.id) current.status = 'done';
+			const finishedAt = new Date();
+			if (current?.runId === row.id) {
+				current.status = 'done';
+				current.finishedAt = finishedAt.toISOString();
+				current.cityStatus = runStatus;
+			}
 			await db
 				.update(crawlRun)
-				.set({ status: 'done', finishedAt: new Date() })
+				.set({ status: 'done', finishedAt, cityStatus: runStatus })
 				.where(eq(crawlRun.id, row.id));
 		} catch (err) {
 			cityStatusTracker.finish();
 			const message = err instanceof Error ? err.message : String(err);
+			const finishedAt = new Date();
 			if (current?.runId === row.id) {
 				current.status = 'error';
 				current.error = message;
+				current.finishedAt = finishedAt.toISOString();
+				current.cityStatus = runStatus;
 			}
 			await db
 				.update(crawlRun)
-				.set({ status: 'error', error: message, finishedAt: new Date() })
+				.set({ status: 'error', error: message, finishedAt, cityStatus: runStatus })
 				.where(eq(crawlRun.id, row.id));
 		} finally {
 			releaseTaskLock();

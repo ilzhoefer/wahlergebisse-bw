@@ -50,14 +50,18 @@ export async function getElectedMembers(
 		// whenever an earlier-started city finishes after later ones have already begun.
 		const position = ++started;
 		const citySkip = (message: string) =>
-			log(message, {
-				level: 'city',
-				index: ++completed,
-				total: cityList.length,
-				label: cityLabel,
-				rs: city.rs,
-				cityStatus: 'skipped'
-			});
+			log(
+				message,
+				{
+					level: 'city',
+					index: ++completed,
+					total: cityList.length,
+					label: cityLabel,
+					rs: city.rs,
+					cityStatus: 'skipped'
+				},
+				'warn'
+			);
 
 		log(`[${position}/${cityList.length}] ${cityLabel}: gewählte Mitglieder abrufen`, {
 			level: 'city',

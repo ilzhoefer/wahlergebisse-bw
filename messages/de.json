@@ -297,5 +297,27 @@
 	"daten_cta_no_kinds": "Keine Datenart gewählt",
 	"daten_cta_loading": "Export wird erstellt …",
 	"daten_cta_error": "Export fehlgeschlagen ({status})",
-	"daten_cta_note": "Ergebnisse liegen auf Gemeinde- und Wahlbezirksebene vor. Regierungsbezirke und Kreise dienen nur der Auswahl."
+	"daten_cta_note": "Ergebnisse liegen auf Gemeinde- und Wahlbezirksebene vor. Regierungsbezirke und Kreise dienen nur der Auswahl.",
+
+	"admin_date_coverage": "{n} von {total} Gemeinden haben bereits Ergebnisse",
+	"admin_source_label": "Quelle",
+	"admin_advanced": "Erweitert · {n} parallel",
+	"admin_advanced_fullrun": "Neulauf",
+	"admin_confirm_text": "Vorhandene Daten für {what} werden gelöscht und komplett neu geladen.",
+	"admin_confirm_yes": "Löschen und neu laden",
+	"admin_confirm_no": "Abbrechen",
+	"admin_button_again": "Erneut abrufen",
+	"admin_button_full": "Vollständig neu laden",
+	"admin_button_running": "Crawl läuft …",
+	"admin_progress_title": "Fortschritt · {done}/{total} Gemeinden",
+	"admin_progress_last": "Letzter Lauf · {what}",
+	"admin_progress_none": "Noch kein Lauf",
+	"admin_counter_running": "Läuft",
+	"admin_counter_open": "Offen",
+	"admin_fetches_heading": "Abrufe · Wahlbezirke",
+	"admin_log_warn_filter_one": "1 Warnung · filtern",
+	"admin_log_warn_filter": "{n} Warnungen · filtern",
+	"admin_log_show_all": "Alle {n} Einträge",
+	"admin_throughput": "≈ {n} Gemeinden/min",
+	"admin_status_pill_meta": "{type} {date}"
 }

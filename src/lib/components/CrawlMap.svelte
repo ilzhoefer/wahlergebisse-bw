@@ -57,6 +57,12 @@
 		})
 	);
 
+	const counts = $derived.by(() => {
+		const c: Record<DisplayStatus, number> = { pending: 0, in_progress: 0, done: 0, skipped: 0 };
+		for (const item of items) c[item.status] += 1;
+		return c;
+	});
+
 	function formatPopup(properties: Record<string, unknown>, item: RegionItem | undefined) {
 		const name = (properties.name as string) ?? '';
 		const status = (item?.status as DisplayStatus | undefined) ?? 'pending';
@@ -74,6 +80,7 @@
 		<span class="row">
 			<span class="swatch" style="background: {COLORS[status]}"></span>
 			{statusLabel(status)}
+			<span class="count">{counts[status]}</span>
 		</span>
 	{/each}
 </div>
@@ -99,6 +106,13 @@
 		gap: 8px;
 		font-size: 12px;
 		color: var(--map-ink-2);
+		white-space: nowrap;
+	}
+	.count {
+		margin-left: auto;
+		padding-left: 10px;
+		font: 500 11px var(--map-font-mono);
+		color: var(--map-ink);
 	}
 	.swatch {
 		width: 11px;

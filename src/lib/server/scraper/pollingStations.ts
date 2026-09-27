@@ -57,7 +57,7 @@ export async function getPollingStationElectionCity(
 	);
 	const wahlbezirke = content?.tabelle?.zeilen;
 	if (!wahlbezirke) {
-		log(`Fehler beim Abrufen der Wahlbezirke für rs=${rs}`);
+		log(`Fehler beim Abrufen der Wahlbezirke für rs=${rs}`, undefined, 'warn');
 		return;
 	}
 
@@ -182,14 +182,18 @@ export async function getPollingStationsElection(
 				);
 
 			if (!relevantElection) {
-				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
-					level: 'city',
-					index: ++completed,
-					total: cityList.length,
-					label: cityLabel,
-					rs: city.rs,
-					cityStatus: 'skipped'
-				});
+				log(
+					`${cityLabel}: keine passende Wahl gefunden, überspringe`,
+					{
+						level: 'city',
+						index: ++completed,
+						total: cityList.length,
+						label: cityLabel,
+						rs: city.rs,
+						cityStatus: 'skipped'
+					},
+					'warn'
+				);
 				return;
 			}
 
