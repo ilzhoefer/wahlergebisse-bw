@@ -95,6 +95,15 @@ See `README.md` for the full dev workflow (`bun install`, `docker compose up -d 
 `bun run db:migrate`, `bun run dev`). `bun run check` type-checks; `bun run lint`/`format` run
 ESLint/Prettier.
 
+### Shareable map links
+
+Every piece of map state a user can change (election, date, Stimme, mode incl. new modes, party,
+comparison date, Ebene, focus …) must round-trip through the URL so a copied link reproduces the
+view. When adding a mode or control: add it to `src/lib/map/shareUrl.ts` (`ShareState`,
+`MODE_SLUGS` / read / write), write it in the `writeShareParams` effect and restore it from `shared`
+in `src/routes/+page.svelte`, and extend `scripts/check-share-url.ts`
+(`bun run scripts/check-share-url.ts`). Then check the running app's URL actually changes.
+
 ## Commands (legacy stack)
 
 There is no package manifest, test suite, or linter in this repo — it's a collection of R scripts run interactively or via `docker compose`.
@@ -121,3 +130,14 @@ docker compose -f Docker/docker-compose.yaml up --build shiny
 - Several files (`Docker/shiny/app.R`, `Docker/shiny/new_data_calls.R`, `R-Code/20250512_accessDB.R`) contain a hardcoded Postgres password instead of reading `DB_PASS` from the environment — be aware of this if touching DB connection code, but don't "fix" it as a drive-by change without confirming with the user, since these are committed, git-tracked files.
 - `00_daten/` holds raw source documents (Bekanntmachungen PDFs/spreadsheets per Landkreis) used for manual cross-checking, not machine-parsed inputs to the scraper.
 - `R-Code/Database/*.csv` are point-in-time exports from the legacy CSV-based scraper flow, not the live data source (the live data is in Postgres).
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

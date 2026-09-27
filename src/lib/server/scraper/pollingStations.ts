@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import { elections, pollingStations } from '$lib/server/db/schema';
 import {
@@ -9,6 +9,8 @@ import {
 	fallbackOnContentNull,
 	fallbackOnNotOk,
 	progressEvery,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -19,7 +21,7 @@ interface UebersichtResponse {
 		zeilen: {
 			label: string;
 			statusString: string;
-			link: { id: string };
+			link?: { id: string };
 		}[];
 	};
 }
@@ -33,10 +35,18 @@ interface WahlraumResponse {
 /** Port of get_polling_station_election_city. */
 export async function getPollingStationElectionCity(
 	db: Db,
-	params: { electionId: number; ags: number; rs: number; date: string; skipProcessed: boolean },
+	params: {
+		electionId: number;
+		ags: number;
+		rs: number;
+		date: string;
+		skipProcessed: boolean;
+		cityLabel: string;
+		slot: number;
+	},
 	log: Logger
 ) {
-	const { electionId, ags, rs, date, skipProcessed } = params;
+	const { electionId, ags, rs, date, skipProcessed, cityLabel, slot } = params;
 	const dateStr = formatDateForUrl(date);
 	const agsStr = padAgs(ags);
 
@@ -73,26 +83,27 @@ export async function getPollingStationElectionCity(
 		// Same rationale as the periodic log in results.ts: a large city's polling-station overview can
 		// have hundreds of entries, each needing its own metadata request. The progress tick is throttled
 		// separately (and more finely) than the text log line so the bar still feels live without
-		// flooding the SSE stream or the persisted log.
-		if (i > 0 && i % 25 === 0) {
-			log(`rs=${rs}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
+		// flooding the SSE stream or the persisted log. The periodic text line is still skipped for a
+		// single-station city (no value there), but the tick itself always fires — tagged with `slot` (the
+		// concurrency worker's stable position, see ProgressState.stations) so every active worker keeps
+		// showing *something* in the same spot, rather than the bar count/order shifting as different
+		// cities happen to have more than one station at any given moment.
+		if (wahlbezirke.length > 1 && i > 0 && i % 25 === 0) {
+			log(`${cityLabel}: Wahlbezirk ${i}/${wahlbezirke.length} verarbeitet`);
 		}
 		if (i % tickEvery === 0 || i === wahlbezirke.length - 1) {
 			log('', {
 				level: 'station',
 				index: i + 1,
 				total: wahlbezirke.length,
-				label: `Wahlbezirk ${i + 1}/${wahlbezirke.length}`
+				label: `${cityLabel}: Wahlbezirk ${i + 1}/${wahlbezirke.length}`,
+				rs,
+				slot
 			});
 		}
-		const match = /[^_]+$/.exec(wahlbezirk.link.id);
+		const match = wahlbezirk.link ? /[^_]+$/.exec(wahlbezirk.link.id) : null;
 		const psId = match ? Number(match[0]) : NaN;
 		if (!Number.isFinite(psId)) continue;
-
-		if (wahlbezirk.statusString !== 'eingegangen') {
-			log(`Wahlbezirk ${psId}: Status "${wahlbezirk.statusString}", noch nicht verfügbar`);
-			continue;
-		}
 
 		const { status, content: meta } = await fetchWithFallback<WahlraumResponse>(
 			`${BASE}/wahltermin-${dateStr}/${agsStr}/daten/api/wahlraum_${psId}.json`,
@@ -123,6 +134,9 @@ export async function getPollingStationElectionCity(
 /**
  * Port of get_polling_stations_election. `date` is an ISO string here (the R original parses a
  * German-formatted date string; the admin form always supplies ISO, so no parsing is needed).
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`); see `updateElectionDates`
+ * for why progress ticks use a shared "started so far" counter rather than the cityList array position.
  */
 export async function getPollingStationsElection(
 	db: Db,
@@ -130,48 +144,80 @@ export async function getPollingStationsElection(
 	electionTypeId: number,
 	date: string,
 	skipProcessed: boolean,
-	log: Logger
+	log: Logger,
+	parallel = DEFAULT_PARALLEL
 ) {
-	for (const [i, city] of cityList.entries()) {
-		const cityLabel = city.name ?? String(city.rs);
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
-			level: 'city',
-			index: i + 1,
-			total: cityList.length,
-			label: cityLabel,
-			rs: city.rs,
-			cityStatus: 'in_progress'
-		});
-
-		const [relevantElection] = await db
-			.select({ electionId: elections.electionId })
-			.from(elections)
-			.where(
-				and(
-					eq(elections.rs, city.rs),
-					eq(elections.date, date),
-					eq(elections.electionType, electionTypeId)
-				)
-			);
-
-		if (!relevantElection) {
-			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+	let started = 0;
+	let completed = 0;
+	await runWithConcurrency(
+		cityList,
+		parallel,
+		async (city, slot) => {
+			const cityLabel = city.name ?? String(city.rs);
+			// See updateElectionDates for why `position` (log text only) and `completed` (the progress
+			// tick's index) are kept separate — reusing `position` for both would make the bar jump
+			// backwards whenever an earlier-started city finishes after later ones have already begun.
+			const position = ++started;
+			log(`[${position}/${cityList.length}] ${cityLabel}: Wahlbezirke abrufen`, {
 				level: 'city',
-				index: i + 1,
+				index: completed,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
-				cityStatus: 'skipped'
+				cityStatus: 'in_progress'
 			});
-			continue;
-		}
 
-		await getPollingStationElectionCity(
-			db,
-			{ electionId: relevantElection.electionId, ags: city.ags, rs: city.rs, date, skipProcessed },
-			log
-		);
-	}
+			const [relevantElection] = await db
+				.select({ electionId: elections.electionId })
+				.from(elections)
+				.where(
+					and(
+						eq(elections.rs, city.rs),
+						eq(elections.date, date),
+						eq(elections.electionType, electionTypeId),
+						// No result_id: not from the JSON API but the html5/Kreis open-data imports, whose
+						// data the JSON endpoints lack or only partly have (no postal districts).
+						isNotNull(elections.resultId)
+					)
+				);
+
+			if (!relevantElection) {
+				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+					level: 'city',
+					index: ++completed,
+					total: cityList.length,
+					label: cityLabel,
+					rs: city.rs,
+					cityStatus: 'skipped'
+				});
+				return;
+			}
+
+			await getPollingStationElectionCity(
+				db,
+				{
+					electionId: relevantElection.electionId,
+					ags: city.ags,
+					rs: city.rs,
+					date,
+					skipProcessed,
+					cityLabel,
+					slot
+				},
+				log
+			);
+
+			log('', {
+				level: 'city',
+				index: ++completed,
+				total: cityList.length,
+				label: cityLabel,
+				rs: city.rs,
+				cityStatus: 'done'
+			});
+		},
+		(slot) => log('', { level: 'station', index: 0, total: 0, label: '', slot, closed: true })
+	);
 
 	// Belt-and-suspenders: any station with "Brief" in its name is postal, regardless of what the
 	// per-station metadata call determined.

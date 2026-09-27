@@ -45,6 +45,9 @@ services:
       - DATABASE_URL=postgres://election:election@db:5432/election
       - ADMIN_PASSWORD=changeme
       - SESSION_SECRET=changeme
+      - OPERATOR_NAME=Max Mustermann
+      - OPERATOR_ADDRESS=Musterstraße 1, 12345 Musterstadt
+      - OPERATOR_EMAIL=kontakt@example.org
     ports:
       - '3000:3000'
 

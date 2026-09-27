@@ -7,11 +7,26 @@ import {
 	getParties,
 	getMapInformation,
 	getMapInformationPs,
+	getRegionBreakdowns,
+	getGemeindenWithData,
 	possibleMapModes,
+	searchCandidates,
+	getCandidateResults,
+	type CandidateHit,
+	type CandidateResult,
 	type MapMode,
-	type MapInformationMode
+	type MapInformationMode,
+	type BreakdownGrain,
+	type RegionBreakdown
 } from '$lib/server/map/queries';
-import { turnoutColorScale, partyColorScale } from '$lib/server/map/colors';
+import { memo } from '$lib/server/queryCache';
+import {
+	getWahlkreisGemeinden,
+	getWahlkreisMandates,
+	getWahlkreisBezirke,
+	type WahlkreisMandates
+} from '$lib/server/map/mandates';
+import { turnoutColorScale, partyColorScale, diffColorScale } from '$lib/map/colors';
 
 /*
  * Phase 1/2 data (map view, CSV export) is fully public — no abilities are defined here, and these
@@ -61,6 +76,28 @@ const PartyOptionRef = schemaBuilder
 		})
 	});
 
+const CandidateHitRef = schemaBuilder.objectRef<CandidateHit>('CandidateHit').implement({
+	fields: (t) => ({
+		name: t.exposeString('name'),
+		party: t.exposeString('party', { nullable: true }),
+		// String: rs overflows GraphQL's 32-bit Int (see regionData's `rs` arg).
+		rs: t.string({ resolve: (parent) => String(parent.rs) }),
+		electionType: t.exposeInt('electionType'),
+		date: t.exposeString('date')
+	})
+});
+
+// Wrapped in an object (rather than a bare `[String]` query return) to match every other list field in
+// this schema — rumble's typed client doesn't handle a top-level scalar-array query field well (its
+// field-selection type assumes a query's array elements are always an object to select fields from).
+const EligibleGemeindenRef = schemaBuilder
+	.objectRef<{ rsList: string[] }>('EligibleGemeinden')
+	.implement({
+		fields: (t) => ({
+			rsList: t.stringList({ resolve: (parent) => parent.rsList })
+		})
+	});
+
 interface RegionItem {
 	key: string;
 	color: string | null;
@@ -87,7 +124,7 @@ interface LegendEntry {
 }
 
 interface Legend {
-	type: 'turnout' | 'party' | 'parties';
+	type: 'turnout' | 'party' | 'parties' | 'diff';
 	min?: number;
 	max?: number;
 	partyName?: string;
@@ -131,6 +168,88 @@ const RegionDataRef = schemaBuilder.objectRef<RegionData>('RegionData').implemen
 	})
 });
 
+const RegionBreakdownRowRef = schemaBuilder
+	.objectRef<RegionBreakdown['rows'][number]>('RegionBreakdownRow')
+	.implement({
+		fields: (t) => ({
+			partyName: t.exposeString('partyName', { nullable: true }),
+			color: t.exposeString('color', { nullable: true }),
+			votePercent: t.exposeFloat('votePercent', { nullable: true }),
+			voteCount: t.exposeInt('voteCount', { nullable: true }),
+			seats: t.exposeInt('seats', { nullable: true }),
+			candidate: t.exposeString('candidate', { nullable: true })
+		})
+	});
+
+const MandateDirectRef = schemaBuilder
+	.objectRef<NonNullable<WahlkreisMandates['direct']>>('MandateDirect')
+	.implement({
+		fields: (t) => ({
+			name: t.exposeString('name', { nullable: true }),
+			party: t.exposeString('party'),
+			percent: t.exposeFloat('percent', { nullable: true }),
+			seat: t.exposeBoolean('seat')
+		})
+	});
+const MandateListRef = schemaBuilder
+	.objectRef<WahlkreisMandates['list'][number]>('MandateList')
+	.implement({
+		fields: (t) => ({
+			name: t.exposeString('name'),
+			party: t.exposeString('party'),
+			listPlace: t.exposeInt('listPlace', { nullable: true })
+		})
+	});
+const WahlkreisMandatesRef = schemaBuilder
+	.objectRef<WahlkreisMandates & { rs: string[]; bezirke: string[] }>('WahlkreisMandates')
+	.implement({
+		fields: (t) => ({
+			districtId: t.exposeString('districtId'),
+			direct: t.field({ type: MandateDirectRef, nullable: true, resolve: (p) => p.direct }),
+			list: t.field({ type: [MandateListRef], resolve: (p) => p.list }),
+			/** The Gemeinden (rs) this Wahlkreis covers — String: rs overflows GraphQL's Int. */
+			rs: t.stringList({ resolve: (p) => p.rs }),
+			/** Wahlbezirke in it of Gemeinden spanning several Wahlkreise (keyed as on the map). */
+			bezirke: t.stringList({ resolve: (p) => p.bezirke })
+		})
+	});
+
+const CandidateResultRef = schemaBuilder.objectRef<CandidateResult>('CandidateResult').implement({
+	fields: (t) => ({
+		name: t.exposeString('name'),
+		votes: t.exposeFloat('votes'),
+		elected: t.exposeBoolean('elected')
+	})
+});
+
+const RegionBreakdownRef = schemaBuilder.objectRef<RegionBreakdown>('RegionBreakdown').implement({
+	fields: (t) => ({
+		key: t.exposeString('key'),
+		turnout: t.exposeFloat('turnout', { nullable: true }),
+		eligible: t.exposeFloat('eligible', { nullable: true }),
+		seatTotal: t.exposeInt('seatTotal', { nullable: true }),
+		postalElsewhere: t.boolean({ resolve: (parent) => parent.postalElsewhere ?? false }),
+		rows: t.field({ type: [RegionBreakdownRowRef], resolve: (parent) => parent.rows })
+	})
+});
+
+/** Kartenansicht's `mapMode` argument convention (`MapMode`, the map's display-resolution level) maps
+ * 1:1 onto `getRegionBreakdowns`' `grain` — same five values, just cased differently. */
+function grainOf(mapMode: MapMode): BreakdownGrain {
+	switch (mapMode) {
+		case 'Regierungsbezirk':
+			return 'regierungsbezirk';
+		case 'Kreis':
+			return 'kreis';
+		case 'Gemeinde':
+			return 'gemeinde';
+		case 'Wahlkreis':
+			return 'wahlkreis';
+		case 'Wahlbezirk':
+			return 'wahlbezirk';
+	}
+}
+
 schemaBuilder.queryFields((t) => ({
 	electionTypes: t.field({
 		type: [ElectionTypeOptionRef],
@@ -157,7 +276,75 @@ schemaBuilder.queryFields((t) => ({
 			electionType: t.arg.int({ required: true }),
 			date: t.arg.string({ required: true })
 		},
-		resolve: (_root, args) => getParties(db, args.date, args.electionType)
+		resolve: (_root, args) =>
+			memo('parties', args, () => getParties(db, args.date, args.electionType))
+	}),
+	// Not memoized on purpose: every keystroke is a new key and would evict map queries from the
+	// FIFO-capped cache (queryCache.ts), while this query itself is cheap (~17k indexed rows).
+	// Static per-election files (see mandates.ts), plus each Wahlkreis's Gemeinden.
+	wahlkreisMandates: t.field({
+		type: [WahlkreisMandatesRef],
+		args: {
+			date: t.arg.string({ required: true }),
+			electionType: t.arg.int({ required: true })
+		},
+		resolve: async (_root, args) => {
+			const [gemeinden, bezirke] = await Promise.all([
+				memo('wahlkreisGemeinden', args, () =>
+					getWahlkreisGemeinden(db, args.electionType, args.date)
+				),
+				memo('wahlkreisBezirke', args, () => getWahlkreisBezirke(db, args.electionType, args.date))
+			]);
+			return getWahlkreisMandates(args.date).map((m) => ({
+				...m,
+				rs: gemeinden.get(m.districtId) ?? [],
+				bezirke: bezirke.get(m.districtId) ?? []
+			}));
+		}
+	}),
+	// One list's candidates in one Gemeinde (or Stuttgart Wahlbezirk) — the panel's party-row
+	// expansion for Gemeinderats-/Kreistagswahl. rs is String: it overflows GraphQL's 32-bit Int.
+	candidateResults: t.field({
+		type: [CandidateResultRef],
+		args: {
+			electionType: t.arg.int({ required: true }),
+			date: t.arg.string({ required: true }),
+			rs: t.arg.string({ required: true }),
+			party: t.arg.string({ required: true }),
+			station: t.arg.string()
+		},
+		resolve: (_root, args) =>
+			memo('candidateResults', args, () =>
+				getCandidateResults(db, {
+					electionType: args.electionType,
+					date: args.date,
+					rs: Number(args.rs),
+					party: args.party,
+					station: args.station ?? undefined
+				})
+			)
+	}),
+	searchCandidates: t.field({
+		type: [CandidateHitRef],
+		args: { q: t.arg.string({ required: true }) },
+		resolve: (_root, args) =>
+			args.q.trim().length < 3 ? [] : searchCandidates(db, args.q.slice(0, 100))
+	}),
+	// rsList is String, not Int: `rs` values (up to 12 digits) overflow GraphQL's 32-bit Int — mirrors
+	// regionBreakdowns'/regionData's own `rs`. Only meaningfully differs from "every Gemeinde" for
+	// Regionalwahl (Region Stuttgart only) — see getGemeindenWithData's doc comment.
+	eligibleGemeinden: t.field({
+		type: EligibleGemeindenRef,
+		args: {
+			electionType: t.arg.int({ required: true }),
+			date: t.arg.string({ required: true })
+		},
+		resolve: (_root, args) =>
+			memo('eligibleGemeinden', args, () =>
+				getGemeindenWithData(db, args.electionType, args.date).then((rsList) => ({
+					rsList: rsList.map(String)
+				}))
+			)
 	}),
 	regionData: t.field({
 		type: RegionDataRef,
@@ -167,59 +354,99 @@ schemaBuilder.queryFields((t) => ({
 			mapMode: t.arg.string({ required: true }),
 			mapInformation: t.arg.string({ required: true }),
 			party: t.arg.string({ required: false }),
+			voteType: t.arg.string({ required: false }),
+			// String, not Int: `rs` values (up to 12 digits) overflow GraphQL's 32-bit Int — mirrors
+			// regionBreakdowns' own `rs` arg. Scopes the colour scale's min/max to what's actually
+			// rendered right now (see MapInformationParams.selectedRsList's doc comment).
+			rs: t.arg.stringList({ required: false })
+		},
+		resolve: (_root, args) => memo('regionData', args, () => resolveRegionData(args))
+	}),
+	regionBreakdowns: t.field({
+		type: [RegionBreakdownRef],
+		args: {
+			electionType: t.arg.int({ required: true }),
+			date: t.arg.string({ required: true }),
+			mapMode: t.arg.string({ required: true }),
+			// String, not Int: `rs` values (up to 12 digits) overflow GraphQL's 32-bit Int.
+			rs: t.arg.stringList({ required: false }),
 			voteType: t.arg.string({ required: false })
 		},
-		resolve: async (_root, args) => {
-			const mapMode = args.mapMode as MapMode;
-			const mapInformation = args.mapInformation as MapInformationMode;
-			const selectedParty = args.party ?? undefined;
-			const votetypeFilter =
-				(args.electionType === 2 || args.electionType === 3) &&
-				args.voteType !== null &&
-				args.voteType !== undefined
-					? Number(args.voteType)
-					: null;
-
-			if (mapMode === 'Wahlbezirk') {
-				const rows = await getMapInformationPs(db, {
-					selectedMapInformation: mapInformation,
-					selectedElectionType: args.electionType,
-					selectedDate: args.date,
-					selectedParty
-				});
-				const filtered =
-					votetypeFilter === null ? rows : rows.filter((r) => r.votetypeId === votetypeFilter);
-				return buildResponse(
-					'awbezT',
-					mapInformation,
-					filtered,
-					(r) => r.name?.slice(0, 6) ?? null,
-					selectedParty
-				);
-			}
-
-			const rows = await getMapInformation(db, {
-				selectedMapInformation: mapInformation,
-				selectedMapMode: mapMode,
-				selectedElectionType: args.electionType,
-				selectedDate: args.date,
-				selectedParty
-			});
-			const filtered =
-				votetypeFilter === null ? rows : rows.filter((r) => r.votetypeId === votetypeFilter);
-			const keyField = mapMode === 'Wahlkreis' ? 'ref' : 'rs';
-			const keyOf = (r: (typeof filtered)[number]) =>
-				'districtId' in r ? String(r.districtId) : 'rs' in r ? String(r.rs) : null;
-			return buildResponse(keyField, mapInformation, filtered, keyOf, selectedParty);
-		}
+		resolve: (_root, args) =>
+			memo('regionBreakdowns', args, () =>
+				getRegionBreakdowns(db, {
+					grain: grainOf(args.mapMode as MapMode),
+					rsList: args.rs?.filter((r): r is string => r !== null).map(Number),
+					electionType: args.electionType,
+					date: args.date,
+					voteType: (args.voteType as '0' | '1' | null) ?? undefined
+				})
+			)
 	})
 }));
+
+interface RegionDataArgs {
+	electionType: number;
+	date: string;
+	mapMode: string;
+	mapInformation: string;
+	party?: string | null;
+	voteType?: string | null;
+	rs?: (string | null)[] | null;
+}
+
+async function resolveRegionData(args: RegionDataArgs) {
+	const mapMode = args.mapMode as MapMode;
+	const mapInformation = args.mapInformation as MapInformationMode;
+	const selectedParty = args.party ?? undefined;
+	const selectedRsList = args.rs?.filter((r): r is string => r !== null).map(Number);
+	const votetypeFilter =
+		(args.electionType === 2 || args.electionType === 3) &&
+		args.voteType !== null &&
+		args.voteType !== undefined
+			? Number(args.voteType)
+			: null;
+
+	if (mapMode === 'Wahlbezirk') {
+		const rows = await getMapInformationPs(db, {
+			selectedMapInformation: mapInformation,
+			selectedElectionType: args.electionType,
+			selectedDate: args.date,
+			selectedParty
+		});
+		const filtered =
+			votetypeFilter === null ? rows : rows.filter((r) => r.votetypeId === votetypeFilter);
+		return buildResponse(
+			'awbezT',
+			mapInformation,
+			filtered,
+			(r) => r.name?.split(' ')[0] ?? null,
+			selectedParty
+		);
+	}
+
+	const rows = await getMapInformation(db, {
+		selectedMapInformation: mapInformation,
+		selectedMapMode: mapMode,
+		selectedElectionType: args.electionType,
+		selectedDate: args.date,
+		selectedParty,
+		selectedRsList
+	});
+	const filtered =
+		votetypeFilter === null ? rows : rows.filter((r) => r.votetypeId === votetypeFilter);
+	const keyField = mapMode === 'Wahlkreis' ? 'ref' : 'rs';
+	const keyOf = (r: (typeof filtered)[number]) =>
+		'districtId' in r ? String(r.districtId) : 'rs' in r ? String(r.rs) : null;
+	return buildResponse(keyField, mapInformation, filtered, keyOf, selectedParty);
+}
 
 interface Row {
 	turnout?: string | null;
 	votePercent?: string | null;
 	color?: string | null;
 	nameShort?: string | null;
+	votetypeId?: number;
 }
 
 /**
@@ -295,6 +522,40 @@ function buildResponse<T extends Row>(
 					};
 				})
 				.filter((r) => r !== null) as RegionItem[]
+		};
+	}
+
+	if (mapInformation === 'Stimmensplitting') {
+		// votePercent carries Erst − Zweit in points; an area without a direct candidate of this party
+		// (no Erststimme row) is notCompeting rather than 0.
+		const byKey = new Map<string, { e?: number; z?: number }>();
+		for (const r of rows) {
+			const key = keyOf(r);
+			if (key === null || r.votePercent == null) continue;
+			const pair = byKey.get(key) ?? {};
+			if (r.votetypeId === 0) pair.e = Number(r.votePercent) * 100;
+			if (r.votetypeId === 1) pair.z = Number(r.votePercent) * 100;
+			byKey.set(key, pair);
+		}
+		const diffs = Array.from(byKey, ([key, { e, z }]) => ({
+			key,
+			diff: e !== undefined && z !== undefined ? e - z : null
+		}));
+		const values = diffs.map((d) => d.diff).filter((v): v is number => v !== null);
+		const scale = diffColorScale(values);
+		const bound = Math.max(0, ...values.map(Math.abs));
+		return {
+			keyField,
+			legend: values.length
+				? { type: 'diff', partyName: selectedParty ?? '', min: -bound, max: bound }
+				: null,
+			items: diffs.map(({ key, diff }) => ({
+				key,
+				color: diff === null ? null : (scale(diff) ?? null),
+				votePercent: diff,
+				partyName: selectedParty ?? null,
+				notCompeting: diff === null
+			}))
 		};
 	}
 

@@ -36,3 +36,7 @@ Docker/.env
 # Paraglide
 src/lib/paraglide
 project.inlang/cache/
+
+# Local tooling
+graphify-out/
+.claude/settings.json

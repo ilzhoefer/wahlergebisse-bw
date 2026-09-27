@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages';
+	import SiteLinks from '$lib/components/SiteLinks.svelte';
 
 	let { data } = $props();
 
@@ -100,4 +101,5 @@
 			{m.daten_submit()}
 		</button>
 	</form>
+	<SiteLinks class="border-t pt-4 text-gray-600" />
 </div>

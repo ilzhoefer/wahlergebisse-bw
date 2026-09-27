@@ -5,11 +5,16 @@ import { runCrawl } from '$lib/server/scraper/runCrawl';
 import {
 	mergeProgressTick,
 	createCityStatusTracker,
+	maxParallelism,
+	DEFAULT_PARALLEL,
+	EMPTY_PROGRESS,
 	type CityStatus,
 	type ProgressState,
 	type ProgressTick
 } from '$lib/server/scraper/client';
 import { acquireTaskLock, releaseTaskLock } from '$lib/server/task-lock';
+
+export { maxParallelism };
 
 export interface CrawlState {
 	runId: number;
@@ -58,10 +63,19 @@ export function isCrawlRunning(): boolean {
 export async function startCrawl(params: {
 	date: string;
 	electionTypeId: number;
+	/** How many cities to process concurrently; clamped to [1, maxParallelism()] regardless of input. */
+	parallel?: number;
+	/** Deletes this election's previously fetched data before re-crawling — see `resetElectionData`. */
+	fullRun?: boolean;
 }): Promise<{ started: true } | { started: false; reason: 'already_running' }> {
 	if (!acquireTaskLock()) {
 		return { started: false, reason: 'already_running' };
 	}
+
+	const parallel = Math.min(
+		Math.max(1, Math.floor(params.parallel ?? DEFAULT_PARALLEL)),
+		maxParallelism()
+	);
 
 	// Everything from here until the background IIFE is synchronous setup — if any of it throws, the
 	// lock must still be released, or every future attempt would fail with "already_running" forever
@@ -86,7 +100,7 @@ export async function startCrawl(params: {
 		log: [],
 		error: null,
 		startedAt: row.startedAt.toISOString(),
-		progress: {},
+		progress: EMPTY_PROGRESS,
 		cityStatus: cityStatusTracker.status
 	};
 	notify();
@@ -116,7 +130,16 @@ export async function startCrawl(params: {
 	// Fire-and-forget: the HTTP request that triggered this returns immediately, progress is polled via SSE.
 	void (async () => {
 		try {
-			await runCrawl(db, { date: params.date, electionTypeId: params.electionTypeId }, log);
+			await runCrawl(
+				db,
+				{
+					date: params.date,
+					electionTypeId: params.electionTypeId,
+					parallel,
+					fullRun: params.fullRun ?? false
+				},
+				log
+			);
 			cityStatusTracker.finish();
 			if (current?.runId === row.id) current.status = 'done';
 			await db

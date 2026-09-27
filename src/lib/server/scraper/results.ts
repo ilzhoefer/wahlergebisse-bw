@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
 import {
 	elections,
@@ -15,6 +15,8 @@ import {
 	fetchWithFallback,
 	fallbackOnNotFound,
 	progressEvery,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -221,6 +223,11 @@ export async function getResultsSinglePs(
  * Port of `get_results_city`. Stuttgart's Bundestag election (`electionTypeId === 2`) is the only case
  * where party composition can differ per polling station (multiple Wahlkreise) — everywhere else,
  * party data is only fetched once per city, on its first polling station, and stored without a `psId`.
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`); see `updateElectionDates`
+ * for why progress ticks use a shared "started so far" counter rather than the cityList array position.
+ * Within one city, polling stations still run sequentially — only Stuttgart has enough of them for it
+ * to matter, and city-level concurrency already parallelizes the other ~1100 single/few-station cities.
  */
 export async function getResultsCity(
 	db: Db,
@@ -228,199 +235,262 @@ export async function getResultsCity(
 	date: string,
 	electionTypeId: number,
 	skipProcessed: boolean,
-	log: Logger
+	log: Logger,
+	parallel = DEFAULT_PARALLEL
 ) {
-	for (const [i, city] of cityList.entries()) {
-		const cityLabel = city.name ?? String(city.rs);
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Ergebnisse abrufen`, {
-			level: 'city',
-			index: i + 1,
-			total: cityList.length,
-			label: cityLabel,
-			rs: city.rs,
-			cityStatus: 'in_progress'
-		});
-
-		const [relevantElection] = await db
-			.select({ electionId: elections.electionId })
-			.from(elections)
-			.where(
-				and(
-					eq(elections.rs, city.rs),
-					eq(elections.date, date),
-					eq(elections.electionType, electionTypeId)
-				)
-			);
-
-		if (!relevantElection) {
-			log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
+	let started = 0;
+	let completed = 0;
+	await runWithConcurrency(
+		cityList,
+		parallel,
+		async (city, slot) => {
+			const cityLabel = city.name ?? String(city.rs);
+			// See updateElectionDates for why `position` (log text only) and `completed` (the progress
+			// tick's index) are kept separate — reusing `position` for both would make the bar jump
+			// backwards whenever an earlier-started city finishes after later ones have already begun.
+			const position = ++started;
+			log(`[${position}/${cityList.length}] ${cityLabel}: Ergebnisse abrufen`, {
 				level: 'city',
-				index: i + 1,
+				index: completed,
 				total: cityList.length,
 				label: cityLabel,
 				rs: city.rs,
-				cityStatus: 'skipped'
+				cityStatus: 'in_progress'
 			});
-			continue;
-		}
 
-		const relevantVotetypes = await db
-			.select()
-			.from(electionsVotetypes)
-			.where(
-				and(
-					eq(electionsVotetypes.rs, city.rs),
-					eq(electionsVotetypes.electionId, relevantElection.electionId)
-				)
-			);
-
-		const relevantPs = await db
-			.select()
-			.from(pollingStations)
-			.where(
-				and(
-					eq(pollingStations.rs, city.rs),
-					eq(pollingStations.date, date),
-					eq(pollingStations.electionId, relevantElection.electionId)
-				)
-			);
-
-		if (skipProcessed) {
-			const [{ count }] = await db
-				.select({ count: sql<number>`count(*)::int` })
-				.from(electionResultPs)
+			const [relevantElection] = await db
+				.select({ electionId: elections.electionId })
+				.from(elections)
 				.where(
 					and(
-						eq(electionResultPs.rs, city.rs),
-						eq(electionResultPs.electionId, relevantElection.electionId)
+						eq(elections.rs, city.rs),
+						eq(elections.date, date),
+						eq(elections.electionType, electionTypeId),
+						// No result_id: not from the JSON API but the html5/Kreis open-data imports, whose
+						// data the JSON endpoints lack or only partly have (no postal districts).
+						isNotNull(elections.resultId)
 					)
 				);
-			if (count === relevantPs.length * relevantVotetypes.length) {
-				log(`${cityLabel}: bereits vollständig verarbeitet, überspringe`, {
+
+			if (!relevantElection) {
+				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
 					level: 'city',
-					index: i + 1,
+					index: ++completed,
 					total: cityList.length,
 					label: cityLabel,
 					rs: city.rs,
 					cityStatus: 'skipped'
 				});
-				continue;
+				return;
 			}
-		}
 
-		const tickEvery = progressEvery(relevantPs.length);
-		for (const [j, ps] of relevantPs.entries()) {
-			// A single city (e.g. Stuttgart) can have hundreds of polling stations, each requiring its own
-			// HTTP request — without this, the admin UI's progress log would show nothing but the initial
-			// "Ergebnisse abrufen" line for however long that takes.
-			if (j > 0 && j % 25 === 0) {
-				log(`${city.name ?? city.rs}: Wahlbezirk ${j}/${relevantPs.length} verarbeitet`);
+			const relevantVotetypes = await db
+				.select()
+				.from(electionsVotetypes)
+				.where(
+					and(
+						eq(electionsVotetypes.rs, city.rs),
+						eq(electionsVotetypes.electionId, relevantElection.electionId)
+					)
+				);
+
+			const relevantPs = await db
+				.select()
+				.from(pollingStations)
+				.where(
+					and(
+						eq(pollingStations.rs, city.rs),
+						eq(pollingStations.date, date),
+						eq(pollingStations.electionId, relevantElection.electionId)
+					)
+				);
+
+			if (skipProcessed) {
+				const [{ count }] = await db
+					.select({ count: sql<number>`count(*)::int` })
+					.from(electionResultPs)
+					.where(
+						and(
+							eq(electionResultPs.rs, city.rs),
+							eq(electionResultPs.electionId, relevantElection.electionId)
+						)
+					);
+				if (count === relevantPs.length * relevantVotetypes.length) {
+					log(`${cityLabel}: bereits vollständig verarbeitet, überspringe`, {
+						level: 'city',
+						index: ++completed,
+						total: cityList.length,
+						label: cityLabel,
+						rs: city.rs,
+						cityStatus: 'skipped'
+					});
+					return;
+				}
 			}
-			if (j % tickEvery === 0 || j === relevantPs.length - 1) {
-				log('', {
-					level: 'station',
-					index: j + 1,
-					total: relevantPs.length,
-					label: `Wahlbezirk ${j + 1}/${relevantPs.length}`
-				});
-			}
-			for (const votetype of relevantVotetypes) {
-				if (skipProcessed) {
-					const [existing] = await db
-						.select({ id: electionResultPs.id })
-						.from(electionResultPs)
-						.where(
-							and(
-								eq(electionResultPs.rs, city.rs),
-								eq(electionResultPs.electionId, relevantElection.electionId),
-								eq(electionResultPs.psId, ps.psId),
-								eq(electionResultPs.votetypeId, votetype.votetypeId)
-							)
-						);
-					if (existing) continue;
+
+			const tickEvery = progressEvery(relevantPs.length);
+			for (const [j, ps] of relevantPs.entries()) {
+				// A single city (e.g. Stuttgart) can have hundreds of polling stations, each requiring its own
+				// HTTP request — without this, the admin UI's progress log would show nothing but the initial
+				// "Ergebnisse abrufen" line for however long that takes. The periodic text line is still
+				// skipped for single-station cities (no value there), but the tick itself always fires, tagged
+				// with `slot` so every active worker's bar stays in the same spot (see pollingStations.ts).
+				if (relevantPs.length > 1 && j > 0 && j % 25 === 0) {
+					log(`${cityLabel}: Wahlbezirk ${j}/${relevantPs.length} verarbeitet`);
 				}
-
-				let includeParty: boolean;
-				let includePs: boolean;
-				if (electionTypeId === 2 && city.rs === STUTTGART_RS) {
-					includeParty = true;
-					includePs = true;
-				} else if (j === 0) {
-					includeParty = true;
-					includePs = false;
-				} else {
-					includeParty = false;
-					includePs = false;
+				if (j % tickEvery === 0 || j === relevantPs.length - 1) {
+					log('', {
+						level: 'station',
+						index: j + 1,
+						total: relevantPs.length,
+						label: `${cityLabel}: Wahlbezirk ${j + 1}/${relevantPs.length}`,
+						rs: city.rs,
+						slot
+					});
 				}
+				for (const votetype of relevantVotetypes) {
+					if (skipProcessed) {
+						const [existing] = await db
+							.select({ id: electionResultPs.id })
+							.from(electionResultPs)
+							.where(
+								and(
+									eq(electionResultPs.rs, city.rs),
+									eq(electionResultPs.electionId, relevantElection.electionId),
+									eq(electionResultPs.psId, ps.psId),
+									eq(electionResultPs.votetypeId, votetype.votetypeId)
+								)
+							);
+						if (existing) continue;
+					}
 
-				const result = await getResultsSinglePs(db, {
-					psId: ps.psId,
-					isPostalGuess: ps.isPostal ?? false,
-					ags: city.ags,
-					electionId: relevantElection.electionId,
-					date,
-					votetypeId: votetype.votetypeId,
-					rs: city.rs,
-					includeParty
-				});
+					let includeParty: boolean;
+					let includePs: boolean;
+					if (electionTypeId === 2 && city.rs === STUTTGART_RS) {
+						includeParty = true;
+						includePs = true;
+					} else if (j === 0) {
+						includeParty = true;
+						includePs = false;
+					} else {
+						includeParty = false;
+						includePs = false;
+					}
 
-				if ('error' in result) {
-					log(result.error);
-					continue;
-				}
+					const result = await getResultsSinglePs(db, {
+						psId: ps.psId,
+						isPostalGuess: ps.isPostal ?? false,
+						ags: city.ags,
+						electionId: relevantElection.electionId,
+						date,
+						votetypeId: votetype.votetypeId,
+						rs: city.rs,
+						includeParty
+					});
 
-				const { results, resultsParty, metadata } = result;
+					if ('error' in result) {
+						log(result.error);
+						continue;
+					}
 
-				for (const r of results) {
+					const { results, resultsParty, metadata } = result;
+
+					for (const r of results) {
+						await db
+							.insert(electionResult)
+							.values({
+								rs: city.rs,
+								electionId: relevantElection.electionId,
+								psId: ps.psId,
+								votetypeId: votetype.votetypeId,
+								partyId: r.partyId,
+								voteCount: numToStr(r.voteCount),
+								votePercent: numToStr(r.votePercent),
+								candidateName: r.candidateName
+							})
+							.onConflictDoNothing();
+					}
+
 					await db
-						.insert(electionResult)
+						.insert(electionResultPs)
 						.values({
 							rs: city.rs,
 							electionId: relevantElection.electionId,
 							psId: ps.psId,
 							votetypeId: votetype.votetypeId,
-							partyId: r.partyId,
-							voteCount: numToStr(r.voteCount),
-							votePercent: numToStr(r.votePercent),
-							candidateName: r.candidateName
+							votesEligible: numToStr(metadata.votesEligible),
+							voters: numToStr(metadata.voters),
+							invalidBallots: numToStr(metadata.invalidBallots),
+							validBallots: numToStr(metadata.validBallots),
+							votesCast: numToStr(metadata.votesCast),
+							turnout: numToStr(metadata.turnout)
 						})
 						.onConflictDoNothing();
-				}
 
-				await db
-					.insert(electionResultPs)
-					.values({
-						rs: city.rs,
-						electionId: relevantElection.electionId,
-						psId: ps.psId,
-						votetypeId: votetype.votetypeId,
-						votesEligible: numToStr(metadata.votesEligible),
-						voters: numToStr(metadata.voters),
-						invalidBallots: numToStr(metadata.invalidBallots),
-						validBallots: numToStr(metadata.validBallots),
-						votesCast: numToStr(metadata.votesCast),
-						turnout: numToStr(metadata.turnout)
-					})
-					.onConflictDoNothing();
-
-				if (includeParty && resultsParty) {
-					for (const p of resultsParty) {
-						await db
-							.insert(electionParty)
-							.values({
-								rs: city.rs,
-								electionId: relevantElection.electionId,
-								partyId: p.partyId,
-								votetypeId: votetype.votetypeId,
-								psId: includePs ? ps.psId : null,
-								name: p.name,
-								color: p.color,
-								nameLong: p.nameLong
-							})
-							.onConflictDoNothing();
+					if (includeParty && resultsParty) {
+						for (const p of resultsParty) {
+							await db
+								.insert(electionParty)
+								.values({
+									rs: city.rs,
+									electionId: relevantElection.electionId,
+									partyId: p.partyId,
+									votetypeId: votetype.votetypeId,
+									psId: includePs ? ps.psId : null,
+									name: p.name,
+									color: p.color,
+									nameLong: p.nameLong
+								})
+								.onConflictDoNothing();
+						}
 					}
 				}
 			}
-		}
+
+			log('', {
+				level: 'city',
+				index: ++completed,
+				total: cityList.length,
+				label: cityLabel,
+				rs: city.rs,
+				cityStatus: 'done'
+			});
+		},
+		(slot) => log('', { level: 'station', index: 0, total: 0, label: '', slot, closed: true })
+	);
+}
+
+/**
+ * Some Gemeinden count their Gemeinderat ballots centrally: one station carries the whole Gemeinde's
+ * result, and every other station only reports its turnout, with 0 valid ballots and all voters
+ * listed as invalid (e.g. Dettingen an der Erms 2019). Summed as-is, those placeholders double-count
+ * Wahlberechtigte/Wähler and inflate the invalid share, so their counts are zeroed here. The rows
+ * themselves stay, since the "already complete" checks in getResultsCity compare row counts.
+ *
+ * `voters >= 10` keeps genuine tiny stations (a postal district with one invalid ballot) untouched —
+ * a real station where every one of 10+ ballots is invalid doesn't happen.
+ */
+export async function neutralizeCentralCountPlaceholders(
+	db: Db,
+	date: string,
+	electionTypeId: number,
+	log: Logger
+) {
+	const updated = await db.execute(sql`
+		UPDATE ${electionResultPs} p
+		SET votes_eligible = 0, voters = 0, invalid_ballots = 0, turnout = NULL
+		FROM ${elections} e
+		WHERE e.election_id = p.election_id AND e.rs = p.rs
+			AND e.date = ${date} AND e.election_type = ${electionTypeId}
+			AND coalesce(p.valid_ballots, 0) = 0 AND p.voters >= 10 AND p.invalid_ballots = p.voters
+			AND EXISTS (
+				SELECT 1 FROM ${electionResultPs} s
+				WHERE s.rs = p.rs AND s.election_id = p.election_id
+					AND s.votetype_id = p.votetype_id AND s.valid_ballots > 0
+			)
+		RETURNING p.rs
+	`);
+	if (updated.length) {
+		log(`${updated.length} Platzhalter-Wahlbezirke (zentrale Auszählung) neutralisiert`);
 	}
 }

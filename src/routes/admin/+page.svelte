@@ -2,8 +2,10 @@
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
+	import '$lib/components/map/theme.css';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
 	import CrawlMap from '$lib/components/CrawlMap.svelte';
 
@@ -17,11 +19,14 @@
 		index: number;
 		total: number;
 		label: string;
+		rs?: number;
 	}
 	interface ProgressState {
 		step?: ProgressTick;
 		city?: ProgressTick;
-		station?: ProgressTick;
+		/** Keyed by concurrency slot (0-based) — one bar per worker currently doing station-level work,
+		 * always in the same slot regardless of which city that worker is currently on. */
+		stations: Record<number, ProgressTick>;
 		family?: ProgressTick;
 	}
 
@@ -47,16 +52,35 @@
 		cityStatus: Record<number, CityStatus>;
 	}
 
-	let date = $state(data.lastRun?.date ?? data.knownDates[0] ?? '');
 	let electionTypeId = $state(
 		data.lastRun?.electionType ?? data.electionTypes[0]?.electionType ?? 0
 	);
+	// For Bürgermeisterwahl/Bürgerentscheid (see citySpecificTypes), the city is picked first and the
+	// date dropdown is scoped to that city — every other Wahlart shares one statewide date, so there's no
+	// city to pick and the date dropdown is just scoped to the Wahlart. `initialCityRs` restores the
+	// previous run's city (if any) by finding which city's date list contains its date — crawl_run itself
+	// doesn't store rs, so this is the only way to recover it after a reload.
+	function initialCityRs(): number | null {
+		const lastType = data.lastRun?.electionType;
+		const lastDate = data.lastRun?.date;
+		if (lastType === undefined || lastDate === undefined) return null;
+		const cityList = data.cityDatesByType[lastType] ?? [];
+		return cityList.find((c) => c.dates.includes(lastDate))?.rs ?? null;
+	}
+	let selectedCityRs = $state<number | null>(initialCityRs());
+	let date = $state(data.lastRun?.date ?? '');
+	// How many cities the crawl processes concurrently — network-bound work, so this isn't really "one
+	// per CPU core", but core count − 1 is still a legible cap on the input (see maxParallelism).
+	let parallel = $state(Math.min(4, data.maxParallel));
+	// Deletes this election's previously fetched data before re-crawling instead of skipping cities that
+	// already look complete — for when the upstream source data changed and needs to actually replace
+	// what's stored, not just fill in gaps.
+	let fullRun = $state(false);
 	let starting = $state(false);
 	let startError = $state<string | null>(null);
 	let liveState = $state<CrawlState | null>(null);
 	let dateDiscoveryState = $state<DateDiscoveryState | null>(null);
 	let now = $state(Date.now());
-	let logExpanded = $state(false);
 	let logEl = $state<HTMLPreElement>();
 
 	// The live state carries no end timestamp (only `startedAt`) — freeze the wall-clock moment the run
@@ -87,7 +111,7 @@
 	const isDateRefreshRunning = $derived(dateDiscoveryState?.status === 'running');
 
 	// Once a "Termine aktualisieren" run finishes, its results are in `elections` — reload the page's
-	// server data (knownDates/datesToTypes) so the dropdowns reflect them.
+	// server data (typesToDates/cityDatesByType) so the dropdowns reflect them.
 	$effect(() => {
 		if (dateDiscoveryState?.status === 'done') invalidateAll();
 	});
@@ -97,27 +121,56 @@
 		else if (liveState && crawlFinishedAtMs === null) crawlFinishedAtMs = Date.now();
 	});
 
-	$effect(() => {
-		if (liveState?.status === 'error') logExpanded = true;
-	});
-
-	// Which Wahlarten actually exist on the selected date, per data already loaded from `elections` —
-	// no live lookup needed. Falls back to showing every known type for a date with no classified
-	// elections yet (e.g. one just discovered but never crawled).
-	const typesForDate = $derived(data.datesToTypes[date] ?? null);
-	const filteredElectionTypes = $derived(
-		typesForDate
-			? data.electionTypes.filter((t) => typesForDate.includes(t.electionType))
-			: data.electionTypes
+	const isCitySpecific = $derived(data.citySpecificTypes.includes(electionTypeId));
+	const citiesForType = $derived(data.cityDatesByType[electionTypeId] ?? []);
+	// Normalized to the same shape either way: city-specific dates are inherently single-city already
+	// (no need to name it again), so they carry no cityNames annotation.
+	const availableDates = $derived(
+		isCitySpecific
+			? (citiesForType.find((c) => c.rs === selectedCityRs)?.dates ?? []).map((date) => ({
+					date,
+					cityCount: 1,
+					cityNames: [] as string[],
+					withData: null as number | null
+				}))
+			: (data.typesToDates[electionTypeId] ?? [])
 	);
 
-	// Keep the Wahlart selection valid as the date (and therefore the filtered list) changes.
+	// Keep the city selection valid as the Wahlart changes — reset to the first available city whenever
+	// switching to/within a city-specific Wahlart with a no-longer-valid (or no) city selected.
 	$effect(() => {
-		if (filteredElectionTypes.length === 0) return;
-		if (!filteredElectionTypes.some((t) => t.electionType === electionTypeId)) {
-			electionTypeId = filteredElectionTypes[0].electionType;
+		if (!isCitySpecific || citiesForType.length === 0) {
+			selectedCityRs = null;
+			return;
+		}
+		if (!citiesForType.some((c) => c.rs === selectedCityRs)) {
+			selectedCityRs = citiesForType[0].rs;
 		}
 	});
+
+	// Keep the date selection valid as the Wahlart (and, for city-specific types, the city) changes.
+	$effect(() => {
+		if (availableDates.length === 0) {
+			date = '';
+			return;
+		}
+		if (!availableDates.some((d) => d.date === date)) {
+			date = availableDates[0].date;
+		}
+	});
+
+	// "2024-06-09 · 935 von 945 Gemeinden mit Ergebnissen", or for a one-off date the Gemeinden it
+	// covers. City-specific dates (Bürgermeisterwahl etc.) are a single, already-chosen Gemeinde.
+	function dateOptionLabel(d: (typeof availableDates)[number]): string {
+		if (d.cityNames.length)
+			return m.admin_crawl_date_special_note({ date: d.date, cities: d.cityNames.join(', ') });
+		if (d.withData === null) return d.date;
+		return m.admin_crawl_date_option({
+			date: d.date,
+			withData: String(d.withData),
+			gemeinden: String(d.cityCount)
+		});
+	}
 
 	function typeLabel(id: number): string {
 		return data.electionTypes.find((t) => t.electionType === id)?.electionDescription ?? String(id);
@@ -182,13 +235,14 @@
 	}
 
 	async function startCrawl() {
+		if (fullRun && !confirm(m.admin_crawl_fullrun_confirm())) return;
 		startError = null;
 		starting = true;
 		try {
 			const res = await fetch('/admin/crawl', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ date, electionTypeId })
+				body: JSON.stringify({ date, electionTypeId, parallel, fullRun })
 			});
 			const body = await res.json();
 			if (!body.started) startError = errorMessage(body.reason ?? '', 'crawl');
@@ -240,7 +294,7 @@
 				durationMs: end - start,
 				log: data.lastRun.log ? data.lastRun.log.split('\n') : [],
 				error: data.lastRun.error,
-				progress: {} as ProgressState,
+				progress: { stations: {} } as ProgressState,
 				cityStatus: {} as Record<number, CityStatus>,
 				hasProgress: false
 			};
@@ -248,131 +302,161 @@
 		return null;
 	});
 
+	// Per-Gemeinde tallies for the counters under the progress bars.
+	const cityCounts = $derived.by(() => {
+		const counts = { done: 0, in_progress: 0, skipped: 0 };
+		for (const s of Object.values(display?.cityStatus ?? {})) counts[s] += 1;
+		return counts;
+	});
+
+	const COUNTER_COLORS = { done: '#4f7a52', in_progress: '#e0b481', skipped: '#6f6658' };
+
 	$effect(() => {
 		void display?.log;
 		if (logEl) logEl.scrollTop = logEl.scrollHeight;
 	});
 </script>
 
-<div class="min-h-screen bg-gray-50">
-	<header class="sticky top-0 z-10 border-b border-gray-200 bg-white/95 backdrop-blur">
-		<div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-			<div class="flex items-center gap-3">
-				<h1 class="text-xl font-semibold text-gray-900">{m.admin_title()}</h1>
-				{#if isRunning}
-					<StatusBadge status="running" label={statusLabel('running')} />
-				{/if}
-			</div>
+<svelte:head>
+	<title>{m.admin_title()} · {m.map_brand_name()}</title>
+</svelte:head>
+
+<div class="map-root app">
+	<header class="toolbar">
+		<div class="brand-block">
+			<span class="logo">
+				<span class="bar" style="height: 8px"></span>
+				<span class="bar" style="height: 15px"></span>
+				<span class="bar" style="height: 11px"></span>
+			</span>
+			<span class="wordmark">
+				<span class="brand">{m.map_brand_name()}</span>
+				<span class="map-lbl region">{m.admin_brand_subtitle()}</span>
+			</span>
+		</div>
+		<span class="map-lbl status-text">
+			{#if display}
+				{statusLabel(display.status)} · {durationLabel(
+					display.status,
+					formatDuration(display.durationMs)
+				)}
+			{:else}
+				{m.admin_status_idle()}
+			{/if}
+		</span>
+		<div class="aside">
+			<a class="link" href={resolve('/')}>{m.admin_nav_map()}</a>
 			<form method="POST" action="/admin/logout">
-				<button type="submit" class="text-sm text-blue-700 underline">{m.admin_logout()}</button>
+				<button type="submit" class="link">{m.admin_logout()}</button>
 			</form>
+			<div class="segmented">
+				{#each locales as locale (locale)}
+					<button
+						type="button"
+						class="pill"
+						class:active={getLocale() === locale}
+						onclick={() => setLocale(locale)}>{locale.toUpperCase()}</button
+					>
+				{/each}
+			</div>
 		</div>
 	</header>
 
-	<div class="mx-auto max-w-3xl space-y-6 p-6">
-		<section class="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-			<h2 class="font-medium text-gray-900">{m.admin_crawl_start_heading()}</h2>
-			<div class="flex flex-wrap items-end gap-3">
-				<label class="text-sm text-gray-700">
-					{m.admin_crawl_date_label()}
-					<div class="mt-1 flex items-center gap-2">
-						<select
-							bind:value={date}
-							disabled={data.knownDates.length === 0}
-							class="rounded-lg border border-gray-300 p-1.5 text-sm"
-						>
-							{#if data.knownDates.length === 0}
-								<option value="">{m.admin_crawl_date_placeholder()}</option>
-							{/if}
-							{#each data.knownDates as d (d)}
-								<option value={d}>{d}</option>
-							{/each}
-						</select>
-						<button
-							type="button"
-							onclick={refreshDates}
-							disabled={starting || isRunning || isDateRefreshRunning}
-							class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-						>
-							{m.admin_crawl_date_refresh_button()}
-						</button>
-					</div>
-				</label>
-				<label class="text-sm text-gray-700">
-					{m.admin_crawl_electiontype_label()}
+	<div class="body">
+		<aside class="panel">
+			<div class="section header">
+				<h2 class="heading">{m.admin_crawl_start_heading()}</h2>
+				<p class="intro">{m.admin_intro()}</p>
+			</div>
+
+			<div class="section fields">
+				<label class="field">
+					<span class="map-lbl field-label">{m.admin_crawl_electiontype_label()}</span>
 					<select
+						class="select"
 						bind:value={electionTypeId}
-						disabled={filteredElectionTypes.length === 0}
-						class="mt-1 block rounded-lg border border-gray-300 p-1.5 text-sm"
+						disabled={data.electionTypes.length === 0 || isRunning}
 					>
-						{#if filteredElectionTypes.length === 0}
-							<option value="">{m.admin_crawl_electiontype_placeholder()}</option>
-						{/if}
-						{#each filteredElectionTypes as t (t.electionType)}
+						{#each data.electionTypes as t (t.electionType)}
 							<option value={t.electionType}>{t.electionDescription ?? t.electionType}</option>
 						{/each}
 					</select>
 				</label>
-				<button
-					type="button"
-					onclick={startCrawl}
-					disabled={starting ||
-						isRunning ||
-						isDateRefreshRunning ||
-						!date ||
-						filteredElectionTypes.length === 0}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:opacity-50"
-				>
-					{#if starting}
-						<svg
-							class="h-3.5 w-3.5 animate-spin"
-							viewBox="0 0 24 24"
-							fill="none"
-							aria-hidden="true"
+				{#if isCitySpecific}
+					<label class="field">
+						<span class="map-lbl field-label">{m.admin_crawl_city_label()}</span>
+						<select
+							class="select"
+							bind:value={selectedCityRs}
+							disabled={citiesForType.length === 0 || isRunning}
 						>
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-							></path>
-						</svg>
-					{/if}
-					{m.admin_crawl_start_button()}
-				</button>
-			</div>
-
-			{#if dateDiscoveryState}
-				<div class="space-y-2 rounded-lg bg-gray-50 p-3">
-					<div class="flex items-center justify-between gap-3">
-						<StatusBadge
-							status={dateDiscoveryState.status}
-							label={statusLabel(dateDiscoveryState.status)}
+							{#if citiesForType.length === 0}
+								<option value={null}>{m.admin_crawl_city_placeholder()}</option>
+							{/if}
+							{#each citiesForType as c (c.rs)}
+								<option value={c.rs}>{c.name ?? c.rs}</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
+				<label class="field">
+					<span class="map-lbl field-label">{m.admin_crawl_date_label()}</span>
+					<span class="field-row">
+						<select
+							class="select select-mono"
+							bind:value={date}
+							disabled={availableDates.length === 0 || isRunning}
+						>
+							{#if availableDates.length === 0}
+								<option value="">{m.admin_crawl_date_placeholder()}</option>
+							{/if}
+							{#each availableDates as d (d.date)}
+								<option value={d.date}>{dateOptionLabel(d)}</option>
+							{/each}
+						</select>
+						<button
+							type="button"
+							class="secondary"
+							onclick={refreshDates}
+							disabled={starting || isRunning || isDateRefreshRunning}
+						>
+							{m.admin_crawl_date_refresh_button()}
+						</button>
+					</span>
+				</label>
+				<div class="option-row">
+					<label class="field">
+						<span class="map-lbl field-label"
+							>{m.admin_crawl_parallel_label({ max: String(data.maxParallel) })}</span
+						>
+						<input
+							type="number"
+							class="select select-mono number"
+							bind:value={parallel}
+							min="1"
+							max={data.maxParallel}
+							step="1"
+							disabled={starting || isRunning}
 						/>
-						{#if dateDiscoveryState.status === 'done'}
-							<span class="text-xs text-gray-600">
-								{m.admin_crawl_date_refresh_done({
-									count: String(dateDiscoveryState.dates.length)
-								})}
-							</span>
-						{/if}
-					</div>
-					{#if dateDiscoveryState.status === 'running'}
-						<div class="space-y-2">
+					</label>
+					<label class="checkbox">
+						<input type="checkbox" bind:checked={fullRun} disabled={starting || isRunning} />
+						{m.admin_crawl_fullrun_label()}
+					</label>
+				</div>
+				{#if fullRun}
+					<p class="warn">{m.admin_crawl_fullrun_hint()}</p>
+				{/if}
+
+				{#if dateDiscoveryState}
+					<div class="note-box">
+						{#if dateDiscoveryState.status === 'running'}
 							{#if dateDiscoveryState.progress.step}
 								<ProgressBar
 									kicker={levelKicker('step')}
 									label={dateDiscoveryState.progress.step.label}
 									current={dateDiscoveryState.progress.step.index}
 									total={dateDiscoveryState.progress.step.total}
-									tone="running"
 								/>
 							{/if}
 							{#if dateDiscoveryState.progress.city}
@@ -381,108 +465,511 @@
 									label={dateDiscoveryState.progress.city.label}
 									current={dateDiscoveryState.progress.city.index}
 									total={dateDiscoveryState.progress.city.total}
-									tone="running"
 								/>
 							{/if}
-						</div>
-					{/if}
-					{#if dateDiscoveryState.status === 'error'}
-						<p class="text-xs text-red-600">{dateDiscoveryState.error}</p>
-					{/if}
-				</div>
-			{/if}
-
-			{#if startError}
-				<p class="text-sm text-red-600">{startError}</p>
-			{/if}
-		</section>
-
-		<section class="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-			<h2 class="font-medium text-gray-900">{m.admin_status_heading()}</h2>
-
-			{#if display}
-				<div class="flex flex-wrap items-center gap-3">
-					<StatusBadge status={display.status} label={statusLabel(display.status)} />
-					<span class="text-xs text-gray-500 tabular-nums">
-						{durationLabel(display.status, formatDuration(display.durationMs))}
-					</span>
-				</div>
-				<p class="text-sm text-gray-600">
-					{m.admin_status_meta({ type: typeLabel(display.electionType), date: display.date })}
-				</p>
-
-				{#if display.hasProgress && display.status === 'running'}
-					<div class="space-y-3 rounded-lg bg-gray-50 p-3">
-						{#if display.progress.step}
-							<ProgressBar
-								kicker={levelKicker('step')}
-								label={display.progress.step.label}
-								current={display.progress.step.index}
-								total={display.progress.step.total}
-								tone="running"
-							/>
-						{/if}
-						{#if display.progress.city}
-							<ProgressBar
-								kicker={levelKicker('city')}
-								label={display.progress.city.label}
-								current={display.progress.city.index}
-								total={display.progress.city.total}
-								tone="running"
-							/>
-						{/if}
-						{#if display.progress.station}
-							<ProgressBar
-								kicker={levelKicker('station')}
-								label={display.progress.station.label}
-								current={display.progress.station.index}
-								total={display.progress.station.total}
-								tone="running"
-							/>
-						{/if}
-						{#if display.progress.family}
-							<ProgressBar
-								kicker={levelKicker('family')}
-								label={display.progress.family.label}
-								current={display.progress.family.index}
-								total={display.progress.family.total}
-								tone="running"
-							/>
+						{:else if dateDiscoveryState.status === 'done'}
+							<span class="ok">
+								{m.admin_crawl_date_refresh_done({
+									count: String(dateDiscoveryState.dates.length)
+								})}
+							</span>
+						{:else}
+							<span class="err">{dateDiscoveryState.error}</span>
 						{/if}
 					</div>
 				{/if}
+			</div>
 
-				{#if display.error}
-					<p class="text-sm text-red-600">{display.error}</p>
+			<div class="section action">
+				<button
+					type="button"
+					class="primary"
+					onclick={startCrawl}
+					disabled={starting ||
+						isRunning ||
+						isDateRefreshRunning ||
+						!date ||
+						(isCitySpecific && !selectedCityRs)}
+				>
+					{m.admin_crawl_start_button()}
+				</button>
+				{#if startError}
+					<p class="err">{startError}</p>
 				{/if}
 
-				{#if display.hasProgress}
-					<CrawlMap cityStatus={display.cityStatus} />
-				{/if}
-
-				<div>
-					<button
-						type="button"
-						class="text-xs text-blue-700 underline"
-						onclick={() => (logExpanded = !logExpanded)}
-					>
-						{logExpanded ? m.admin_status_log_hide() : m.admin_status_log_show()}
-					</button>
-					{#if logExpanded}
-						<pre
-							bind:this={logEl}
-							class="mt-2 max-h-96 overflow-y-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100">{display
-								.log.length
-								? display.log.join('\n')
-								: m.admin_status_log_waiting()}</pre>
+				{#if display?.hasProgress && display.status === 'running'}
+					{#each ['step', 'city'] as const as level (level)}
+						{@const tick = display.progress[level]}
+						{#if tick}
+							<ProgressBar
+								kicker={levelKicker(level)}
+								label={tick.label}
+								current={tick.index}
+								total={tick.total}
+							/>
+						{/if}
+					{/each}
+					<!-- One bar per concurrency slot, stable while its worker moves between Gemeinden. -->
+					{#each Object.entries(display.progress.stations) as [slot, tick] (slot)}
+						<ProgressBar
+							kicker={levelKicker('station')}
+							label={tick.label}
+							current={tick.index}
+							total={tick.total}
+						/>
+					{/each}
+					{#if display.progress.family}
+						<ProgressBar
+							kicker={levelKicker('family')}
+							label={display.progress.family.label}
+							current={display.progress.family.index}
+							total={display.progress.family.total}
+						/>
 					{/if}
-				</div>
-			{:else}
-				<div class="py-8 text-center">
-					<p class="text-sm text-gray-600">{m.admin_status_none()}</p>
-					<p class="mt-1 text-xs text-gray-400">{m.admin_status_none_hint()}</p>
+				{/if}
+
+				{#if display?.hasProgress}
+					<div class="counters">
+						{#each ['done', 'in_progress', 'skipped'] as const as key (key)}
+							<span class="counter">
+								<span class="swatch" style="background: {COUNTER_COLORS[key]}"></span>
+								{key === 'done'
+									? m.admin_map_status_done()
+									: key === 'in_progress'
+										? m.admin_map_status_in_progress()
+										: m.admin_map_status_skipped()}
+								<span class="counter-value">{cityCounts[key]}</span>
+							</span>
+						{/each}
+					</div>
+				{/if}
+
+				{#if display?.error}
+					<p class="err">{display.error}</p>
+				{/if}
+			</div>
+
+			<div class="log-heading">
+				<span class="map-lbl" style="color: var(--map-ink)">{m.admin_log_heading()}</span>
+				{#if display}
+					<span class="map-lbl" style="color: var(--map-ink-muted)">
+						{m.admin_log_count({ count: String(display.log.length) })}
+					</span>
+				{/if}
+			</div>
+			<pre bind:this={logEl} class="log">{display
+					? display.log.length
+						? display.log.join('\n')
+						: m.admin_status_log_waiting()
+					: `${m.admin_status_none()}\n${m.admin_status_none_hint()}`}</pre>
+		</aside>
+
+		<div class="map-area">
+			<CrawlMap cityStatus={display?.cityStatus ?? {}} />
+
+			<div class="pill-bar">
+				<span class="status-pill">
+					<span
+						class="dot"
+						style="background: {display?.status === 'running'
+							? 'var(--map-accent)'
+							: display?.status === 'done'
+								? 'var(--map-success-fill)'
+								: display?.status === 'error'
+									? 'var(--map-error-text)'
+									: '#c4bba7'}"
+					></span>
+					{display
+						? m.admin_status_meta({ type: typeLabel(display.electionType), date: display.date })
+						: m.admin_status_idle()}
+				</span>
+			</div>
+
+			{#if display?.status === 'running' && display.progress.city}
+				<div class="current">
+					<div class="map-lbl" style="color: var(--map-ink); margin-bottom: 7px">
+						{m.admin_map_current()}
+					</div>
+					<div class="current-name">{display.progress.city.label}</div>
+					<div class="current-code">
+						{display.progress.city.index}/{display.progress.city.total}
+					</div>
 				</div>
 			{/if}
-		</section>
+		</div>
 	</div>
 </div>
+
+<style>
+	.app {
+		height: 100vh;
+		width: 100vw;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		color: var(--map-ink);
+	}
+	.body {
+		flex: 1;
+		display: flex;
+		min-height: 0;
+	}
+
+	/* Toolbar: same shell as the Kartenansicht's (map/Toolbar.svelte). */
+	.toolbar {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: 10px 14px;
+		flex-wrap: wrap;
+		padding: 10px 14px;
+		min-height: 60px;
+		box-sizing: border-box;
+		background: var(--map-bg-surface);
+		border-bottom: 1px solid var(--map-border-strong);
+	}
+	.brand-block {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.logo {
+		width: 26px;
+		height: 26px;
+		flex: none;
+		border-radius: 4px;
+		background: var(--map-accent);
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 2px;
+		padding: 5px;
+		box-sizing: border-box;
+	}
+	.bar {
+		width: 4px;
+		background: var(--map-on-dark);
+		border-radius: 1px;
+	}
+	.wordmark {
+		display: flex;
+		flex-direction: column;
+		line-height: 1;
+		padding-right: 13px;
+		border-right: 1px solid var(--map-border-soft);
+	}
+	.brand {
+		font-family: var(--map-font-heading);
+		font-size: 15px;
+		font-weight: 500;
+	}
+	.region {
+		color: var(--map-accent);
+		margin-top: 3px;
+	}
+	.status-text {
+		color: var(--map-ink-muted);
+		flex: 1;
+	}
+	.aside {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+	}
+	.link {
+		font: 500 12.5px var(--map-font-body);
+		color: var(--map-accent);
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		text-decoration: none;
+	}
+	.link:hover {
+		color: var(--map-accent-hover);
+	}
+	.segmented {
+		display: flex;
+		padding: 2px;
+		background: var(--map-bg-surface-sunken);
+		border-radius: 7px;
+	}
+	.pill {
+		font: 500 11.5px var(--map-font-body);
+		padding: 3px 8px;
+		border-radius: 5px;
+		background: transparent;
+		color: var(--map-ink-3);
+		border: none;
+		cursor: pointer;
+	}
+	.pill.active {
+		background: var(--map-ink);
+		color: var(--map-on-dark);
+		font-weight: 600;
+	}
+
+	/* Left panel: same frame as the Kartenansicht's ResultPanel. */
+	.panel {
+		flex: 0 1 360px;
+		min-width: 290px;
+		background: var(--map-bg-surface);
+		border-right: 1px solid var(--map-border-strong);
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
+	}
+	.section {
+		padding: 16px 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		border-bottom: 1px solid var(--map-border-soft);
+	}
+	.header {
+		padding: 18px 20px 14px;
+		gap: 4px;
+	}
+	.heading {
+		margin: 0;
+		font-family: var(--map-font-heading);
+		font-size: 23px;
+		font-weight: 500;
+		line-height: 1.15;
+	}
+	.intro {
+		margin: 0;
+		font-size: 12.5px;
+		line-height: 1.45;
+		color: var(--map-ink-3);
+	}
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.option-row {
+		display: flex;
+		align-items: flex-end;
+		gap: 14px;
+	}
+	.number {
+		width: 72px;
+		box-sizing: border-box;
+	}
+	.checkbox {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+		padding-bottom: 8px;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--map-ink-2);
+		cursor: pointer;
+	}
+	.checkbox input {
+		accent-color: var(--map-accent);
+		margin: 0;
+	}
+	.warn {
+		margin: 0;
+		font-size: 11.5px;
+		line-height: 1.4;
+		color: var(--map-warning-text);
+	}
+	.field-row {
+		display: flex;
+		gap: 6px;
+	}
+	.field-row .select {
+		flex: 1;
+		min-width: 0;
+	}
+	.select {
+		padding: 8px 10px;
+		border: 1px solid var(--map-border-strong);
+		border-radius: 6px;
+		background: #fff;
+		font: 500 12.5px var(--map-font-body);
+		color: var(--map-ink);
+		cursor: pointer;
+	}
+	.select-mono {
+		font: 500 12px var(--map-font-mono);
+		color: var(--map-ink-2);
+	}
+	.select:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+	.secondary {
+		flex: none;
+		padding: 8px 11px;
+		border-radius: 6px;
+		border: 1px solid var(--map-border-strong);
+		background: #fff;
+		color: var(--map-ink-2);
+		font: 500 12px var(--map-font-body);
+		cursor: pointer;
+	}
+	.secondary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.note-box {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 10px 12px;
+		border: 1px solid var(--map-border-soft);
+		border-radius: 6px;
+		background: var(--map-bg-list-a);
+	}
+	.primary {
+		padding: 12px 16px;
+		border-radius: 6px;
+		border: 1px solid var(--map-ink);
+		background: var(--map-ink);
+		color: var(--map-on-dark);
+		font: 600 13px var(--map-font-body);
+		cursor: pointer;
+	}
+	.primary:disabled {
+		background: #fff;
+		color: var(--map-ink);
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+	.counters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+	.counter {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11.5px;
+		color: var(--map-ink-2);
+	}
+	.counter-value {
+		font: 500 11.5px var(--map-font-mono);
+		color: var(--map-ink);
+	}
+	.swatch {
+		width: 9px;
+		height: 9px;
+		border-radius: 2px;
+		flex: none;
+		border: 0.5px solid var(--map-swatch-border);
+	}
+	.ok,
+	.err {
+		margin: 0;
+		font-size: 11.5px;
+		line-height: 1.4;
+	}
+	.ok {
+		color: var(--map-success-text);
+	}
+	.err {
+		color: var(--map-error-text);
+		font-weight: 500;
+	}
+	.log-heading {
+		padding: 14px 20px 8px;
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+	}
+	.log {
+		flex: 1;
+		min-height: 160px;
+		margin: 0 20px 18px;
+		padding: 10px 12px;
+		overflow: auto;
+		border: 1px solid var(--map-border-soft);
+		border-radius: 6px;
+		background: var(--map-bg-list-a);
+		font: 400 10.5px/1.55 var(--map-font-mono);
+		color: var(--map-ink-2);
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	/* Map area + floating overlays, as on the Kartenansicht. */
+	.map-area {
+		flex: 1;
+		min-width: 0;
+		position: relative;
+		overflow: hidden;
+		background: var(--map-bg-surface-muted);
+	}
+	.pill-bar {
+		position: absolute;
+		top: 14px;
+		left: 16px;
+		z-index: 3;
+	}
+	.status-pill {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		background: rgba(255, 253, 248, 0.94);
+		border: 1px solid var(--map-border-strong);
+		border-radius: 20px;
+		padding: 6px 12px;
+		box-shadow: var(--map-shadow-pill);
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		flex: none;
+	}
+	.current {
+		position: absolute;
+		bottom: 16px;
+		right: 16px;
+		min-width: 150px;
+		max-width: 260px;
+		background: rgba(255, 253, 248, 0.95);
+		border: 1px solid var(--map-border-strong);
+		border-radius: 8px;
+		padding: 11px 13px;
+		box-shadow: var(--map-shadow-overlay);
+		z-index: 3;
+	}
+	.current-name {
+		font-size: 12.5px;
+		font-weight: 600;
+		margin-bottom: 3px;
+	}
+	.current-code {
+		font: 400 11px var(--map-font-mono);
+		color: var(--map-ink-muted);
+	}
+
+	/* Narrow screens: panel stacks above the map, page scrolls. */
+	@media (max-width: 720px) {
+		.app {
+			height: auto;
+			min-height: 100vh;
+			overflow: visible;
+		}
+		.body {
+			flex-direction: column;
+		}
+		.panel {
+			flex: none;
+			border-right: none;
+			border-bottom: 1px solid var(--map-border-strong);
+		}
+		.map-area {
+			flex: none;
+			height: 520px;
+		}
+	}
+</style>

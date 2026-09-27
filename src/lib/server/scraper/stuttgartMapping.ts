@@ -20,7 +20,9 @@ const STUTTGART_RS = 81110000000;
 
 export interface StuttgartDistrictRow {
 	AWBEZ_T: string;
-	BWBEZ_T: string;
+	/** null when no urn→postal assignment is known (2019: postal districts weren't 1:1 with urn ones,
+	 * and the city never published which belonged to which) — that Bezirk then gets urn votes only. */
+	BWBEZ_T: string | null;
 	/** Numeric district ID, but stored as a string in the source GeoJSON's property table. */
 	BWKNUM_T: string | null;
 	LWKNUM_T: string | null;
@@ -41,6 +43,34 @@ export async function updateMappingStuttgart(
 	electionTypeId: number,
 	log: Logger
 ) {
+	// Unlike `updateAggregateParty`'s region-grain tables (which are explicitly cleared on `override`
+	// before recomputing), these Ps-level tables previously only ever inserted with
+	// `onConflictDoNothing()` — so a re-run of the crawl for the same date/election type (the
+	// `crawl_run` history shows this date alone was run 4 times) never removed a stale row from an
+	// earlier, since-corrected party-family classification. Both rows then coexisted forever: the old
+	// (wrong) family alongside the new (correct) one, with identical vote counts, showing up as an
+	// exact duplicate under the wrong party in the Wahlbezirk view (e.g. Stuttgart briefly classified
+	// under a family it never actually used). Clearing first makes every run authoritative, matching
+	// the region-grain behaviour.
+	await db
+		.delete(electionResultAggregateMetaPs)
+		.where(
+			and(
+				eq(electionResultAggregateMetaPs.rs, STUTTGART_RS),
+				eq(electionResultAggregateMetaPs.electionType, electionTypeId),
+				eq(electionResultAggregateMetaPs.date, date)
+			)
+		);
+	await db
+		.delete(electionResultAggregatePartyPs)
+		.where(
+			and(
+				eq(electionResultAggregatePartyPs.rs, STUTTGART_RS),
+				eq(electionResultAggregatePartyPs.electionType, electionTypeId),
+				eq(electionResultAggregatePartyPs.date, date)
+			)
+		);
+
 	const stuttgartStations = await db
 		.select({ psId: pollingStations.psId, name: pollingStations.name })
 		.from(pollingStations)
@@ -85,9 +115,11 @@ export async function updateMappingStuttgart(
 			)
 		);
 
-	// NOTE: the join deliberately omits votetype_id, exactly like the R original — a quirk, not a fix.
-	// This can double-count a result row if the same party_id happens to exist under more than one
-	// votetype for Stuttgart (party_id is only unique per (electionId, rs, votetypeId), see domain notes).
+	// The family join must include votetype_id: party_id is only unique per (electionId, rs,
+	// votetypeId), and in two-vote elections Erst- and Zweitstimme are numbered differently. The R
+	// original (and this port until 2026-09) omitted it, so every Bundestag result row matched both
+	// votetypes' party with that number — doubled votes, partly under the wrong party (e.g. Stuttgart
+	// Wahlbezirk 002-12 showing Die Linke at 41.7 % with shares summing to ~240 %).
 	const resultRows = await db
 		.select({
 			psId: electionResult.psId,
@@ -106,7 +138,8 @@ export async function updateMappingStuttgart(
 			and(
 				eq(electionPartyFamily.rs, electionResult.rs),
 				eq(electionPartyFamily.electionId, electionResult.electionId),
-				eq(electionPartyFamily.partyId, electionResult.partyId)
+				eq(electionPartyFamily.partyId, electionResult.partyId),
+				eq(electionPartyFamily.votetypeId, electionResult.votetypeId)
 			)
 		)
 		.leftJoin(party, eq(party.partyFamilyId, electionPartyFamily.partyFamilyId))
@@ -119,7 +152,11 @@ export async function updateMappingStuttgart(
 		);
 
 	for (const row of districtRows) {
-		const postalStation = stuttgartStations.find((s) => s.name?.startsWith(row.BWBEZ_T));
+		const postalPrefix = row.BWBEZ_T;
+		const postalStation =
+			postalPrefix === null
+				? undefined
+				: stuttgartStations.find((s) => s.name?.startsWith(postalPrefix));
 		const inPersonStation = stuttgartStations.find((s) => s.name?.startsWith(row.AWBEZ_T));
 		const psIdPostal = postalStation?.psId ?? null;
 		const psId = inPersonStation?.psId ?? null;

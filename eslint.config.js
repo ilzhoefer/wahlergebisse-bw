@@ -11,8 +11,8 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
 	{
-		// Legacy R/Shiny stack, being replaced by this SvelteKit app (see CLAUDE.md) — removed in a later cleanup pass
-		ignores: ['R-Code/**', 'Docker/**', 'SQL/**', '00_daten/**']
+		// Legacy R/Shiny stack (removed in a later cleanup pass, see CLAUDE.md), local worktrees, vendored MapLibre
+		ignores: ['R-Code/**', 'Docker/**', 'SQL/**', '00_daten/**', '.claude/**', 'static/**']
 	},
 	js.configs.recommended,
 	ts.configs.recommended,

@@ -249,6 +249,81 @@ export const schema = {
 				]
 			},
 			{ kind: 'SCALAR', name: 'Bytes' },
+			{
+				kind: 'OBJECT',
+				name: 'CandidateHit',
+				fields: [
+					{
+						name: 'date',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'electionType',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'name',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'party',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'rs',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'CandidateResult',
+				fields: [
+					{
+						name: 'elected',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Boolean', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'name',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'votes',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Float', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
 			{ kind: 'SCALAR', name: 'Date' },
 			{ kind: 'SCALAR', name: 'DateTime' },
 			{
@@ -590,6 +665,27 @@ export const schema = {
 						type: {
 							kind: 'NON_NULL',
 							ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'EligibleGemeinden',
+				fields: [
+					{
+						name: 'rsList',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
 						},
 						args: []
 					}
@@ -1287,6 +1383,67 @@ export const schema = {
 			},
 			{
 				kind: 'OBJECT',
+				name: 'MandateDirect',
+				fields: [
+					{
+						name: 'name',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'party',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'percent',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'seat',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Boolean', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'MandateList',
+				fields: [
+					{
+						name: 'listPlace',
+						type: { kind: 'SCALAR', name: 'Int', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'name',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'party',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
 				name: 'MapModes',
 				fields: [
 					{
@@ -1353,6 +1510,53 @@ export const schema = {
 						args: []
 					},
 					{
+						name: 'candidateResults',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'CandidateResult', kind: 'OBJECT', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: [
+							{
+								name: 'date',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'party',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'rs',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'station',
+								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
+							}
+						]
+					},
+					{
 						name: 'electionTypes',
 						type: {
 							kind: 'NON_NULL',
@@ -1370,6 +1574,29 @@ export const schema = {
 							}
 						},
 						args: []
+					},
+					{
+						name: 'eligibleGemeinden',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'EligibleGemeinden', kind: 'OBJECT', ofType: null, __proto__: null }
+						},
+						args: [
+							{
+								name: 'date',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						]
 					},
 					{
 						name: 'mapModes',
@@ -1417,6 +1644,56 @@ export const schema = {
 						]
 					},
 					{
+						name: 'regionBreakdowns',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'RegionBreakdown', kind: 'OBJECT', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: [
+							{
+								name: 'date',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'mapMode',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'rs',
+								type: {
+									kind: 'LIST',
+									ofType: {
+										kind: 'NON_NULL',
+										ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+									}
+								}
+							},
+							{
+								name: 'voteType',
+								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
+							}
+						]
+					},
+					{
 						name: 'regionData',
 						type: {
 							kind: 'NON_NULL',
@@ -1456,10 +1733,170 @@ export const schema = {
 								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
 							},
 							{
+								name: 'rs',
+								type: {
+									kind: 'LIST',
+									ofType: {
+										kind: 'NON_NULL',
+										ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+									}
+								}
+							},
+							{
 								name: 'voteType',
 								type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null }
 							}
 						]
+					},
+					{
+						name: 'searchCandidates',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'CandidateHit', kind: 'OBJECT', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: [
+							{
+								name: 'q',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						]
+					},
+					{
+						name: 'wahlkreisMandates',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: {
+										name: 'WahlkreisMandates',
+										kind: 'OBJECT',
+										ofType: null,
+										__proto__: null
+									}
+								}
+							}
+						},
+						args: [
+							{
+								name: 'date',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							},
+							{
+								name: 'electionType',
+								type: {
+									kind: 'NON_NULL',
+									ofType: { name: 'Int', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						]
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'RegionBreakdown',
+				fields: [
+					{
+						name: 'eligible',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'key',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'postalElsewhere',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'Boolean', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'rows',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: {
+										name: 'RegionBreakdownRow',
+										kind: 'OBJECT',
+										ofType: null,
+										__proto__: null
+									}
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'seatTotal',
+						type: { kind: 'SCALAR', name: 'Int', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'turnout',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
+					}
+				],
+				interfaces: []
+			},
+			{
+				kind: 'OBJECT',
+				name: 'RegionBreakdownRow',
+				fields: [
+					{
+						name: 'candidate',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'color',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'partyName',
+						type: { kind: 'SCALAR', name: 'String', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'seats',
+						type: { kind: 'SCALAR', name: 'Int', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'voteCount',
+						type: { kind: 'SCALAR', name: 'Int', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'votePercent',
+						type: { kind: 'SCALAR', name: 'Float', ofType: null, __proto__: null },
+						args: []
 					}
 				],
 				interfaces: []
@@ -1702,6 +2139,68 @@ export const schema = {
 						defaultValue: void 0
 					}
 				]
+			},
+			{
+				kind: 'OBJECT',
+				name: 'WahlkreisMandates',
+				fields: [
+					{
+						name: 'direct',
+						type: { kind: 'OBJECT', name: 'MandateDirect', ofType: null, __proto__: null },
+						args: []
+					},
+					{
+						name: 'districtId',
+						type: {
+							kind: 'NON_NULL',
+							ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+						},
+						args: []
+					},
+					{
+						name: 'list',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'MandateList', kind: 'OBJECT', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'rs',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: []
+					},
+					{
+						name: 'bezirke',
+						type: {
+							kind: 'NON_NULL',
+							ofType: {
+								kind: 'LIST',
+								ofType: {
+									kind: 'NON_NULL',
+									ofType: { name: 'String', kind: 'SCALAR', ofType: null, __proto__: null }
+								}
+							}
+						},
+						args: []
+					}
+				],
+				interfaces: []
 			}
 		],
 		directives: []

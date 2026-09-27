@@ -1,12 +1,19 @@
 import { eq, sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
-import { elections, electionsVotetypes, electionType } from '$lib/server/db/schema';
+import {
+	elections,
+	electionsVotetypes,
+	electionType,
+	pollingStations
+} from '$lib/server/db/schema';
 import {
 	BASE,
 	padAgs,
 	formatDateForUrl,
 	fetchWithFallback,
 	fallbackOnNotOk,
+	runWithConcurrency,
+	DEFAULT_PARALLEL,
 	type Logger
 } from './client';
 
@@ -85,12 +92,18 @@ export async function getElectionIds(
  * entirely. The R script (and the standalone "Termine aktualisieren" full-discovery call, which passes
  * no `onlyDate`) always re-fetches every city — appropriate there since it's actively looking for dates
  * it doesn't know about yet, but wasteful for a repeat crawl of an already-recorded date.
+ *
+ * `parallel` cities are processed concurrently (see `runWithConcurrency`) — the log's `[n/total]`
+ * counter and each city's progress tick use a shared "cities started so far" counter rather than the
+ * cityList array position, so it still climbs 1..total in order even though cities may finish out of
+ * the order they started in.
  */
 export async function updateElectionDates(
 	db: Db,
 	cityList: { rs: number; ags: number; name: string | null }[],
 	log: Logger,
-	onlyDate?: string
+	onlyDate?: string,
+	parallel = DEFAULT_PARALLEL
 ) {
 	let alreadyRecorded: Set<number> | null = null;
 	if (onlyDate) {
@@ -101,27 +114,36 @@ export async function updateElectionDates(
 		alreadyRecorded = new Set(rows.map((r) => r.rs));
 	}
 
-	for (const [i, city] of cityList.entries()) {
+	let started = 0;
+	let completed = 0;
+	await runWithConcurrency(cityList, parallel, async (city) => {
 		const cityLabel = city.name ?? String(city.rs);
+		// `position` (this city's own start-order slot) is only for the readable log line — using it for
+		// the progress tick's `index` too would make the bar jump backwards whenever a city with a lower
+		// position finishes after later ones have already started (its stale, smaller `position` would
+		// overwrite whatever higher number is currently shown). `completed`, incremented only on a
+		// terminal (done/skipped) tick, is what actually counts "how many of `total` are finished" and can
+		// only ever climb.
+		const position = ++started;
 
 		if (alreadyRecorded?.has(city.rs)) {
 			log(
-				`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermin ${onlyDate} bereits vorhanden, überspringe`,
+				`[${position}/${cityList.length}] ${cityLabel}: Wahltermin ${onlyDate} bereits vorhanden, überspringe`,
 				{
 					level: 'city',
-					index: i + 1,
+					index: ++completed,
 					total: cityList.length,
 					label: cityLabel,
 					rs: city.rs,
 					cityStatus: 'skipped'
 				}
 			);
-			continue;
+			return;
 		}
 
-		log(`[${i + 1}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
+		log(`[${position}/${cityList.length}] ${cityLabel}: Wahltermine abrufen`, {
 			level: 'city',
-			index: i + 1,
+			index: completed,
 			total: cityList.length,
 			label: cityLabel,
 			rs: city.rs,
@@ -147,7 +169,16 @@ export async function updateElectionDates(
 						date,
 						resultId: row.resultId
 					})
-					.onConflictDoNothing();
+					// Fill in a result id first seen on a later run (e.g. found before the results were
+					// linked) — but only while nothing was imported: a null result_id on a row that has
+					// stations marks it as imported from open data (see importHtml5OpenData).
+					.onConflictDoUpdate({
+						target: [elections.electionId, elections.rs],
+						set: { resultId: row.resultId },
+						setWhere: sql`${elections.resultId} IS NULL AND ${row.resultId}::text IS NOT NULL
+							AND NOT EXISTS (SELECT 1 FROM ${pollingStations} p
+								WHERE p.rs = ${elections.rs} AND p.election_id = ${elections.electionId})`
+					});
 			}
 			for (const row of rows) {
 				await db
@@ -161,7 +192,16 @@ export async function updateElectionDates(
 					.onConflictDoNothing();
 			}
 		}
-	}
+
+		log('', {
+			level: 'city',
+			index: ++completed,
+			total: cityList.length,
+			label: cityLabel,
+			rs: city.rs,
+			cityStatus: 'done'
+		});
+	});
 }
 
 /** Port of update_election_type — one UPDATE per (type, pattern) pair, only touching still-NULL rows. */
@@ -175,6 +215,15 @@ async function updateElectionTypeByPattern(db: Db, type: number, pattern: string
  * Port of set_election_type. The cascade's exact ordering and cumulative "only touch still-unclassified
  * rows" behavior is load-bearing — see the Phase 3 plan's findings. Type IDs are looked up by
  * description at runtime, exactly like the R original — never hardcoded.
+ *
+ * One deliberate deviation from the R original: the `Neuwahl`/`Stichwahl` overrides below map to
+ * `Bürgermeisterwahl`, not `Gemeinderatswahl` as in `new_data_functions.R`. Baden-Württemberg's
+ * Gemeinderatswahl is proportional and never has a runoff or standalone repeat vote — every bare
+ * "Neuwahl"/"Stichwahl" election name (no other qualifier) found in the live data turned out to be a
+ * companion `elections` row, same `rs`+`date`, for an election already correctly named
+ * "Bürgermeisterwahl"/"Oberbürgermeisterwahl" — i.e. a second-round or repeat mayoral election that the
+ * source API just didn't bother re-labelling. The R original's mapping was a pre-existing bug, not an
+ * intentional choice; see the investigation that found it for the full evidence.
  */
 export async function setElectionType(db: Db, log: Logger) {
 	const types = await db.select().from(electionType);
@@ -202,13 +251,17 @@ export async function setElectionType(db: Db, log: Logger) {
 		['Oberbürgermeister', 'Bürgermeisterwahl'],
 		['OB', 'Bürgermeisterwahl'],
 		['BM', 'Bürgermeisterwahl'],
+		// Must run before `Gemeind`/`GR` below — a bare "Stichwahl - Gemeinde X"/"Neuwahl - Gemeinde X"
+		// (no other qualifier) would otherwise get claimed by `Gemeind` first (it's just the city's
+		// administrative type, "Gemeinde" vs "Stadt", not a signal about election type at all) before ever
+		// reaching these two.
+		['Neuwahl', 'Bürgermeisterwahl'],
+		['Stichwahl', 'Bürgermeisterwahl'],
 		['Kreisräte', 'Kreistagswahl'],
 		['OR', 'Ortschaftsratswahl'],
 		['Gemeind', 'Gemeinderatswahl'],
 		['GR', 'Gemeinderatswahl'],
-		['Orts', 'Ortschaftsratswahl'],
-		['Neuwahl', 'Gemeinderatswahl'],
-		['Stichwahl', 'Gemeinderatswahl']
+		['Orts', 'Ortschaftsratswahl']
 	];
 	for (const [pattern, description] of overrides) {
 		const type = typeIdFor(description);
