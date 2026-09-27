@@ -49,6 +49,10 @@ assert.equal(readShareParams(new URLSearchParams('werte=xyz')).werte, undefined)
 // Dot map.
 assert.equal(writeShareParams({ wahl: 2, modus: 'Punkte' }), 'wahl=2&modus=punkte');
 assert.equal(readShareParams(new URLSearchParams('modus=punkte')).modus, 'Punkte');
+// Embed mode.
+assert.equal(writeShareParams({ wahl: 2, embed: true }), 'wahl=2&embed=1');
+assert.equal(readShareParams(new URLSearchParams('embed=1')).embed, true);
+assert.equal(readShareParams(new URLSearchParams('embed=0')).embed, undefined);
 // Garbage is dropped, not thrown on.
 assert.deepEqual(
 	readShareParams(

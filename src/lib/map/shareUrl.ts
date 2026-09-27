@@ -33,6 +33,8 @@ export interface ShareState {
 	wb?: string;
 	/** Selected Wahlkreis `ref` (only with ebene=Wahlkreis). */
 	wk?: string;
+	/** Map only, without toolbar and panel — for iframes on other sites. */
+	embed?: true;
 }
 
 const MODE_SLUGS: [string, VisualMode][] = [
@@ -70,6 +72,7 @@ export function readShareParams(p: URLSearchParams): ShareState {
 	if (wb && /^\d[\d.]*-[\d.-]+$/.test(wb)) s.wb = wb;
 	const wk = p.get('wk');
 	if (wk && /^\d+$/.test(wk)) s.wk = wk;
+	if (p.get('embed') === '1') s.embed = true;
 	return s;
 }
 
@@ -87,6 +90,7 @@ export function writeShareParams(s: ShareState): string {
 	if (s.gebiet !== undefined) p.set('gebiet', String(s.gebiet));
 	if (s.wb) p.set('wb', s.wb);
 	if (s.wk) p.set('wk', s.wk);
+	if (s.embed) p.set('embed', '1');
 	return p.toString();
 }
 

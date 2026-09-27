@@ -34,6 +34,7 @@
 	import BreadcrumbPill from '$lib/components/map/BreadcrumbPill.svelte';
 	import ModeBadge from '$lib/components/map/ModeBadge.svelte';
 	import StatusLine from '$lib/components/map/StatusLine.svelte';
+	import PageMeta from '$lib/components/PageMeta.svelte';
 	import '$lib/components/map/theme.css';
 	import {
 		GEO_URL,
@@ -45,6 +46,7 @@
 		readShareParams,
 		writeShareParams,
 		levelOfRs,
+		type ShareState,
 		type ShareEbene,
 		type VisualMode
 	} from '$lib/map/shareUrl';
@@ -65,6 +67,8 @@
 	/** State from a shared link (see $lib/map/shareUrl) — applied once on load; the focused region is
 	 * restored asynchronously in `restoreSharedFocus` since it needs region names from the geo files. */
 	const shared = readShareParams(page.url.searchParams);
+	/** Map only (iframe on another site): no toolbar, no panel, a link back to the full view. */
+	const embed = shared.embed === true;
 
 	let selectedElectionType = $state<number>(0);
 	// Start on the shared link's election, else the most recent one: the type with the newest date
@@ -752,7 +756,7 @@
 
 	$effect(() => {
 		if (!urlSyncReady) return;
-		const qs = writeShareParams({
+		const state: ShareState = {
 			wahl: selectedElectionType || undefined,
 			datum: selectedDate || undefined,
 			stimme: hasTwoVotes && !splitting ? selectedVoteType : undefined,
@@ -768,14 +772,26 @@
 			gebiet: !wahlkreisActive && focused.rs !== null ? focused.rs : undefined,
 			wb: !wahlkreisActive && focused.level === 'Wahlbezirk' ? focused.stationKey : undefined,
 			wk: panelWk?.ref
-		});
+		};
+		const qs = writeShareParams({ ...state, embed: embed || undefined });
 		untrack(() => {
+			viewQs = writeShareParams(state);
 			const search = qs ? `?${qs}` : '';
 			if (search !== page.url.search)
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- path IS resolve('/'); the rule just can't see through the appended query string
 				replaceState(`${resolve('/')}${search}`, page.state);
 		});
 	});
+
+	/** The current view's query string without `embed` — for the embed code and the embed's link
+	 * back to the full map. */
+	let viewQs = $state('');
+	const viewHref = $derived(`${resolve('/')}${viewQs ? `?${viewQs}` : ''}`);
+	const embedCode = $derived(
+		`<iframe src="${page.url.origin}${resolve('/')}?${viewQs ? `${viewQs}&` : ''}embed=1" ` +
+			`title="${m.map_brand_name()} ${m.map_brand_region()}" width="100%" height="600" ` +
+			`style="border:0" loading="lazy"></iframe>`
+	);
 
 	function levelSingular(level: MapLevel): string {
 		switch (level) {
@@ -2288,70 +2304,77 @@
 	});
 </script>
 
-<div class="map-root app">
-	<Toolbar
-		{electionOptions}
-		selectedElectionType={String(selectedElectionType)}
-		{onElectionChange}
-		{dateOptions}
-		{selectedDate}
-		{onDateChange}
-		{stimmeTabs}
-		{ebeneOptions}
-		selectedEbene={selectedEbeneValue}
-		{onEbeneChange}
-		{modes}
-		onReset={resetView}
-	/>
+<PageMeta {...data.meta} />
+
+<div class="map-root app" class:embed>
+	{#if !embed}
+		<Toolbar
+			{electionOptions}
+			selectedElectionType={String(selectedElectionType)}
+			{onElectionChange}
+			{dateOptions}
+			{selectedDate}
+			{onDateChange}
+			{stimmeTabs}
+			{ebeneOptions}
+			selectedEbene={selectedEbeneValue}
+			{onEbeneChange}
+			{modes}
+			onReset={resetView}
+		/>
+	{/if}
 
 	<div class="body">
-		<ResultPanel
-			levelLabel={panelWk ? m.map_mode_wahlkreis() : levelSingular(focused.level)}
-			code={panelWk ? panelWk.ref : panelCode}
-			canGoUp={panelWk ? true : canGoUp}
-			parentName={panelWk ? LAND_ROOT.name : (panelParentEntry?.name ?? '')}
-			onGoUp={panelWk ? () => (selectedWahlkreis = null) : goUp}
-			name={panelWk ? panelWk.name : focused.name}
-			sub={panelWk ? electionLabelText : panelSub}
-			turnoutLabel={m.map_info_wahlbeteiligung()}
-			turnoutValue={fmtPct(panelBreakdown?.turnout)}
-			eligibleLabel={m.map_stat_berechtigt()}
-			eligibleValue={fmtNum(panelBreakdown?.eligible)}
-			unitLabel={panelUnitLabel}
-			unitValue={panelUnitValue}
-			{rowsHeadingLeft}
-			{rowsHeadingRight}
-			rows={panelRows}
-			footnote={panelFootnote}
-			peopleGroups={mandateGroups}
-			absolute={absoluteValues}
-			onToggleAbsolute={() => (absoluteValues = !absoluteValues)}
-			notes={[
-				missingNote,
-				jointListNote,
-				urnOnlyNote,
-				postalEstimatedNote,
-				panelBreakdown?.postalElsewhere ? m.map_panel_postal_elsewhere_note() : null
-			].filter((n) => n !== null)}
-			explanation={splitting
-				? m.map_split_explanation()
-				: changeMetric === 'Stärkste Partei' || changeMetric === '2. Stärkste Partei'
-					? m.map_change_explanation_winner({ metric: selectedPartyLabel, year: compareYear })
-					: changing
-						? m.map_change_explanation({ year: compareYear })
-						: dotMode && dotData
-							? m.map_dots_explanation({ n: fmtNum(dotData.perDot) })
-							: null}
-			seats={panelBreakdown?.seatTotal
-				? panelBreakdown.rows.map((r) => ({
-						name: r.partyName,
-						color: r.color,
-						seats: r.seats ?? 0
-					}))
-				: null}
-		>
-			<SearchBox {findPlaces} {findPeople} />
-		</ResultPanel>
+		{#if !embed}
+			<ResultPanel
+				levelLabel={panelWk ? m.map_mode_wahlkreis() : levelSingular(focused.level)}
+				code={panelWk ? panelWk.ref : panelCode}
+				canGoUp={panelWk ? true : canGoUp}
+				parentName={panelWk ? LAND_ROOT.name : (panelParentEntry?.name ?? '')}
+				onGoUp={panelWk ? () => (selectedWahlkreis = null) : goUp}
+				name={panelWk ? panelWk.name : focused.name}
+				sub={panelWk ? electionLabelText : panelSub}
+				turnoutLabel={m.map_info_wahlbeteiligung()}
+				turnoutValue={fmtPct(panelBreakdown?.turnout)}
+				eligibleLabel={m.map_stat_berechtigt()}
+				eligibleValue={fmtNum(panelBreakdown?.eligible)}
+				unitLabel={panelUnitLabel}
+				unitValue={panelUnitValue}
+				{rowsHeadingLeft}
+				{rowsHeadingRight}
+				rows={panelRows}
+				footnote={panelFootnote}
+				peopleGroups={mandateGroups}
+				absolute={absoluteValues}
+				{embedCode}
+				onToggleAbsolute={() => (absoluteValues = !absoluteValues)}
+				notes={[
+					missingNote,
+					jointListNote,
+					urnOnlyNote,
+					postalEstimatedNote,
+					panelBreakdown?.postalElsewhere ? m.map_panel_postal_elsewhere_note() : null
+				].filter((n) => n !== null)}
+				explanation={splitting
+					? m.map_split_explanation()
+					: changeMetric === 'Stärkste Partei' || changeMetric === '2. Stärkste Partei'
+						? m.map_change_explanation_winner({ metric: selectedPartyLabel, year: compareYear })
+						: changing
+							? m.map_change_explanation({ year: compareYear })
+							: dotMode && dotData
+								? m.map_dots_explanation({ n: fmtNum(dotData.perDot) })
+								: null}
+				seats={panelBreakdown?.seatTotal
+					? panelBreakdown.rows.map((r) => ({
+							name: r.partyName,
+							color: r.color,
+							seats: r.seats ?? 0
+						}))
+					: null}
+			>
+				<SearchBox {findPlaces} {findPeople} />
+			</ResultPanel>
+		{/if}
 
 		<div class="map-area" bind:this={mapAreaEl}>
 			<MapView
@@ -2417,6 +2440,13 @@
 
 			<StatusLine text={statusLineText} />
 
+			{#if embed}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- viewHref is resolve('/') plus the view's query string -->
+				<a class="embed-link" href={viewHref} target="_blank" rel="noopener"
+					>{m.map_brand_name()} {m.map_brand_region()} ↗</a
+				>
+			{/if}
+
 			<HoverCard
 				point={hoverPoint}
 				containerWidth={mapWidth}
@@ -2447,6 +2477,21 @@
 		overflow: hidden;
 		background: var(--map-bg-surface-muted);
 	}
+	.embed-link {
+		position: absolute;
+		left: 12px;
+		bottom: 34px;
+		z-index: 2;
+		padding: 6px 10px;
+		border-radius: 6px;
+		border: 1px solid var(--map-border-strong);
+		background: var(--map-bg-surface);
+		box-shadow: var(--map-shadow-card);
+		color: var(--map-ink);
+		font-size: 12px;
+		font-weight: 600;
+		text-decoration: none;
+	}
 	@media (max-width: 759px) {
 		/* Map on top, panel below at full width; the page scrolls instead of clipping. */
 		.app {
@@ -2462,6 +2507,16 @@
 			/* explicit height, not just min-height: MapView's h-full needs a definite parent height */
 			height: 58vh;
 			min-height: 58vh;
+		}
+		.app.embed {
+			height: 100vh;
+		}
+		.app.embed .map-area {
+			height: 100vh;
+		}
+		.embed-link {
+			bottom: auto;
+			top: 52px;
 		}
 	}
 </style>

@@ -359,5 +359,12 @@
 	"datenformat_col_description": "Hinweise zur Barrierefreiheit, falls veröffentlicht; bei Briefwahlbezirken leer.",
 	"datenformat_col_is_postal": "true bei einem Briefwahlbezirk, sonst false.",
 
-	"datenformat_ps_candidate_heading": "Ergebnisse pro Wahlbezirk und Kandidat:in"
+	"datenformat_ps_candidate_heading": "Ergebnisse pro Wahlbezirk und Kandidat:in",
+
+	"meta_map_description": "Interaktive Karte der Wahlergebnisse in Baden-Württemberg: {view}.",
+	"meta_map_description_default": "Interaktive Karte der Wahlergebnisse in Baden-Württemberg, von der Gemeinderats- bis zur Bundestagswahl.",
+	"meta_compared_to": "ggü. {date}",
+	"map_embed_button": "Einbetten",
+	"map_embed_copied": "Kopiert",
+	"map_embed_hint": "iframe-Code dieser Kartenansicht kopieren – zum Einbinden auf einer anderen Website"
 }

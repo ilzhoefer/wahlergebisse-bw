@@ -63,6 +63,8 @@
 		/** Values shown as vote counts instead of shares; the switch only appears with `onToggleAbsolute`. */
 		absolute?: boolean;
 		onToggleAbsolute?: () => void;
+		/** iframe snippet of the current view; shows an "Einbetten" button that copies it. */
+		embedCode?: string;
 	}
 
 	let {
@@ -89,8 +91,17 @@
 		children,
 		peopleGroups = [],
 		absolute = false,
-		onToggleAbsolute
+		onToggleAbsolute,
+		embedCode
 	}: Props = $props();
+
+	let embedCopied = $state(false);
+	async function copyEmbed() {
+		if (!embedCode) return;
+		await navigator.clipboard.writeText(embedCode);
+		embedCopied = true;
+		setTimeout(() => (embedCopied = false), 2000);
+	}
 </script>
 
 {#snippet bars(r: PanelRow)}
@@ -285,6 +296,11 @@
 			<span class="footnote">{footnote}</span>
 			<SiteLinks class="site-links-row" />
 		</div>
+		{#if embedCode}
+			<button type="button" class="csv" title={m.map_embed_hint()} onclick={copyEmbed}
+				>{embedCopied ? m.map_embed_copied() : m.map_embed_button()}</button
+			>
+		{/if}
 		<a class="csv" href={resolve('/daten')}>{m.map_panel_csv_button()}</a>
 	</div>
 </div>

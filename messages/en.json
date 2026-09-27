@@ -359,5 +359,12 @@
 	"datenformat_col_description": "Accessibility notes, if published; empty for postal districts.",
 	"datenformat_col_is_postal": "true for a postal-vote district, otherwise false.",
 
-	"datenformat_ps_candidate_heading": "Results per polling district and candidate"
+	"datenformat_ps_candidate_heading": "Results per polling district and candidate",
+
+	"meta_map_description": "Interactive map of election results in Baden-Württemberg: {view}.",
+	"meta_map_description_default": "Interactive map of election results in Baden-Württemberg, from municipal council to Bundestag.",
+	"meta_compared_to": "vs. {date}",
+	"map_embed_button": "Embed",
+	"map_embed_copied": "Copied",
+	"map_embed_hint": "Copy the iframe code of this map view – to include it on another website"
 }
