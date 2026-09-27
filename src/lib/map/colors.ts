@@ -94,13 +94,14 @@ export function paleColor(hex: string): string {
 }
 
 /** Square RGBA tile of 45° stripes alternating `a` and `b` (hex), for a MapLibre `fill-pattern`.
- * The stripe period divides the tile size, so tiles repeat seamlessly. */
+ * `b` gets the wider band (2:1) — callers pass the currently stronger party as `b` so it reads as
+ * the dominant colour. The stripe period divides the tile size, so tiles repeat seamlessly. */
 export function stripeImage(a: string, b: string, size = 20) {
 	const [ca, cb] = [hexToRgb(a), hexToRgb(b)];
 	const data = new Uint8Array(size * size * 4);
 	for (let y = 0; y < size; y++)
 		for (let x = 0; x < size; x++) {
-			const [r, g, bl] = (x + y) % size < size / 2 ? ca : cb;
+			const [r, g, bl] = (x + y) % size < size / 3 ? ca : cb;
 			data.set([r, g, bl, 255], (y * size + x) * 4);
 		}
 	return { width: size, height: size, data };

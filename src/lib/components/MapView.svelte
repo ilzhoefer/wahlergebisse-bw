@@ -145,19 +145,10 @@
 	onMount(() => {
 		map = new MapLibreMap({
 			container,
-			style: {
-				version: 8,
-				sources: {
-					osm: {
-						type: 'raster',
-						tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-						tileSize: 256,
-						attribution:
-							'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-					}
-				},
-				layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
-			},
+			// Vector basemap: re-renders crisply at every fractional zoom instead of
+			// blurring/fading raster tiles in and out while scrolling. Also supplies the glyphs the label
+			// layer's 'Noto Sans Regular' needs.
+			style: 'https://tiles.openfreemap.org/styles/positron',
 			center: [9.18, 48.7],
 			zoom: 7,
 			scrollZoom: interactive,
@@ -247,7 +238,7 @@
 			source: SOURCE_ID,
 			paint: {
 				'fill-color': ['coalesce', ['feature-state', 'color'], 'rgba(0,0,0,0)'],
-				'fill-opacity': 0.9,
+				'fill-opacity': 0.7,
 				// Adjacent polygons are triangulated independently; each one's anti-aliased edge blends
 				// toward the basemap right at the shared boundary, and where two edges don't land on
 				// exactly the same pixels this leaves a thin sliver of basemap showing through. Disabling
@@ -281,7 +272,7 @@
 					13.5,
 					stripeId(192)
 				],
-				'fill-opacity': 0.9,
+				'fill-opacity': 0.7,
 				'fill-antialias': false
 			}
 		});

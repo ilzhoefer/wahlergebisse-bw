@@ -149,6 +149,11 @@
 		flex: none;
 		border: 0.5px solid var(--map-swatch-border);
 	}
+	/* Match the map's fill-opacity (MapView.svelte) so legend colours look like the map. */
+	.swatch,
+	.gradient {
+		opacity: 0.7;
+	}
 	.gradient-wrap {
 		position: relative;
 	}
