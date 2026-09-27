@@ -6,6 +6,7 @@
 </script>
 
 <nav class="site-links {className}">
+	<a href={resolve('/listenspringer')}>{m.listjump_title()}</a>
 	<a href={resolve('/ueber')}>{m.nav_about()}</a>
 	<a href={resolve('/impressum')}>{m.nav_impressum()}</a>
 	<a href={resolve('/datenschutz')}>{m.nav_datenschutz()}</a>

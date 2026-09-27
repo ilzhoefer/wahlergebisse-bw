@@ -13,7 +13,11 @@ export const GET: RequestHandler = async ({ url }) => {
 		return rows.map((r) => r.rs);
 	});
 	const loc = (path: string) => `<url><loc>${url.origin}${path}</loc></url>`;
-	const body = [loc('/'), ...rsList.map((rs) => loc(`/gemeinde/${rs}`))].join('');
+	const body = [
+		loc('/'),
+		loc('/listenspringer'),
+		...rsList.map((rs) => loc(`/gemeinde/${rs}`))
+	].join('');
 	return new Response(
 		`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>`,
 		{ headers: { 'Content-Type': 'application/xml; charset=utf-8' } }

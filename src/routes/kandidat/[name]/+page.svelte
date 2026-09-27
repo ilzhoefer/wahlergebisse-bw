@@ -14,7 +14,7 @@
 	const fmtDate = (d: string) => new Date(d).toLocaleDateString('de-DE');
 
 	function outcome(x: Candidacy) {
-		if (x.elected === null || x.listSeats === null) return null;
+		if (x.elected === null || x.listSeats === null || x.alphabetical) return null;
 		return listOutcome(x.position, x.elected, x.listSeats);
 	}
 
@@ -76,8 +76,12 @@
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- placeHref builds on resolve() -->
 								<td><a href={placeHref(x)}>{x.placeName}</a></td>
 								<td>{x.listName ?? '–'}</td>
-								<td class="num"
-									>{x.position}{#if x.listSize}<span class="of"> / {x.listSize}</span>{/if}</td
+								<td class="num" title={x.alphabetical ? m.candidate_alphabetical_hint() : undefined}
+									>{#if x.alphabetical}<span class="of"
+											>{m.candidate_alphabetical()}
+										</span>{/if}{x.position}{#if x.listSize}<span class="of">
+											/ {x.listSize}</span
+										>{/if}</td
 								>
 								<td class="num">{fmtNum(x.votes)}</td>
 								<td class="num">{x.voteRank ?? '–'}</td>

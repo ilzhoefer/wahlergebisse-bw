@@ -428,5 +428,36 @@
 
 	"gemeinde_rest": "und {n} weitere Listen mit zusammen {pct}",
 
-	"map_gemeinde_page_link": "Alle Wahlen in {name} →"
+	"map_gemeinde_page_link": "Alle Wahlen in {name} →",
+
+	"listjump_title": "Listenspringer",
+	"listjump_meta_title": "Listenspringer – Gemeinderatswahl {date} in Baden-Württemberg",
+	"listjump_meta_description": "Bei der Gemeinderatswahl am {date} gingen {share} der Sitze an Kandidierende, die auf ihrer Liste weiter hinten standen – dank Kumulieren und Panaschieren.",
+	"listjump_kicker": "Gemeinderatswahl {date}",
+	"listjump_intro": "Bei Gemeinderatswahlen in Baden-Württemberg entscheiden die Wählenden mit Kumulieren und Panaschieren selbst, wer von einer Liste in den Gemeinderat kommt – der Listenplatz ist nur ein Vorschlag. Erhält eine Liste 5 Sitze, wären ohne diese Stimmen die ersten 5 gewählt. Wer von weiter hinten einen Sitz gewinnt, ist ein Listenspringer.",
+	"listjump_tile_share": "Sitze an Listenspringer",
+	"listjump_tile_share_sub": "{jumped} von {seats} Sitzen",
+	"listjump_tile_gemeinden": "Ausgewertete Gemeinden",
+	"listjump_tile_gemeinden_sub": "ohne {excluded} Gemeinden mit bekannter unechter Teilortswahl",
+	"listjump_tile_alphabetical": "Alphabetische Listen",
+	"listjump_tile_alphabetical_sub": "{n} von {lists} Listen – nicht ausgewertet",
+	"listjump_top_jumps": "Die größten Sprünge",
+	"listjump_top_jumps_hint": "Gewählte mit dem größten Abstand zwischen Listenplatz und Rang nach Stimmen innerhalb ihrer Liste.",
+	"listjump_top_gemeinden": "Gemeinden mit den meisten Listenspringern",
+	"listjump_top_gemeinden_hint": "Anteil der Sitze, die an Listenspringer gingen – Gemeinderäte ab 10 Sitzen.",
+	"listjump_col_name": "Name",
+	"listjump_method_heading": "Methode",
+	"listjump_method_1": "Grundlage sind die Stimmen je Kandidatin und Kandidat und die Liste der Gewählten aus komm.one. Der Listenplatz ist die Reihenfolge auf dem Stimmzettel; der Rang die Platzierung innerhalb der Liste nach Stimmen. Gemeinden, für die die Quelle keine Gewählten nennt, fehlen.",
+	"listjump_method_2": "Manche Listen sind alphabetisch statt nach Priorität sortiert. Sie werden erkannt (Nachnamen fast durchgehend in A–Z-Reihenfolge) und nicht ausgewertet.",
+	"listjump_method_3": "Bei unechter Teilortswahl werden Sitze je Wohnbezirk vergeben und der Stimmzettel ist danach geordnet – dort sagt der Listenplatz wenig. Die Quelle kennzeichnet solche Gemeinden nicht; erkennbar sind nur jene mit Ausgleichsitzen. Sie sind ausgeschlossen, andere können die Zahlen noch verzerren.",
+	"listjump_heading": "Listenspringer bei der Wahl am {date}",
+	"listjump_gemeinde_intro": "{jumped} der {seats} Sitze gingen an Kandidierende von weiter hinten auf ihrer Liste.",
+	"listjump_statewide_link": "Landesweiter Vergleich →",
+	"listjump_teilort_note": "Hier gilt die unechte Teilortswahl: Sitze werden je Wohnbezirk vergeben, der Listenplatz sagt daher wenig aus.",
+	"listjump_alphabetical_note": "Alphabetisch sortiert und daher nicht ausgewertet: {lists}.",
+	"listjump_jumped": "Nach vorn gewählt",
+	"listjump_pushed_out": "Verdrängt",
+	"listjump_place_rank": "Platz {position} → Rang {rank}",
+	"candidate_alphabetical": "alphabetisch",
+	"candidate_alphabetical_hint": "Die Liste ist alphabetisch sortiert – der Listenplatz ist keine Rangfolge."
 }

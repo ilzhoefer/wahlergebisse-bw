@@ -78,5 +78,26 @@ export async function updateCandidates(db: Db, date: string, electionTypeId: num
 		ON CONFLICT DO NOTHING
 		RETURNING 1
 	`)) as unknown as unknown[];
+
+	// Alphabetical lists: neighbouring surnames (last name token, umlauts folded) in A–Z order, allowing
+	// one break per 8 pairs (names appended at the end) — none up to 8 candidates. A shuffled list
+	// passes with < 0.2 % probability at any length from 5 on.
+	await db.execute(sql`
+		WITH s AS (
+			SELECT rs, election_id, party_id,
+				translate(lower(regexp_replace(name, '^.*\\s', '')), 'äöüß', 'aous') AS surname,
+				lag(translate(lower(regexp_replace(name, '^.*\\s', '')), 'äöüß', 'aous'))
+					OVER (PARTITION BY rs, election_id, party_id ORDER BY position) AS prev
+			FROM election_candidate WHERE election_type = ${electionTypeId} AND date = ${date}
+		),
+		alpha AS (
+			SELECT rs, election_id, party_id FROM s GROUP BY 1, 2, 3
+			HAVING count(*) >= 5
+				AND count(*) FILTER (WHERE prev COLLATE "C" > surname COLLATE "C") <= (count(*) - 1) / 8
+		)
+		UPDATE election_candidate ec SET list_alphabetical = true FROM alpha
+		WHERE ec.election_type = ${electionTypeId} AND ec.date = ${date}
+			AND ec.rs = alpha.rs AND ec.election_id = alpha.election_id AND ec.party_id = alpha.party_id
+	`);
 	log(`${inserted.length} Kandidierende gespeichert`);
 }

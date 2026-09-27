@@ -169,6 +169,45 @@
 						{/each}
 					</div>
 				{/if}
+
+				{#if e.electionType === 6 && data.listJumps}
+					{@const lj = data.listJumps}
+					<h3>{m.listjump_heading({ date: fmtDate(lj.date) })}</h3>
+					<p class="note">
+						{m.listjump_gemeinde_intro({ jumped: lj.jumped.length, seats: lj.seats })}
+						<a href={resolve('/listenspringer')}>{m.listjump_statewide_link()}</a>
+					</p>
+					{#if lj.teilortswahl}
+						<p class="note warn">{m.listjump_teilort_note()}</p>
+					{/if}
+					{#if lj.alphabeticalLists.length}
+						<p class="note">
+							{m.listjump_alphabetical_note({ lists: lj.alphabeticalLists.join(', ') })}
+						</p>
+					{/if}
+					<div class="jumps">
+						{#each [{ title: m.listjump_jumped(), rows: lj.jumped }, { title: m.listjump_pushed_out(), rows: lj.pushedOut }] as group (group.title)}
+							{#if group.rows.length}
+								<div>
+									<span class="council-list">{group.title} ({group.rows.length})</span>
+									<ul class="jump-list">
+										{#each group.rows as j (j.name + j.listName)}
+											<li>
+												<a href={resolve('/kandidat/[name]', { name: j.name })}>{j.name}</a>
+												<span class="jump-detail"
+													>{j.listName} · {m.listjump_place_rank({
+														position: j.position,
+														rank: j.voteRank
+													})}</span
+												>
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
 			</section>
 		{/each}
 	</main>
@@ -313,6 +352,34 @@
 	.rest {
 		margin: 6px 0 0;
 		font-size: 12px;
+		color: var(--map-ink-muted);
+	}
+	.note.warn {
+		color: var(--map-warning-text);
+	}
+	.note a {
+		color: var(--map-accent);
+	}
+	.jumps {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+		gap: 12px 24px;
+		font-size: 12.5px;
+	}
+	.jump-list {
+		margin: 4px 0 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	.jump-list a {
+		color: var(--map-ink);
+	}
+	.jump-detail {
+		margin-left: 6px;
+		font-size: 11.5px;
 		color: var(--map-ink-muted);
 	}
 	.council {

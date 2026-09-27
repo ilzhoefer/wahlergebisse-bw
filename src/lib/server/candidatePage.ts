@@ -29,6 +29,8 @@ export interface Candidacy {
 	listSize: number | null;
 	listSeats: number | null;
 	elected: boolean | null;
+	/** The list was in alphabetical order — its positions rank nobody. */
+	alphabetical: boolean;
 }
 
 export interface CandidatePage {
@@ -58,7 +60,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 		)
 		SELECT l.rs, l.election_type, et.election_description, l.date, l.list_name, l.name,
-			l.position, l.votes, l.elected, l.vote_rank, l.list_size, l.list_seats, ci.name AS city
+			l.position, l.votes, l.elected, l.list_alphabetical, l.vote_rank, l.list_size, l.list_seats, ci.name AS city
 		FROM lists l
 		JOIN cities ci ON ci.rs = l.rs
 		JOIN election_type et ON et.election_type = l.election_type
@@ -74,6 +76,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 		position: number;
 		votes: number;
 		elected: boolean | null;
+		list_alphabetical: boolean;
 		vote_rank: string;
 		list_size: string;
 		list_seats: string;
@@ -107,7 +110,8 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				voteRank: null,
 				listSize: null,
 				listSeats: null,
-				elected: null
+				elected: null,
+				alphabetical: r.list_alphabetical
 			};
 			kreistag.set(k, entry);
 			candidacies.push(entry);
@@ -124,7 +128,8 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				voteRank: Number(r.vote_rank),
 				listSize: Number(r.list_size),
 				listSeats: r.elected === null ? null : Number(r.list_seats),
-				elected: r.elected
+				elected: r.elected,
+				alphabetical: r.list_alphabetical
 			});
 		}
 	}

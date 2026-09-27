@@ -428,5 +428,36 @@
 
 	"gemeinde_rest": "and {n} more lists with {pct} combined",
 
-	"map_gemeinde_page_link": "All elections in {name} →"
+	"map_gemeinde_page_link": "All elections in {name} →",
+
+	"listjump_title": "List jumpers",
+	"listjump_meta_title": "List jumpers – municipal council election {date} in Baden-Württemberg",
+	"listjump_meta_description": "In the municipal council election of {date}, {share} of seats went to candidates further down their list – thanks to cumulative and split voting.",
+	"listjump_kicker": "Municipal council election {date}",
+	"listjump_intro": "In Baden-Württemberg's municipal council elections, voters decide who from a list gets a seat by cumulating and splitting their votes – the list order is only a proposal. If a list wins 5 seats, without those votes its first 5 candidates would be elected. Anyone winning a seat from further down is a list jumper.",
+	"listjump_tile_share": "Seats won by list jumpers",
+	"listjump_tile_share_sub": "{jumped} of {seats} seats",
+	"listjump_tile_gemeinden": "Municipalities analysed",
+	"listjump_tile_gemeinden_sub": "excluding {excluded} municipalities with known 'unechte Teilortswahl'",
+	"listjump_tile_alphabetical": "Alphabetical lists",
+	"listjump_tile_alphabetical_sub": "{n} of {lists} lists – not analysed",
+	"listjump_top_jumps": "The biggest jumps",
+	"listjump_top_jumps_hint": "Elected candidates with the largest gap between list position and rank by votes within their list.",
+	"listjump_top_gemeinden": "Municipalities with the most list jumpers",
+	"listjump_top_gemeinden_hint": "Share of seats won by list jumpers – councils with at least 10 seats.",
+	"listjump_col_name": "Name",
+	"listjump_method_heading": "Method",
+	"listjump_method_1": "Based on the votes per candidate and the list of elected members from komm.one. List position is the order on the ballot; rank is the placing within the list by votes. Municipalities for which the source names no elected members are missing.",
+	"listjump_method_2": "Some lists are sorted alphabetically rather than by priority. They are detected (surnames almost entirely in A–Z order) and not analysed.",
+	"listjump_method_3": "With 'unechte Teilortswahl', seats are allocated per residential district and the ballot is ordered by it – list position says little there. The source doesn't mark such municipalities; only those with leveling seats are recognisable. They are excluded; others may still distort the figures.",
+	"listjump_heading": "List jumpers in the election of {date}",
+	"listjump_gemeinde_intro": "{jumped} of the {seats} seats went to candidates from further down their list.",
+	"listjump_statewide_link": "Statewide comparison →",
+	"listjump_teilort_note": "This municipality uses 'unechte Teilortswahl': seats are allocated per residential district, so list position says little.",
+	"listjump_alphabetical_note": "Sorted alphabetically and therefore not analysed: {lists}.",
+	"listjump_jumped": "Moved up",
+	"listjump_pushed_out": "Pushed out",
+	"listjump_place_rank": "place {position} → rank {rank}",
+	"candidate_alphabetical": "alphabetical",
+	"candidate_alphabetical_hint": "The list is sorted alphabetically – its positions are not a ranking."
 }

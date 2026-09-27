@@ -426,7 +426,9 @@ export const electionCandidate = pgTable(
 		position: integer('position').notNull(),
 		votes: integer('votes').notNull(),
 		/** null where the source lists no elected members for this Gemeinde and election. */
-		elected: boolean('elected')
+		elected: boolean('elected'),
+		/** The list is in alphabetical order, not a ranking — ballot position means nothing there. */
+		listAlphabetical: boolean('list_alphabetical').notNull().default(false)
 	},
 	(table) => [
 		unique('unique_election_candidate').on(table.rs, table.electionId, table.partyId, table.name),
