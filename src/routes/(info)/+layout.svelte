@@ -9,6 +9,7 @@
 	const pages = [
 		{ href: resolve('/ueber'), label: m.nav_about },
 		{ href: resolve('/impressum'), label: m.nav_impressum },
+		{ href: resolve('/datenformat'), label: m.nav_datenformat },
 		{ href: resolve('/datenschutz'), label: m.nav_datenschutz }
 	];
 </script>

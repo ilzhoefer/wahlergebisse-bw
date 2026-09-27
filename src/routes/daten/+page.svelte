@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { FeatureCollection } from 'geojson';
 	import * as m from '$lib/paraglide/messages';
@@ -152,7 +153,7 @@
 	const preview = $derived(chosen[0]?.file ?? null);
 	const previewRows = $derived(pickedList.slice(0, 4));
 	function previewCell(column: string, c: City): string {
-		if (column === 'rs') return String(c.rs).padStart(12, '0');
+		if (column === 'rs') return String(c.rs); // as in the CSV: no leading 0
 		if (column === 'cityName') return c.name ?? '';
 		return '…';
 	}
@@ -394,7 +395,11 @@
 				{#if failed}
 					<span class="error" role="alert">{failed}</span>
 				{/if}
-				<span class="cta-note">{m.daten_cta_note()}</span>
+				<p class="disclaimer">{m.about_disclaimer()}</p>
+				<span class="cta-note"
+					>{m.daten_cta_note()}
+					<a href={resolve('/datenformat')}>{m.datenformat_download_link()} →</a></span
+				>
 			</div>
 		</section>
 	</form>
@@ -755,6 +760,18 @@
 	.error {
 		font-size: 12px;
 		color: var(--map-error-text);
+	}
+	.disclaimer {
+		margin: 0;
+		padding: 8px 10px;
+		border-radius: 6px;
+		background: var(--map-bg-list-a);
+		font-size: 11.5px;
+		line-height: 1.45;
+		color: var(--map-ink-3);
+	}
+	.cta-note a {
+		color: var(--map-accent);
 	}
 	.cta-note {
 		font-size: 11.5px;
