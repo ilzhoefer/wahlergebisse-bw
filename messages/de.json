@@ -275,5 +275,27 @@
 	"map_badge_party_aria": "Partei",
 	"map_badge_compare_aria": "Vergleichswahl",
 	"map_hover_split_metric": "Erst − Zweit · {party}",
-	"map_search_rb_prefix": "RB"
+	"map_search_rb_prefix": "RB",
+
+	"daten_picked_count": "{n} von {total} gewählt",
+	"daten_all": "Alle",
+	"daten_clear": "Auswahl leeren",
+	"daten_filter_placeholder": "Gemeinde, Kreis oder Regierungsbezirk filtern …",
+	"daten_expand": "Aufklappen",
+	"daten_collapse": "Zuklappen",
+	"daten_summary_heading": "Auswahl",
+	"daten_summary_kreise": "Kreise berührt",
+	"daten_summary_files": "Dateien",
+	"daten_summary_none": "keine gewählt",
+	"daten_summary_files_value": "{n} CSV",
+	"daten_summary_files_zip": "{n} CSV als ZIP",
+	"daten_preview": "Vorschau · {file}",
+	"daten_preview_cols": "{n} Spalten",
+	"daten_cta_one": "Download starten · 1 Datei",
+	"daten_cta_many": "Download starten · {n} Dateien",
+	"daten_cta_no_gemeinden": "Keine Gemeinden gewählt",
+	"daten_cta_no_kinds": "Keine Datenart gewählt",
+	"daten_cta_loading": "Export wird erstellt …",
+	"daten_cta_error": "Export fehlgeschlagen ({status})",
+	"daten_cta_note": "Ergebnisse liegen auf Gemeinde- und Wahlbezirksebene vor. Regierungsbezirke und Kreise dienen nur der Auswahl."
 }

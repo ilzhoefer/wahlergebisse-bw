@@ -6,9 +6,9 @@
 	import { page } from '$app/state';
 
 	let { children } = $props();
-	// The Kartenansicht (map view) and the admin page build the language switcher into their own
-	// toolbars instead — a second, floating one would sit on top of it.
-	const showFloatingSwitcher = $derived(!['/', '/admin'].includes(page.url.pathname));
+	// Every other page builds the language switcher into its own header — a second, floating one
+	// would sit on top of it. Only the admin login keeps the floating one.
+	const showFloatingSwitcher = $derived(page.url.pathname.startsWith('/admin/login'));
 </script>
 
 <svelte:head>

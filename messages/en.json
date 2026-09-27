@@ -275,5 +275,27 @@
 	"map_badge_party_aria": "Party",
 	"map_badge_compare_aria": "Comparison election",
 	"map_hover_split_metric": "1st − 2nd · {party}",
-	"map_search_rb_prefix": "RB"
+	"map_search_rb_prefix": "RB",
+
+	"daten_picked_count": "{n} of {total} selected",
+	"daten_all": "All",
+	"daten_clear": "Clear selection",
+	"daten_filter_placeholder": "Filter by municipality, district or region …",
+	"daten_expand": "Expand",
+	"daten_collapse": "Collapse",
+	"daten_summary_heading": "Selection",
+	"daten_summary_kreise": "Districts touched",
+	"daten_summary_files": "Files",
+	"daten_summary_none": "none selected",
+	"daten_summary_files_value": "{n} CSV",
+	"daten_summary_files_zip": "{n} CSV as ZIP",
+	"daten_preview": "Preview · {file}",
+	"daten_preview_cols": "{n} columns",
+	"daten_cta_one": "Start download · 1 file",
+	"daten_cta_many": "Start download · {n} files",
+	"daten_cta_no_gemeinden": "No municipalities selected",
+	"daten_cta_no_kinds": "No data type selected",
+	"daten_cta_loading": "Creating export …",
+	"daten_cta_error": "Export failed ({status})",
+	"daten_cta_note": "Results are available per municipality and polling district. Government regions and districts only help with the selection."
 }

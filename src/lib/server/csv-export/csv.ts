@@ -9,7 +9,7 @@ function escapeCsvField(value: unknown): string {
 /** Serializes an array of flat objects to CSV text (with a UTF-8 BOM so Excel opens umlauts correctly). */
 export function toCsv<T extends Record<string, unknown>>(
 	rows: T[],
-	columns: (keyof T & string)[]
+	columns: readonly (keyof T & string)[]
 ): string {
 	const header = columns.join(',');
 	const body = rows.map((row) => columns.map((col) => escapeCsvField(row[col])).join(','));

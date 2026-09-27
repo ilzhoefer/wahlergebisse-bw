@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { downloadZip } from 'client-zip';
 import { db } from '$lib/server/db';
 import { toCsv } from '$lib/server/csv-export/csv';
+import { EXPORT_FILES } from '$lib/csv-export/files';
 import {
 	getMetaRows,
 	getAggregateRows,
@@ -35,34 +36,16 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (wantMeta) {
 		const rows = await getMetaRows(db, rsList, electionType, date);
 		files.push({
-			name: 'wahlbeteiligung.csv',
-			csv: toCsv(rows, [
-				'rs',
-				'cityName',
-				'votetypeId',
-				'votesEligible',
-				'voters',
-				'invalidBallots',
-				'validBallots',
-				'votesCast',
-				'turnout'
-			])
+			name: EXPORT_FILES.meta.name,
+			csv: toCsv(rows, EXPORT_FILES.meta.columns)
 		});
 	}
 
 	if (wantAggregate) {
 		const rows = await getAggregateRows(db, rsList, electionType, date);
 		files.push({
-			name: 'parteiergebnisse_pro_gemeinde.csv',
-			csv: toCsv(rows, [
-				'rs',
-				'cityName',
-				'partyNameShort',
-				'partyNameLong',
-				'votetypeId',
-				'voteCount',
-				'votePercent'
-			])
+			name: EXPORT_FILES.aggregate.name,
+			csv: toCsv(rows, EXPORT_FILES.aggregate.columns)
 		});
 	}
 
@@ -70,33 +53,14 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (person) {
 			const rows = await getStationResultsByCandidate(db, rsList, electionType, date);
 			files.push({
-				name: 'ergebnisse_pro_wahlbezirk_kandidaten.csv',
-				csv: toCsv(rows, [
-					'rs',
-					'cityName',
-					'psId',
-					'stationName',
-					'votetypeId',
-					'partyName',
-					'candidateName',
-					'voteCount',
-					'votePercent'
-				])
+				name: EXPORT_FILES.psByCandidate.name,
+				csv: toCsv(rows, EXPORT_FILES.psByCandidate.columns)
 			});
 		} else {
 			const rows = await getStationResultsByParty(db, rsList, electionType, date);
 			files.push({
-				name: 'ergebnisse_pro_wahlbezirk_parteien.csv',
-				csv: toCsv(rows, [
-					'rs',
-					'cityName',
-					'psId',
-					'stationName',
-					'votetypeId',
-					'partyNameShort',
-					'partyNameLong',
-					'voteCount'
-				])
+				name: EXPORT_FILES.psByParty.name,
+				csv: toCsv(rows, EXPORT_FILES.psByParty.columns)
 			});
 		}
 	}
@@ -104,8 +68,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (wantMetaPs) {
 		const rows = await getStationMetaRows(db, rsList, electionType, date);
 		files.push({
-			name: 'wahlbezirke_metadaten.csv',
-			csv: toCsv(rows, ['rs', 'cityName', 'psId', 'name', 'address', 'description', 'isPostal'])
+			name: EXPORT_FILES.metaPs.name,
+			csv: toCsv(rows, EXPORT_FILES.metaPs.columns)
 		});
 	}
 
