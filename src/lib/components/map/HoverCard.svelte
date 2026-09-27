@@ -12,6 +12,8 @@
 		level: string;
 		turnoutLabel: string;
 		turnoutValue: string;
+		/** The active mode's value (Wahlbeteiligung, Hochburg, Stimmensplitting, Veränderung). */
+		metric?: { label: string; value: string } | null;
 		rows: Row[];
 		hint: string;
 	}
@@ -66,6 +68,12 @@
 			<span class="map-lbl" style="color: var(--map-ink-muted)">{data.turnoutLabel}</span>
 			<span class="turnout-value">{data.turnoutValue}</span>
 		</div>
+		{#if data.metric}
+			<div class="metric">
+				<span class="map-lbl" style="color: var(--map-ink)">{data.metric.label}</span>
+				<span class="metric-value">{data.metric.value}</span>
+			</div>
+		{/if}
 		{#if data.rows.length > 0}
 			<div class="divider"></div>
 			<div class="rows">
@@ -90,6 +98,21 @@
 {/if}
 
 <style>
+	.metric {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 6px;
+		margin-top: 8px;
+		padding: 6px 8px;
+		border-radius: 5px;
+		background: var(--map-bg-list-a);
+	}
+	.metric-value {
+		white-space: nowrap;
+		font: 500 12px var(--map-font-mono);
+		color: var(--map-ink);
+	}
 	.hover-card {
 		position: absolute;
 		width: 244px;

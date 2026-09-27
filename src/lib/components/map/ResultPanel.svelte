@@ -281,10 +281,12 @@
 	</div>
 
 	<div class="footer">
-		<span class="footnote">{footnote}</span>
+		<div class="footer-text">
+			<span class="footnote">{footnote}</span>
+			<SiteLinks class="site-links-row" />
+		</div>
 		<a class="csv" href={resolve('/daten')}>{m.map_panel_csv_button()}</a>
 	</div>
-	<SiteLinks class="site-links-row" />
 </div>
 
 <style>
@@ -298,6 +300,16 @@
 		flex-direction: column;
 		overflow: hidden;
 		font-family: var(--map-font-body);
+	}
+	@media (max-width: 759px) {
+		/* Stacked under the map: full width, grows with its content (the page scrolls). */
+		.panel {
+			width: 100%;
+			flex: none;
+			order: 2;
+			border-right: none;
+			border-top: 1px solid var(--map-border-strong);
+		}
 	}
 	.header {
 		padding: 18px 20px 15px;
@@ -333,20 +345,23 @@
 		color: var(--map-ink-3);
 	}
 	.stats {
-		padding: 14px 20px;
+		padding: 12px 20px;
 		display: flex;
-		flex-wrap: wrap;
-		column-gap: 16px;
-		row-gap: 12px;
+		justify-content: space-between;
+		gap: 12px;
 		border-bottom: 1px solid var(--map-border-soft);
+	}
+	.stat {
+		flex: none;
 	}
 	.stat-label {
 		color: var(--map-ink-muted);
 		margin-bottom: 3px;
 	}
 	.stat-value {
-		font: 500 19px var(--map-font-mono);
+		font: 500 15px var(--map-font-mono);
 		color: var(--map-ink);
+		white-space: nowrap;
 	}
 	.rows-heading {
 		padding: 14px 20px 10px;
@@ -556,11 +571,18 @@
 		height: 100%;
 	}
 	.footer {
-		padding: 13px 20px 17px;
+		padding: 11px 20px 12px;
 		border-top: 1px solid var(--map-border-soft);
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 10px;
+	}
+	.footer-text {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
 	}
 	.people {
 		padding: 12px 20px;
@@ -613,15 +635,14 @@
 		color: var(--map-ink-3);
 	}
 	.footnote {
-		flex: 1;
 		font-size: 11.5px;
 		line-height: 1.4;
 		color: var(--map-ink-3);
 	}
 	.panel :global(.site-links-row) {
-		padding: 0 20px 12px;
-		color: var(--map-ink-3);
-		font-size: 11.5px;
+		gap: 2px 12px;
+		color: var(--map-ink-muted);
+		font-size: 11px;
 	}
 	.csv {
 		padding: 9px 12px;

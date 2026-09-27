@@ -126,7 +126,7 @@
 <style>
 	.search {
 		position: relative;
-		padding: 12px 20px;
+		padding: 10px 20px;
 		border-bottom: 1px solid var(--map-border-soft);
 	}
 	.input {

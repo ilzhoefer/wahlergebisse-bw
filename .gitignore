@@ -40,3 +40,4 @@ project.inlang/cache/
 # Local tooling
 graphify-out/
 .claude/settings.json
+design_handoff/

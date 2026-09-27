@@ -3,7 +3,11 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
 	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
-	import Toolbar, { type Tab, type SelectOption } from '$lib/components/map/Toolbar.svelte';
+	import Toolbar, {
+		type Tab,
+		type ModeItem,
+		type SelectOption
+	} from '$lib/components/map/Toolbar.svelte';
 	import ResultPanel, {
 		type PanelRow,
 		type PeopleGroup
@@ -149,6 +153,7 @@
 					{
 						key: 'e',
 						label: m.map_erststimmen(),
+						short: m.map_erststimmen_short(),
 						active: selectedVoteType === '0',
 						onClick: () => {
 							selectedVoteType = '0';
@@ -158,6 +163,7 @@
 					{
 						key: 'z',
 						label: m.map_zweitstimmen(),
+						short: m.map_zweitstimmen_short(),
 						active: selectedVoteType === '1',
 						onClick: () => {
 							selectedVoteType = '1';
@@ -173,13 +179,14 @@
 	// Internal values stay the German domain vocabulary used throughout the backend/API — only the
 	// displayed label is translated (see visualModeLabel below). "2. Stärkste Partei" is kept as a
 	// fourth option beyond the click-dummy's three (confirmed with the user — see the plan file).
+	// Order of the Toolbar's "Weitere" dropdown; the tab row picks its own subset by viewport width.
 	const VISUAL_MODES: VisualMode[] = [
 		'Stärkste Partei',
-		'2. Stärkste Partei',
 		'Wahlbeteiligung',
 		'Hochburg',
-		'Stimmensplitting',
 		'Veränderung',
+		'2. Stärkste Partei',
+		'Stimmensplitting',
 		'Punkte'
 	];
 
@@ -202,20 +209,46 @@
 		}
 	}
 
-	const modusTabs = $derived<Tab[]>(
-		VISUAL_MODES.filter(
-			(mode) =>
+	function visualModeHint(mode: VisualMode, available: boolean): string {
+		switch (mode) {
+			case 'Stärkste Partei':
+				return m.map_mode_hint_staerkste();
+			case '2. Stärkste Partei':
+				return m.map_mode_hint_zweite();
+			case 'Wahlbeteiligung':
+				return m.map_mode_hint_wahlbeteiligung();
+			case 'Hochburg':
+				return m.map_mode_hint_hochburg();
+			case 'Stimmensplitting':
+				return available
+					? m.map_mode_hint_stimmensplitting()
+					: m.map_mode_hint_stimmensplitting_unavailable();
+			case 'Veränderung':
+				return available
+					? m.map_mode_hint_veraenderung()
+					: m.map_mode_hint_veraenderung_unavailable();
+			case 'Punkte':
+				return m.map_mode_hint_punkte();
+		}
+	}
+
+	const modes = $derived<ModeItem[]>(
+		VISUAL_MODES.map((mode) => {
+			const available =
 				(mode !== 'Stimmensplitting' || hasTwoVotes) &&
-				(mode !== 'Veränderung' || datesForType.length > 1)
-		).map((mode) => ({
-			key: mode,
-			label: visualModeLabel(mode),
-			active: selectedVisualMode === mode,
-			onClick: () => {
-				selectedVisualMode = mode;
-				hoveredProps = undefined;
-			}
-		}))
+				(mode !== 'Veränderung' || datesForType.length > 1);
+			return {
+				key: mode,
+				label: visualModeLabel(mode),
+				hint: visualModeHint(mode, available),
+				disabled: !available,
+				active: selectedVisualMode === mode,
+				onClick: () => {
+					selectedVisualMode = mode;
+					hoveredProps = undefined;
+				}
+			};
+		})
 	);
 
 	let parties = $state<{ nameShort: string; partyFamilyId: number }[]>([]);
@@ -714,7 +747,7 @@
 		return searchPlaces(searchablePlaces, q, 6).map((p) => ({
 			id: `p-${p.rs}`,
 			primary: p.name,
-			secondary: `${levelSingular(p.level)} · ${p.parent}`,
+			secondary: `${levelSingular(p.level)} · ${p.parent.replace(/^Regierungsbezirk /, m.map_search_rb_prefix() + ' ')}`,
 			pick: () => void focusRs(p.rs)
 		}));
 	}
@@ -1934,6 +1967,12 @@
 				: m.map_hover_tiefste_ebene();
 		const name = String(hoveredProps.label ?? hoveredProps.name ?? hoveredProps.AWBEZ_T ?? '');
 		const level = wahlkreisActive ? m.map_mode_wahlkreis() : grain ? levelSingular(grain) : '';
+		// "Stimmen" setting: voters instead of the turnout share.
+		const turnoutLabel = absoluteValues ? m.map_stat_waehlende() : m.map_info_wahlbeteiligung();
+		const turnoutValue = absoluteValues
+			? fmtNum(votersOf(hoverBreakdown))
+			: fmtPct(hoverBreakdown.turnout);
+		const changeLabel = m.map_change_label({ party: selectedPartyLabel, year: compareYear });
 		const noPairHint = splitting
 			? m.map_split_no_candidate()
 			: grain === 'Wahlbezirk'
@@ -1960,32 +1999,37 @@
 			return {
 				name,
 				level,
-				turnoutLabel: m.map_change_label_short({ year: compareYear }),
-				turnoutValue:
-					!was || !now
-						? '–'
-						: was.partyName === now.partyName
-							? m.map_change_same()
-							: m.map_change_flipped(),
+				turnoutLabel,
+				turnoutValue,
+				metric: {
+					label: changeLabel,
+					value:
+						!was || !now
+							? '–'
+							: was.partyName === now.partyName
+								? m.map_change_same()
+								: m.map_change_flipped()
+				},
 				rows,
 				hint: rows.length ? drillHint : noPairHint
 			};
 		}
 		if (splitting || changing) {
-			// Headline stat becomes the difference in points; rows show both shares.
+			// The difference in points as the mode row; rows show both shares.
 			const s = pairOf(hoverBreakdown, secondCache.get(hoveredKey!));
 			return {
 				name,
 				level,
-				// Party-less so it fits on one line beside the value in the 244px card.
-				turnoutLabel: splitting
-					? m.map_split_diff_label_short()
-					: m.map_change_label_short({ year: compareYear }),
-				turnoutValue: !s
-					? '–'
-					: absoluteValues
-						? fmtVoteDiff(s.aVotes == null || s.bVotes == null ? null : s.aVotes - s.bVotes)
-						: fmtDiff(s.diff),
+				turnoutLabel,
+				turnoutValue,
+				metric: {
+					label: splitting ? m.map_hover_split_metric({ party: selectedParty }) : changeLabel,
+					value: !s
+						? '–'
+						: absoluteValues
+							? fmtVoteDiff(s.aVotes == null || s.bVotes == null ? null : s.aVotes - s.bVotes)
+							: fmtDiff(s.diff)
+				},
 				rows: s ? pairRows(s, absoluteValues) : [],
 				hint: s ? drillHint : noPairHint
 			};
@@ -1993,11 +2037,19 @@
 		return {
 			name,
 			level,
-			// "Stimmen" setting: voters instead of the turnout share.
-			turnoutLabel: absoluteValues ? m.map_stat_waehlende() : m.map_info_wahlbeteiligung(),
-			turnoutValue: absoluteValues
-				? fmtNum(votersOf(hoverBreakdown))
-				: fmtPct(hoverBreakdown.turnout),
+			turnoutLabel,
+			turnoutValue,
+			metric:
+				selectedVisualMode === 'Wahlbeteiligung'
+					? { label: m.map_info_wahlbeteiligung(), value: fmtPct(hoverBreakdown.turnout) }
+					: selectedVisualMode === 'Hochburg'
+						? {
+								label: selectedParty,
+								value: fmtPct(
+									hoverBreakdown.rows.find((r) => r.partyName === selectedParty)?.votePercent
+								)
+							}
+						: null,
 			rows,
 			hint: drillHint
 		};
@@ -2052,7 +2104,9 @@
 				? m.map_mode_wahlkreis()
 				: leaf
 					? ''
-					: levelPlural(displayLevel)
+					: displayLevel === 'Regierungsbezirk'
+						? m.map_unit_bezirke()
+						: levelPlural(displayLevel)
 	);
 	const panelUnitValue = $derived(
 		panelBreakdown?.seatTotal != null
@@ -2394,14 +2448,7 @@
 		{ebeneOptions}
 		selectedEbene={selectedEbeneValue}
 		{onEbeneChange}
-		{modusTabs}
-		{hochburgPartyOptions}
-		selectedHbParty={selectedParty}
-		hbPartyColor={legend?.color ?? '#9c4a2f'}
-		{onHbPartyChange}
-		{compareOptions}
-		selectedCompare={selectedCompareDate}
-		{onCompareChange}
+		{modes}
 		onReset={resetView}
 	/>
 
@@ -2416,7 +2463,7 @@
 			sub={panelWk ? electionLabelText : panelSub}
 			turnoutLabel={m.map_info_wahlbeteiligung()}
 			turnoutValue={fmtPct(panelBreakdown?.turnout)}
-			eligibleLabel={m.map_stat_wahlberechtigt()}
+			eligibleLabel={m.map_stat_berechtigt()}
 			eligibleValue={fmtNum(panelBreakdown?.eligible)}
 			unitLabel={panelUnitLabel}
 			unitValue={panelUnitValue}
@@ -2479,7 +2526,16 @@
 				/>
 			{/if}
 
-			<ModeBadge text={modeBadgeText} />
+			<ModeBadge
+				text={modeBadgeText}
+				partyOptions={hochburgPartyOptions}
+				{selectedParty}
+				partyColor={changeMetric ? '#9c4a2f' : (legend?.color ?? '#9c4a2f')}
+				onPartyChange={onHbPartyChange}
+				{compareOptions}
+				selectedCompare={selectedCompareDate}
+				{onCompareChange}
+			/>
 
 			{#if dotMode && dotData}
 				<Legend
@@ -2522,7 +2578,7 @@
 <style>
 	.app {
 		height: 100vh;
-		width: 100vw;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -2538,5 +2594,22 @@
 		position: relative;
 		overflow: hidden;
 		background: var(--map-bg-surface-muted);
+	}
+	@media (max-width: 759px) {
+		/* Map on top, panel below at full width; the page scrolls instead of clipping. */
+		.app {
+			height: auto;
+			min-height: 100vh;
+			overflow: visible;
+		}
+		.body {
+			flex-direction: column;
+		}
+		.map-area {
+			flex: none;
+			/* explicit height, not just min-height: MapView's h-full needs a definite parent height */
+			height: 58vh;
+			min-height: 58vh;
+		}
 	}
 </style>

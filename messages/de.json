@@ -255,5 +255,25 @@
 	"datenschutz_rights_title": "Ihre Rechte",
 	"datenschutz_rights": "Sie haben das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21). Wenden Sie sich dazu an die oben genannte E-Mail-Adresse.",
 	"datenschutz_complaint": "Außerdem können Sie sich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO), etwa beim Landesbeauftragten für den Datenschutz und die Informationsfreiheit Baden-Württemberg.",
-	"datenschutz_as_of": "Stand: {date}"
+	"datenschutz_as_of": "Stand: {date}",
+
+	"map_modes_more": "Weitere",
+	"map_modes_button": "Modus: {mode}",
+	"map_mode_hint_staerkste": "Wer liegt vorn?",
+	"map_mode_hint_zweite": "Wer liegt auf Platz zwei?",
+	"map_mode_hint_wahlbeteiligung": "Anteil der Wählenden",
+	"map_mode_hint_hochburg": "Wo ist eine Partei stark?",
+	"map_mode_hint_veraenderung": "Verglichen mit einer früheren Wahl",
+	"map_mode_hint_veraenderung_unavailable": "Nur bei mehr als einem Wahltermin",
+	"map_mode_hint_stimmensplitting": "Erst- vs. Zweitstimme einer Partei",
+	"map_mode_hint_stimmensplitting_unavailable": "Nur bei Wahlen mit zwei Stimmen",
+	"map_mode_hint_punkte": "1 Punkt = n Stimmen, nach Partei",
+	"map_erststimmen_short": "Erst",
+	"map_zweitstimmen_short": "Zweit",
+	"map_stat_berechtigt": "Berechtigt",
+	"map_unit_bezirke": "Bezirke",
+	"map_badge_party_aria": "Partei",
+	"map_badge_compare_aria": "Vergleichswahl",
+	"map_hover_split_metric": "Erst − Zweit · {party}",
+	"map_search_rb_prefix": "RB"
 }

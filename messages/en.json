@@ -255,5 +255,25 @@
 	"datenschutz_rights_title": "Your rights",
 	"datenschutz_rights": "You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18), data portability (Art. 20) and objection (Art. 21). To exercise them, contact the email address above.",
 	"datenschutz_complaint": "You may also lodge a complaint with a data protection supervisory authority (Art. 77 GDPR), for example the State Commissioner for Data Protection and Freedom of Information of Baden-Württemberg.",
-	"datenschutz_as_of": "As of: {date}"
+	"datenschutz_as_of": "As of: {date}",
+
+	"map_modes_more": "More",
+	"map_modes_button": "Mode: {mode}",
+	"map_mode_hint_staerkste": "Who is ahead?",
+	"map_mode_hint_zweite": "Who is in second place?",
+	"map_mode_hint_wahlbeteiligung": "Share of people who voted",
+	"map_mode_hint_hochburg": "Where is a party strong?",
+	"map_mode_hint_veraenderung": "Compared with an earlier election",
+	"map_mode_hint_veraenderung_unavailable": "Only with more than one election date",
+	"map_mode_hint_stimmensplitting": "A party's first vs. second vote",
+	"map_mode_hint_stimmensplitting_unavailable": "Only for elections with two votes",
+	"map_mode_hint_punkte": "1 dot = n votes, by party",
+	"map_erststimmen_short": "1st",
+	"map_zweitstimmen_short": "2nd",
+	"map_stat_berechtigt": "Eligible",
+	"map_unit_bezirke": "Regions",
+	"map_badge_party_aria": "Party",
+	"map_badge_compare_aria": "Comparison election",
+	"map_hover_split_metric": "1st − 2nd · {party}",
+	"map_search_rb_prefix": "RB"
 }

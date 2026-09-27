@@ -129,7 +129,14 @@
 			type: 'FeatureCollection',
 			features: fc.features.map((f): Feature<Point> => ({
 				type: 'Feature',
-				properties: f.properties,
+				properties: {
+					...f.properties,
+					// Map text only: "Regierungsbezirk Stuttgart" → "Stuttgart", "Landkreis Calw" → "Calw".
+					// A feature's own `label` (e.g. Wahlbezirk "Möhringen 012-03") wins over labelProperty.
+					_labelText: String(
+						f.properties?.label ?? f.properties?.[labelProperty ?? ''] ?? ''
+					).replace(/^(Regierungsbezirk|Landkreis) /, '')
+				},
 				geometry: pointOnFeature(f).geometry
 			}))
 		};
@@ -318,8 +325,7 @@
 				type: 'symbol',
 				source: LABEL_SOURCE_ID,
 				layout: {
-					// A feature's own `label` (e.g. Wahlbezirk "Möhringen 012-03") wins over labelProperty.
-					'text-field': ['coalesce', ['get', 'label'], ['get', labelProperty]],
+					'text-field': ['get', '_labelText'],
 					'text-font': ['Noto Sans Regular'],
 					'text-size': 11.5,
 					'text-allow-overlap': false

@@ -7,8 +7,15 @@
 	export interface Tab {
 		key: string;
 		label: string;
+		/** Used below 1280px viewport width instead of `label`. */
+		short?: string;
 		active: boolean;
 		onClick: () => void;
+	}
+	export interface ModeItem extends Tab {
+		/** One-line explanation in the "Weitere" dropdown (the reason when `disabled`). */
+		hint: string;
+		disabled: boolean;
 	}
 	export interface SelectOption {
 		value: string;
@@ -28,16 +35,8 @@
 		/** '' while the Wahlkreis view is active (no rs-hierarchy level applies then). */
 		selectedEbene: string;
 		onEbeneChange: (value: string) => void;
-		modusTabs: Tab[];
-		/** null outside Hochburg mode. */
-		hochburgPartyOptions: SelectOption[] | null;
-		selectedHbParty: string;
-		hbPartyColor: string;
-		onHbPartyChange: (value: string) => void;
-		/** Comparison dates for Veränderung; null in every other mode. */
-		compareOptions: SelectOption[] | null;
-		selectedCompare: string;
-		onCompareChange: (value: string) => void;
+		/** Every colouring mode, in dropdown order; which ones show as tabs depends on the viewport. */
+		modes: ModeItem[];
 		onReset: () => void;
 	}
 
@@ -52,17 +51,40 @@
 		ebeneOptions,
 		selectedEbene,
 		onEbeneChange,
-		modusTabs,
-		hochburgPartyOptions,
-		selectedHbParty,
-		hbPartyColor,
-		onHbPartyChange,
-		compareOptions,
-		selectedCompare,
-		onCompareChange,
+		modes,
 		onReset
 	}: Props = $props();
+
+	// Tabs shown inline scale with the viewport so the header stays at most two rows; every other
+	// mode lives in the "Weitere" dropdown (below 1200px that's all of them).
+	const WIDE_TABS = ['Stärkste Partei', 'Wahlbeteiligung', 'Hochburg', 'Veränderung'];
+	const MID_TABS = ['Stärkste Partei', 'Veränderung'];
+	let innerWidth = $state(1600);
+	const tabKeys = $derived(innerWidth >= 1560 ? WIDE_TABS : innerWidth >= 1200 ? MID_TABS : []);
+	const tabModes = $derived(
+		tabKeys.flatMap((k) => modes.filter((mode) => mode.key === k && !mode.disabled))
+	);
+	const moreModes = $derived(modes.filter((mode) => !tabModes.includes(mode)));
+	const activeInMore = $derived(moreModes.find((mode) => mode.active));
+	const moreLabel = $derived(
+		!activeInMore
+			? m.map_modes_more()
+			: tabModes.length
+				? activeInMore.label
+				: m.map_modes_button({ mode: activeInMore.label })
+	);
+
+	let moreOpen = $state(false);
+	let moreEl: HTMLDivElement | undefined = $state();
+	function onWindowClick(e: MouseEvent) {
+		if (moreOpen && moreEl && !moreEl.contains(e.target as Node)) moreOpen = false;
+	}
+	function onWindowKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') moreOpen = false;
+	}
 </script>
+
+<svelte:window bind:innerWidth onclick={onWindowClick} onkeydown={onWindowKeydown} />
 
 <div class="toolbar">
 	<div class="brand-block">
@@ -96,25 +118,11 @@
 				<option value={o.value}>{o.label}</option>
 			{/each}
 		</select>
-		{#if compareOptions}
-			<!-- Veränderung: "23.2.2025 ggü. 26.9.2021" — the two dates side by side. -->
-			<span class="map-lbl" style="color: var(--map-ink-muted)">{m.map_compare_label()}</span>
-			<select
-				class="select select-mono"
-				value={selectedCompare}
-				onchange={(e) => onCompareChange(e.currentTarget.value)}
-			>
-				{#each compareOptions as o (o.value)}
-					<option value={o.value}>{o.label}</option>
-				{/each}
-			</select>
-		{/if}
-
 		{#if stimmeTabs}
 			<div class="segmented" style="margin-left: 2px">
 				{#each stimmeTabs as t (t.key)}
 					<button type="button" class="pill" class:active={t.active} onclick={t.onClick}
-						>{t.label}</button
+						>{innerWidth < 1280 && t.short ? t.short : t.label}</button
 					>
 				{/each}
 			</div>
@@ -138,26 +146,41 @@
 			</select>
 		</span>
 
-		<div class="segmented">
-			{#each modusTabs as t (t.key)}
+		<div class="segmented modes" bind:this={moreEl}>
+			{#each tabModes as t (t.key)}
 				<button type="button" class="pill" class:active={t.active} onclick={t.onClick}
 					>{t.label}</button
 				>
 			{/each}
-		</div>
-
-		{#if hochburgPartyOptions}
-			<select
-				class="select select-party"
-				style="border-color: {hbPartyColor}"
-				value={selectedHbParty}
-				onchange={(e) => onHbPartyChange(e.currentTarget.value)}
+			<button
+				type="button"
+				class="pill"
+				class:active={!!activeInMore}
+				aria-haspopup="true"
+				aria-expanded={moreOpen}
+				onclick={() => (moreOpen = !moreOpen)}>{moreLabel} ▾</button
 			>
-				{#each hochburgPartyOptions as o (o.value)}
-					<option value={o.value}>{o.label}</option>
-				{/each}
-			</select>
-		{/if}
+			{#if moreOpen}
+				<div class="more-menu" role="menu">
+					{#each moreModes as t (t.key)}
+						<button
+							type="button"
+							role="menuitem"
+							class="more-item"
+							class:current={t.active}
+							disabled={t.disabled}
+							onclick={() => {
+								t.onClick();
+								moreOpen = false;
+							}}
+						>
+							<span class="more-label">{t.label}</span>
+							<span class="more-hint">{t.hint}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</div>
 
 	<div class="aside">
@@ -275,11 +298,6 @@
 		font: 500 12px var(--map-font-mono);
 		color: var(--map-ink-2);
 	}
-	.select-party {
-		padding: 5px 8px;
-		font: 600 12px var(--map-font-body);
-		color: var(--map-ink);
-	}
 	.divider {
 		width: 1px;
 		height: 22px;
@@ -326,11 +344,66 @@
 		color: var(--map-ink-3);
 		border: none;
 		cursor: pointer;
+		white-space: nowrap;
 	}
 	.pill.active {
 		background: var(--map-ink);
 		color: var(--map-on-dark);
 		font-weight: 600;
+	}
+	.modes {
+		position: relative;
+	}
+	.more-menu {
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 0;
+		z-index: 20;
+		min-width: 230px;
+		padding: 4px;
+		background: var(--map-bg-surface);
+		border: 1px solid var(--map-border-strong);
+		border-radius: 8px;
+		box-shadow: 0 2px 10px rgba(33, 29, 24, 0.1);
+		display: flex;
+		flex-direction: column;
+	}
+	@media (max-width: 1199px) {
+		/* The lone "Modus ▾" button may sit at the left edge — open the menu rightwards. */
+		.more-menu {
+			right: auto;
+			left: 0;
+		}
+	}
+	.more-item {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 1px;
+		padding: 7px 10px;
+		border: none;
+		border-radius: 5px;
+		background: transparent;
+		text-align: left;
+		font-family: var(--map-font-body);
+		cursor: pointer;
+	}
+	.more-item:hover:not(:disabled),
+	.more-item.current {
+		background: var(--map-bg-surface-sunken);
+	}
+	.more-item:disabled {
+		cursor: not-allowed;
+		opacity: 0.45;
+	}
+	.more-label {
+		font-size: 12.5px;
+		font-weight: 600;
+		color: var(--map-ink);
+	}
+	.more-hint {
+		font-size: 11px;
+		color: var(--map-ink-muted);
 	}
 	.reset {
 		font-family: var(--map-font-body);
