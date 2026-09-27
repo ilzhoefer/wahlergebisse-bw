@@ -96,6 +96,8 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 			if (existing) {
 				existing.votes += r.votes;
 				existing.position = Math.min(existing.position, r.position);
+				// Elected is recorded per Gemeinde of the Wahlkreis; unknown only if unknown everywhere.
+				if (r.elected !== null) existing.elected = (existing.elected ?? false) || r.elected;
 				continue;
 			}
 			const entry: Candidacy = {
@@ -110,7 +112,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				voteRank: null,
 				listSize: null,
 				listSeats: null,
-				elected: null,
+				elected: r.elected,
 				alphabetical: r.list_alphabetical
 			};
 			kreistag.set(k, entry);

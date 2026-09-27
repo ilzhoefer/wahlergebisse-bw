@@ -1,3 +1,4 @@
+import { getElectedKreistagMembers } from './kreistagMembers';
 import { updateCandidates } from './candidates';
 import type { db as DbType } from '$lib/server/db';
 import { cities } from '$lib/server/db/schema';
@@ -219,7 +220,9 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	}
 
 	stepTick('Gewählte Mitglieder abrufen');
-	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
+	// Kreistag members are only published per Landkreis, not per Gemeinde.
+	if (params.electionTypeId === 5) await getElectedKreistagMembers(db, params.date, log);
+	else await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
 
 	stepTick('Kandidierende auswerten');
 	// Needs the elected members above; only list elections have candidates.

@@ -214,6 +214,13 @@ deployment:
    `bun run db:migrate` and `bun run db:seed`. The container does neither on startup.
 3. Log in at `/admin` and crawl each election you want to show. The crawl also runs the open-data
    and Statistisches Landesamt imports.
+4. Behind a reverse proxy, set adapter-node's `ORIGIN` (link previews, `sitemap.xml`) and
+   `ADDRESS_HEADER` (the admin login's per-IP lockout).
+
+A database crawled before the candidate pages existed needs two one-off backfills:
+`bun run scripts/build-candidates.ts` (per-candidate table for Gemeinderat/Kreistag) and
+`bun run scripts/fetch-kreistag-elected.ts <date>` per Kreistagswahl (elected members, published
+per Landkreis — fetches from komm.one). New crawls do both themselves.
 
 ## History
 

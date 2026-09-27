@@ -6,7 +6,7 @@ import type { Logger } from './client';
 type Db = typeof DbType;
 
 /** SQL twin of nameKey (map/queries.ts): lower-cased tokens minus titles, sorted in code-point order. */
-const nameKey = (column: ReturnType<typeof sql>) => sql`(
+export const nameKeySql = (column: ReturnType<typeof sql>) => sql`(
 	SELECT string_agg(t, ' ' ORDER BY t COLLATE "C")
 	FROM regexp_split_to_table(lower(${column}), '[\\s,]+') t
 	WHERE t <> '' AND t !~ '^(dr|prof|dipl|ing)\\.?$' AND t !~ '\\.$'
@@ -54,7 +54,7 @@ export async function updateCandidates(db: Db, date: string, electionTypeId: num
 			FROM cand GROUP BY 1, 2, 3, 4
 		),
 		elected AS (
-			SELECT rs, election_id, party_id, ${nameKey(sql`name`)} AS key
+			SELECT rs, election_id, party_id, ${nameKeySql(sql`name`)} AS key
 			FROM election_elected_candidates
 			WHERE election_type = ${electionTypeId} AND date = ${date}
 		)
@@ -65,7 +65,7 @@ export async function updateCandidates(db: Db, date: string, electionTypeId: num
 			CASE WHEN h.rs IS NOT NULL THEN e1.rs IS NOT NULL OR e2.rs IS NOT NULL END
 		FROM tot t
 		JOIN pos p USING (election_id, rs, party_id, candidate_name)
-		CROSS JOIN LATERAL (SELECT ${nameKey(sql`t.candidate_name`)} AS key) k
+		CROSS JOIN LATERAL (SELECT ${nameKeySql(sql`t.candidate_name`)} AS key) k
 		-- Hash joins on de-duplicated keys: whether the Gemeinde has elected data at all (h), a
 		-- match on the same list (e1), or on a member the source gives no list (e2).
 		LEFT JOIN (SELECT DISTINCT rs, election_id FROM elected) h

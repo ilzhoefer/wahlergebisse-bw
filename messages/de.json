@@ -424,7 +424,7 @@
 	"candidate_jumped_hint": "Von weiter hinten auf der Liste gewählt: Die Liste erhielt {seats} Sitze, die Stimmen der Wählenden haben die Reihenfolge verändert.",
 	"candidate_pushed_out": "verdrängt",
 	"candidate_pushed_out_hint": "Auf einem Listenplatz innerhalb der {seats} Sitze der Liste, aber von Kandidierenden weiter hinten überholt.",
-	"candidate_table_note": "Rang = Platz innerhalb der Liste nach Stimmen. Bei Kreistagswahlen sind die Stimmen über die Gemeinden des Kreises summiert; gewählte Kreisrätinnen und Kreisräte enthalten die Quelldaten nicht. In Gemeinden mit unechter Teilortswahl werden Sitze je Wohnbezirk vergeben – dort sagen Listenplatz und Rang weniger aus.",
+	"candidate_table_note": "Rang = Platz innerhalb der Liste nach Stimmen (nur Gemeinderat). Bei Kreistagswahlen sind die Stimmen über die Gemeinden des Kreises summiert; wer gewählt wurde, veröffentlichen die Landkreise – 2019 nicht alle, dort steht „keine Angabe“. In Gemeinden mit unechter Teilortswahl werden Sitze je Wohnbezirk vergeben – dort sagen Listenplatz und Rang weniger aus.",
 
 	"gemeinde_rest": "und {n} weitere Listen mit zusammen {pct}",
 

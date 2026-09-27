@@ -424,7 +424,7 @@
 	"candidate_jumped_hint": "Elected from further down the list: the list won {seats} seats, and voters' personal votes changed the order.",
 	"candidate_pushed_out": "pushed out",
 	"candidate_pushed_out_hint": "On a list position within the list's {seats} seats, but overtaken by candidates further down.",
-	"candidate_table_note": "Rank = place within the list by votes. For district council elections, votes are summed over the district's municipalities; the source data does not record who was elected. In municipalities with 'unechte Teilortswahl', seats are allocated per residential district – list position and rank say less there.",
+	"candidate_table_note": "Rank = place within the list by votes (municipal council only). For district council elections, votes are summed over the district's municipalities; who was elected is published by the districts – not by all of them in 2019, shown as 'not recorded'. In municipalities with 'unechte Teilortswahl', seats are allocated per residential district – list position and rank say less there.",
 
 	"gemeinde_rest": "and {n} more lists with {pct} combined",
 
