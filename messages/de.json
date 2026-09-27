@@ -366,5 +366,26 @@
 	"meta_compared_to": "ggü. {date}",
 	"map_embed_button": "Einbetten",
 	"map_embed_copied": "Kopiert",
-	"map_embed_hint": "iframe-Code dieser Kartenansicht kopieren – zum Einbinden auf einer anderen Website"
+	"map_embed_hint": "iframe-Code dieser Kartenansicht kopieren – zum Einbinden auf einer anderen Website",
+
+	"quality_title": "Datenqualität",
+	"quality_intro": "Prüft eine Wahl auf fehlende und widersprüchliche Daten – am besten direkt nach einem Crawl. Ein Klick auf eine Gemeinde öffnet sie auf der Karte.",
+	"quality_election_label": "Wahl",
+	"quality_show": "Anzeigen",
+	"quality_no_elections": "Noch keine Wahl mit Ergebnissen in der Datenbank.",
+	"quality_coverage": "{withResults} von {gemeinden} Gemeinden mit Ergebnissen",
+	"quality_missing_results": "Gemeinden ohne Ergebnisse",
+	"quality_missing_results_hint": "Die Wahl ist bekannt, aber es wurden keine Ergebnisse abgerufen – meist veröffentlicht die Gemeinde nicht über komm.one. Ein erneuter Crawl hilft, falls sie nachträglich hinzukommt.",
+	"quality_missing_aggregates": "Gemeinden ohne Kartendaten",
+	"quality_missing_aggregates_hint": "Ergebnisse sind vorhanden, aber nicht aggregiert – die Gemeinde fehlt auf der Karte. Crawl für diese Wahl erneut starten.",
+	"quality_sum_mismatches": "Stimmensummen weichen ab",
+	"quality_sum_mismatches_hint": "In diesen Wahlbezirken ergibt die Summe der Partei- bzw. Kandidatenstimmen nicht die abgegebenen Stimmen – die Quelle ist unvollständig oder fehlerhaft.",
+	"quality_sum_detail": "{stations} Wahlbezirk(e), bis {pct} %",
+	"quality_unmapped": "Listen ohne Parteifamilie",
+	"quality_unmapped_hint": "Diese Listen fehlen auf der Karte und in den Aggregaten. party-families.csv bzw. partyFamily.ts ergänzen, dann scripts/remap-parties.ts ausführen.",
+	"quality_turnout": "Unplausible Wahlbeteiligung",
+	"quality_turnout_hint": "Wahlbeteiligung über 100 % oder mehr Wählende als Wahlberechtigte.",
+	"quality_stations": "{stations} Wahlbezirk(e)",
+	"quality_ok": "Keine Auffälligkeiten",
+	"admin_quality_check": "Datenqualität prüfen →"
 }

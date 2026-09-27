@@ -366,5 +366,26 @@
 	"meta_compared_to": "vs. {date}",
 	"map_embed_button": "Embed",
 	"map_embed_copied": "Copied",
-	"map_embed_hint": "Copy the iframe code of this map view – to include it on another website"
+	"map_embed_hint": "Copy the iframe code of this map view – to include it on another website",
+
+	"quality_title": "Data quality",
+	"quality_intro": "Checks an election for missing and inconsistent data – best right after a crawl. Click a municipality to open it on the map.",
+	"quality_election_label": "Election",
+	"quality_show": "Show",
+	"quality_no_elections": "No election with results in the database yet.",
+	"quality_coverage": "{withResults} of {gemeinden} municipalities with results",
+	"quality_missing_results": "Municipalities without results",
+	"quality_missing_results_hint": "The election is known, but no results were fetched – usually the municipality doesn't publish via komm.one. Crawl again in case it is added later.",
+	"quality_missing_aggregates": "Municipalities without map data",
+	"quality_missing_aggregates_hint": "Results exist but were not aggregated – the municipality is missing from the map. Run the crawl for this election again.",
+	"quality_sum_mismatches": "Vote sums don't add up",
+	"quality_sum_mismatches_hint": "In these polling districts the party or candidate votes don't add up to the votes cast – the source is incomplete or wrong.",
+	"quality_sum_detail": "{stations} district(s), up to {pct} %",
+	"quality_unmapped": "Lists without a party family",
+	"quality_unmapped_hint": "These lists are missing from the map and the aggregates. Extend party-families.csv or partyFamily.ts, then run scripts/remap-parties.ts.",
+	"quality_turnout": "Implausible turnout",
+	"quality_turnout_hint": "Turnout above 100 % or more voters than eligible voters.",
+	"quality_stations": "{stations} district(s)",
+	"quality_ok": "Nothing found",
+	"admin_quality_check": "Check data quality →"
 }

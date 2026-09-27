@@ -425,6 +425,7 @@
 		<div class="aside">
 			<a class="link" href={resolve('/')}>{m.admin_nav_map()}</a>
 			<a class="link" href={resolve('/daten')}>{m.nav_daten_export()}</a>
+			<a class="link" href={resolve('/admin/qualitaet')}>{m.quality_title()}</a>
 			<form method="POST" action="/admin/logout">
 				<button type="submit" class="link">{m.admin_logout()}</button>
 			</form>
@@ -761,6 +762,16 @@
 				</span>
 				{#if throughput !== null}
 					<span class="map-lbl throughput">{m.admin_throughput({ n: String(throughput) })}</span>
+				{/if}
+				{#if display?.status === 'done'}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() plus the election's query string -->
+					<a
+						class="status-pill"
+						href="{resolve('/admin/qualitaet')}?{new URLSearchParams({
+							wahl: String(display.electionType),
+							datum: display.date
+						})}">{m.admin_quality_check()}</a
+					>
 				{/if}
 			</div>
 
