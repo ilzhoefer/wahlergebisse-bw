@@ -319,5 +319,7 @@
 	"admin_log_warn_filter": "{n} Warnungen · filtern",
 	"admin_log_show_all": "Alle {n} Einträge",
 	"admin_throughput": "≈ {n} Gemeinden/min",
-	"admin_status_pill_meta": "{type} {date}"
+	"admin_status_pill_meta": "{type} {date}",
+
+	"info_nav_heading": "Informationen"
 }

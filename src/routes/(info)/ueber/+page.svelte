@@ -106,14 +106,47 @@
 <h2>{m.about_sources_title()}</h2>
 {#each groups as group (group.title)}
 	<h3>{group.title()}</h3>
-	<ul>
+	<div class="sources">
 		{#each group.sources as source (source.url + source.text())}
-			<li>
+			<div class="source">
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external site -->
-				<a href={source.url} rel="noopener" target="_blank">{source.name}</a>: {source.text()}
-				{#if source.credit}<br /><span class="note">{source.credit}</span>{/if}
-			</li>
+				<a class="source-name" href={source.url} rel="noopener" target="_blank">{source.name} ↗</a>
+				<span class="source-text">{source.text()}</span>
+				{#if source.credit}<span class="source-credit">{source.credit}</span>{/if}
+			</div>
 		{/each}
-	</ul>
+	</div>
 {/each}
 <p>{m.about_src_parties()}</p>
+
+<style>
+	.sources {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin: 0 0 12px;
+	}
+	.source {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		padding: 10px 12px;
+		border: 1px solid var(--map-border-soft);
+		border-radius: 6px;
+		background: var(--map-bg-list-b);
+	}
+	.source-name {
+		font-size: 13px;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.source-text {
+		font-size: 13px;
+		line-height: 1.5;
+		color: var(--map-ink-2);
+	}
+	.source-credit {
+		font: 400 10.5px/1.5 var(--map-font-mono);
+		color: var(--map-ink-muted);
+	}
+</style>

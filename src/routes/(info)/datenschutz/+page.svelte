@@ -16,7 +16,7 @@
 
 <h2>{m.datenschutz_controller_title()}</h2>
 <p>{m.datenschutz_controller()}</p>
-<p>
+<p class="address">
 	{operator.name}
 	{#each operator.address as line (line)}<br />{line}{/each}
 	<br /><ProtectedEmail encoded={operator.emailBase64} />
