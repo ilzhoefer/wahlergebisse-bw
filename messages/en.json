@@ -284,7 +284,7 @@
 	"daten_expand": "Expand",
 	"daten_collapse": "Collapse",
 	"daten_summary_heading": "Selection",
-	"daten_summary_kreise": "Districts touched",
+	"daten_summary_kreise": "Districts",
 	"daten_summary_files": "Files",
 	"daten_summary_none": "none selected",
 	"daten_summary_files_value": "{n} CSV",
