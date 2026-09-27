@@ -65,6 +65,8 @@
 		onToggleAbsolute?: () => void;
 		/** iframe snippet of the current view; shows an "Einbetten" button that copies it. */
 		embedCode?: string;
+		/** Link under the heading to the area's own page (Gemeinde page), with its label. */
+		detailLink?: { href: string; label: string } | null;
 	}
 
 	let {
@@ -92,7 +94,8 @@
 		peopleGroups = [],
 		absolute = false,
 		onToggleAbsolute,
-		embedCode
+		embedCode,
+		detailLink = null
 	}: Props = $props();
 
 	let embedCopied = $state(false);
@@ -131,6 +134,10 @@
 		</div>
 		<h2 class="name">{name}</h2>
 		<div class="sub">{sub}</div>
+		{#if detailLink}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolve()d href -->
+			<a class="detail-link" href={detailLink.href}>{detailLink.label}</a>
+		{/if}
 	</div>
 
 	<div class="stats">
@@ -271,7 +278,9 @@
 								</div>
 								{#each r.candidates as c, i (`${i}:${c.name}`)}
 									<div class="cand">
-										<span class="cand-name">{c.name}</span>
+										<a class="cand-name" href={resolve('/kandidat/[name]', { name: c.name })}
+											>{c.name}</a
+										>
 										{#if c.elected}
 											<span class="cand-elected" title={m.map_panel_candidate_elected()}
 												>✓<span class="sr-only">{m.map_panel_candidate_elected()}</span></span
@@ -359,6 +368,17 @@
 	.sub {
 		font-size: 12px;
 		color: var(--map-ink-3);
+	}
+	.detail-link {
+		display: inline-block;
+		margin-top: 6px;
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--map-accent);
+		text-decoration: none;
+	}
+	.detail-link:hover {
+		color: var(--map-accent-hover);
 	}
 	.stats {
 		padding: 12px 20px;
@@ -530,6 +550,8 @@
 		color: var(--map-ink-2);
 	}
 	.cand-name {
+		color: inherit;
+		text-decoration: none;
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;

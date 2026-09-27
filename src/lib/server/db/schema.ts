@@ -397,6 +397,44 @@ export const electionElectedCandidates = pgTable(
 // rollup row is meaningless without knowing which region/district, election, date and vote type it's
 // for. Adding NOT NULL here (required for primaryKey()) reflects that real invariant, not a new one.
 
+/**
+ * Precomputed per-candidate totals of list elections (Gemeinderats-/Kreistagswahl) in one Gemeinde:
+ * votes summed over its stations, the candidate's place on the ballot list and whether they won a
+ * seat. Rebuilt by `updateCandidates` after each crawl; feeds the candidate pages and the
+ * Listenspringer analysis. A Kreistag candidate has one row per Gemeinde of their Wahlkreis.
+ */
+export const electionCandidate = pgTable(
+	'election_candidate',
+	{
+		id: serial('id').primaryKey(),
+		rs: bigint('rs', { mode: 'number' })
+			.notNull()
+			.references(() => cities.rs),
+		electionType: integer('election_type')
+			.notNull()
+			.references(() => electionType.electionType),
+		date: date('date', { mode: 'string' }).notNull(),
+		electionId: integer('election_id').notNull(),
+		partyId: integer('party_id').notNull(),
+		/** The list's name on the ballot (election_party.name). */
+		listName: text('list_name'),
+		name: text('name').notNull(),
+		/** Lower-cased name tokens without titles, sorted — "Dr. Max Mustermann" and "Mustermann, Max"
+		 * both become "max mustermann" (same rule as nameKey in map/queries.ts). */
+		nameKey: text('name_key').notNull(),
+		/** 1-based place on the ballot list — komm.one lists candidates in ballot order. */
+		position: integer('position').notNull(),
+		votes: integer('votes').notNull(),
+		/** null where the source lists no elected members for this Gemeinde and election. */
+		elected: boolean('elected')
+	},
+	(table) => [
+		unique('unique_election_candidate').on(table.rs, table.electionId, table.partyId, table.name),
+		index('idx_election_candidate_name_key').on(table.nameKey),
+		index('idx_election_candidate_election').on(table.electionType, table.date, table.rs)
+	]
+);
+
 /** Precomputed rollup of results for each party across a region (municipality, district...). */
 export const electionResultAggregatePartyRegion = pgTable(
 	'election_result_aggregate_party_region',

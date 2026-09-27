@@ -1214,7 +1214,7 @@ export interface CandidateResult {
 }
 
 /** "Mustermann, Max" (elected-members table) and "Dr. Max Mustermann" (results) → same key. */
-function nameKey(name: string): string {
+export function nameKey(name: string): string {
 	return name
 		.toLowerCase()
 		.split(/[\s,]+/)

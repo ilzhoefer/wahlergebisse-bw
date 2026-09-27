@@ -2347,6 +2347,12 @@
 				peopleGroups={mandateGroups}
 				absolute={absoluteValues}
 				{embedCode}
+				detailLink={!panelWk && focused.level === 'Gemeinde' && focused.rs !== null
+					? {
+							href: resolve('/gemeinde/[rs]', { rs: String(focused.rs) }),
+							label: m.map_gemeinde_page_link({ name: focused.name })
+						}
+					: null}
 				onToggleAbsolute={() => (absoluteValues = !absoluteValues)}
 				notes={[
 					missingNote,

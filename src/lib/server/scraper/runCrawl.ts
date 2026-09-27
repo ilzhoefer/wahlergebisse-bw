@@ -1,3 +1,4 @@
+import { updateCandidates } from './candidates';
 import type { db as DbType } from '$lib/server/db';
 import { cities } from '$lib/server/db/schema';
 import { DEFAULT_PARALLEL, type Logger } from './client';
@@ -76,7 +77,7 @@ export interface CrawlParams {
 // Fixed step count for progress reporting — the Stuttgart-mapping and Wahlkreis-import steps always
 // run (as a no-op log line when there's no data for the date/type), so the total is constant
 // regardless of branch.
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 12;
 
 /**
  * Re-derives everything that depends on the party-family mapping for an already-crawled election —
@@ -219,6 +220,14 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 
 	stepTick('Gewählte Mitglieder abrufen');
 	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
+
+	stepTick('Kandidierende auswerten');
+	// Needs the elected members above; only list elections have candidates.
+	if (params.electionTypeId === 5 || params.electionTypeId === 6) {
+		await updateCandidates(db, params.date, params.electionTypeId, log);
+	} else {
+		log('Keine Kandidatenlisten bei dieser Wahlart, überspringe');
+	}
 
 	log('Crawl abgeschlossen', undefined, 'ok');
 }
