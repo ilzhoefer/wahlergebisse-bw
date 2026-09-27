@@ -1,6 +1,6 @@
 /**
  * One-off (re-run when the source GeoJSON changes) preprocessing of the boundary files inherited
- * from the R/Shiny app (Docker/shiny/data/*.geojson) into small, WGS84, per-admin-level files the
+ * from the retired R/Shiny app (scripts/source-data/*.geojson) into small, WGS84, per-admin-level files the
  * map view can fetch directly. See CLAUDE.md / the Phase 1 plan for why this is needed:
  * - Landtag_BW.geojson is in EPSG:31467 (Gauss-Krüger), everything else is WGS84 — must reproject.
  * - Baden_Wuerttemberg_small.geojson (~18MB) mixes three admin levels in one file — split by level
@@ -19,7 +19,7 @@ import mapshaper from 'mapshaper';
 import { fitToOutline, simplify, type GeoJSON } from './geo-utils';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SRC = path.resolve(__dirname, '../Docker/shiny/data');
+const SRC = path.resolve(__dirname, 'source-data');
 const OUT = path.resolve(__dirname, '../src/lib/geo');
 mkdirSync(OUT, { recursive: true });
 

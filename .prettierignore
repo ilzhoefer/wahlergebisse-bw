@@ -9,11 +9,8 @@ bun.lockb
 /static/
 /drizzle/
 
-# Legacy R/Shiny stack, being replaced by this SvelteKit app (see CLAUDE.md) — removed in a later cleanup pass
-/R-Code/
-/Docker/
-/SQL/
-/00_daten/
+# Raw source data for scripts/prepare-*.ts, kept byte-for-byte as downloaded
+/scripts/source-data/
 
 # Generated / minified data
 /graphify-out/

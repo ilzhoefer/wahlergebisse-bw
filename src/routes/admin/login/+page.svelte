@@ -33,6 +33,8 @@
 		</label>
 		{#if form?.error === 'wrong_password'}
 			<p class="err">{m.admin_login_error_wrong_password()}</p>
+		{:else if form?.error === 'too_many_attempts'}
+			<p class="err">{m.admin_login_error_too_many_attempts()}</p>
 		{/if}
 		<button type="submit" class="primary">{m.admin_login_submit()}</button>
 		<a class="back" href={resolve('/')}>{m.nav_back_to_map()}</a>

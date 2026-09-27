@@ -31,47 +31,34 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Mindestens eine Datenart muss ausgewählt werden');
 	}
 
-	const files: { name: string; csv: string }[] = [];
-
-	if (wantMeta) {
-		const rows = await getMetaRows(db, rsList, electionType, date);
-		files.push({
-			name: EXPORT_FILES.meta.name,
-			csv: toCsv(rows, EXPORT_FILES.meta.columns)
-		});
-	}
-
-	if (wantAggregate) {
-		const rows = await getAggregateRows(db, rsList, electionType, date);
-		files.push({
-			name: EXPORT_FILES.aggregate.name,
-			csv: toCsv(rows, EXPORT_FILES.aggregate.columns)
-		});
-	}
-
-	if (wantPs) {
-		if (person) {
-			const rows = await getStationResultsByCandidate(db, rsList, electionType, date);
-			files.push({
-				name: EXPORT_FILES.psByCandidate.name,
-				csv: toCsv(rows, EXPORT_FILES.psByCandidate.columns)
-			});
-		} else {
-			const rows = await getStationResultsByParty(db, rsList, electionType, date);
-			files.push({
-				name: EXPORT_FILES.psByParty.name,
-				csv: toCsv(rows, EXPORT_FILES.psByParty.columns)
-			});
-		}
-	}
-
-	if (wantMetaPs) {
-		const rows = await getStationMetaRows(db, rsList, electionType, date);
-		files.push({
-			name: EXPORT_FILES.metaPs.name,
-			csv: toCsv(rows, EXPORT_FILES.metaPs.columns)
-		});
-	}
+	// Independent queries — run them concurrently; order in the ZIP follows this list.
+	const files = await Promise.all([
+		wantMeta &&
+			getMetaRows(db, rsList, electionType, date).then((rows) => ({
+				name: EXPORT_FILES.meta.name,
+				csv: toCsv(rows, EXPORT_FILES.meta.columns)
+			})),
+		wantAggregate &&
+			getAggregateRows(db, rsList, electionType, date).then((rows) => ({
+				name: EXPORT_FILES.aggregate.name,
+				csv: toCsv(rows, EXPORT_FILES.aggregate.columns)
+			})),
+		wantPs &&
+			(person
+				? getStationResultsByCandidate(db, rsList, electionType, date).then((rows) => ({
+						name: EXPORT_FILES.psByCandidate.name,
+						csv: toCsv(rows, EXPORT_FILES.psByCandidate.columns)
+					}))
+				: getStationResultsByParty(db, rsList, electionType, date).then((rows) => ({
+						name: EXPORT_FILES.psByParty.name,
+						csv: toCsv(rows, EXPORT_FILES.psByParty.columns)
+					}))),
+		wantMetaPs &&
+			getStationMetaRows(db, rsList, electionType, date).then((rows) => ({
+				name: EXPORT_FILES.metaPs.name,
+				csv: toCsv(rows, EXPORT_FILES.metaPs.columns)
+			}))
+	]).then((all) => all.filter((f) => f !== false));
 
 	if (files.length === 1) {
 		return new Response(files[0].csv, {

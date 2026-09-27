@@ -16,7 +16,7 @@ import {
 import type { CityStatus, CrawlLogEntry } from '../scraper/client';
 
 /**
- * Domain notes (ported from SQL/createdb.sql, which documents but no longer defines the schema):
+ * Domain notes (ported from the retired SQL/createdb.sql, see git history):
  * - `rs` (Regionalschlüssel) is the 12-digit regional key identifying a municipality; the primary
  *   join key almost everywhere.
  * - `ags` (Amtlicher Gemeindeschlüssel) is an 8-digit key derived from `rs`, used only for building
@@ -422,7 +422,9 @@ export const electionResultAggregatePartyRegion = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		// The map filters by election + date; the unique key above leads with other columns.
+		index('idx_election_result_aggregate_party_region_election').on(table.electionType, table.date)
 	]
 );
 
@@ -450,7 +452,8 @@ export const electionResultAggregateMetaRegion = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		index('idx_election_result_aggregate_meta_region_election').on(table.electionType, table.date)
 	]
 );
 
@@ -487,7 +490,8 @@ export const electionResultAggregatePartyPs = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		index('idx_election_result_aggregate_party_ps_election').on(table.electionType, table.date)
 	]
 );
 
@@ -519,7 +523,8 @@ export const electionResultAggregateMetaPs = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		index('idx_election_result_aggregate_meta_ps_election').on(table.electionType, table.date)
 	]
 );
 
@@ -548,6 +553,10 @@ export const electionResultAggregatePartyDistrict = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
+		),
+		index('idx_election_result_aggregate_party_district_election').on(
+			table.electionType,
+			table.date
 		)
 	]
 );

@@ -45,7 +45,7 @@ import { relations } from '../src/lib/server/db/relations';
 import { cities } from '../src/lib/server/db/schema';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SRC = path.resolve(__dirname, '../Docker/shiny/data');
+const SRC = path.resolve(__dirname, 'source-data');
 const OUT = path.resolve(__dirname, '../src/lib/server/scraper/vote-districts');
 mkdirSync(OUT, { recursive: true });
 

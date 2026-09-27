@@ -145,6 +145,7 @@
 	"admin_login_password_label": "Passwort",
 	"admin_login_submit": "Anmelden",
 	"admin_login_error_wrong_password": "Falsches Passwort",
+	"admin_login_error_too_many_attempts": "Zu viele Fehlversuche – bitte in 15 Minuten erneut versuchen",
 
 	"admin_title": "Admin",
 	"admin_logout": "Abmelden",

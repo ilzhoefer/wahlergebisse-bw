@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run lint
+      # Offline self-checks only — check-html5-opendata.ts hits the live komm.one API.
+      - run: |
+          for f in breakdown dots kreis-open-data mojibake search seat-layout share-url; do
+            bun run scripts/check-$f.ts
+          done

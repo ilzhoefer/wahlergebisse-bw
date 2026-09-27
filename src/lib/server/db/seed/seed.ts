@@ -4,7 +4,7 @@
  * these tables (see e.g. `runCrawl.ts`'s `db.select().from(cities)`) — without this data the admin
  * crawl has no cities to iterate over and no party-family/election-type rows to join against.
  *
- * Source data ported from the legacy scraper's `R-Code/Database/{cities,party,election_type}.csv`
+ * Source data ported from the retired R scraper's `R-Code/Database/{cities,party,election_type}.csv` (in git history)
  * exports (see `data/`) so this script keeps working once the legacy R/Shiny directories are removed.
  *
  * Idempotent — safe to re-run; existing rows are updated in place (upsert on the natural key).
