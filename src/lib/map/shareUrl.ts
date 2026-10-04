@@ -76,6 +76,11 @@ export function readShareParams(p: URLSearchParams): ShareState {
 	return s;
 }
 
+/** The map's current view (query string without `embed`), kept in client memory so the secondary
+ * pages' "Zur Karte" link returns to it instead of the default view. Empty on the server and after
+ * a full page load of a secondary page. */
+export const lastMapView = { qs: '' };
+
 export function writeShareParams(s: ShareState): string {
 	const p = new URLSearchParams();
 	if (s.wahl !== undefined) p.set('wahl', String(s.wahl));

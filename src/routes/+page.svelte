@@ -43,6 +43,7 @@
 		wahlbezirkPostalEstimated
 	} from '$lib/map/geoUrls';
 	import {
+		lastMapView,
 		readShareParams,
 		writeShareParams,
 		levelOfRs,
@@ -53,6 +54,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { rsPrefix, STUTTGART_RS, KREISFREIE_STADT_RS, NO_ELECTION_RS } from '$lib/map/rs';
 	import { LAND_ROOT, hasChildren, childLevel, type MapLevel, type PathEntry } from '$lib/map/path';
 	import { turnoutColorScale, partyColorScale, diffColorScale, paleColor } from '$lib/map/colors';
@@ -67,8 +69,13 @@
 	// ---- Election / date / vote-type selectors -----------------------------------------------
 
 	/** State from a shared link (see $lib/map/shareUrl) — applied once on load; the focused region is
-	 * restored asynchronously in `restoreSharedFocus` since it needs region names from the geo files. */
-	const shared = readShareParams(page.url.searchParams);
+	 * restored asynchronously in `restoreSharedFocus` since it needs region names from the geo files.
+	 * Read from `location` in the browser: the URL sync below uses shallow routing, so after the back
+	 * button returns here from another page SvelteKit loads the page's *original* URL (`page.url`)
+	 * while the address bar shows the view the user left. */
+	const shared = readShareParams(
+		browser ? new URLSearchParams(location.search) : page.url.searchParams
+	);
 	/** Map only (iframe on another site): no toolbar, no panel, a link back to the full view. */
 	const embed = shared.embed === true;
 
@@ -778,6 +785,7 @@
 		const qs = writeShareParams({ ...state, embed: embed || undefined });
 		untrack(() => {
 			viewQs = writeShareParams(state);
+			lastMapView.qs = viewQs;
 			const search = qs ? `?${qs}` : '';
 			if (search !== page.url.search)
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- path IS resolve('/'); the rule just can't see through the appended query string

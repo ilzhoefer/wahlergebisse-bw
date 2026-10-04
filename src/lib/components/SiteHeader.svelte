@@ -3,6 +3,7 @@
 	import '$lib/components/map/theme.css';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages';
+	import { lastMapView } from '$lib/map/shareUrl';
 	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
 
 	/** The map page's header style for the secondary pages (Daten-Export, info pages). */
@@ -31,7 +32,10 @@
 	</a>
 	{@render children?.()}
 	<span class="spacer"></span>
-	<a class="back" href={resolve('/')}>{m.nav_back_to_map()}</a>
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the path IS resolve('/') -->
+	<a class="back" href={`${resolve('/')}${lastMapView.qs ? `?${lastMapView.qs}` : ''}`}
+		>{m.nav_back_to_map()}</a
+	>
 	<div class="segmented">
 		{#each locales as locale (locale)}
 			<button
