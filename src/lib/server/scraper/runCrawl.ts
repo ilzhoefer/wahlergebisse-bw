@@ -1,5 +1,6 @@
 import { getElectedKreistagMembers } from './kreistagMembers';
-import { updateCandidates } from './candidates';
+import { updateCandidates, updateErststimmeCandidates, mandatePeople } from './candidates';
+import { getWahlkreisMandates } from '$lib/server/map/mandates';
 import type { db as DbType } from '$lib/server/db';
 import { cities } from '$lib/server/db/schema';
 import { DEFAULT_PARALLEL, type Logger } from './client';
@@ -118,6 +119,13 @@ async function runStatistikBwCrawl(db: Db, params: CrawlParams, log: Logger) {
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 	stepTick(2);
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
+	await updateErststimmeCandidates(
+		db,
+		params.date,
+		params.electionTypeId,
+		mandatePeople(getWahlkreisMandates(params.date)),
+		log
+	);
 	if (postal) {
 		stepTick(3);
 		await updateWahlbezirkAggregates(db, postal, params.date, params.electionTypeId, log);
@@ -228,6 +236,9 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	// Needs the elected members above; only list elections have candidates.
 	if (params.electionTypeId === 5 || params.electionTypeId === 6) {
 		await updateCandidates(db, params.date, params.electionTypeId, log);
+	} else if (params.electionTypeId === 2 || params.electionTypeId === 3) {
+		const people = mandatePeople(getWahlkreisMandates(params.date));
+		await updateErststimmeCandidates(db, params.date, params.electionTypeId, people, log);
 	} else {
 		log('Keine Kandidatenlisten bei dieser Wahlart, überspringe');
 	}

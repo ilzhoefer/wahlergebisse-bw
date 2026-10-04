@@ -1,7 +1,8 @@
 /**
- * Every candidacy on record under one name (/kandidat/[name]) — Gemeinderats- and Kreistagswahlen,
- * from `election_candidate`. A name is the only identity the sources give, so namesakes in different
- * Gemeinden end up on the same page; the page groups by place and says so.
+ * Every candidacy on record under one name (/kandidat/[name]) — Gemeinderats- and Kreistagswahlen
+ * (lists) and Bundestags-/Landtagswahlen (Erststimme in a Wahlkreis), from `election_candidate`. A
+ * name is the only identity the sources give, so namesakes in different Gemeinden end up on the same
+ * page; the page groups by place and says so.
  */
 import { sql } from 'drizzle-orm';
 import type { db as DbType } from '$lib/server/db';
@@ -9,6 +10,7 @@ import { nameKey } from '$lib/server/map/queries';
 import { memo } from '$lib/server/queryCache';
 import { rsPrefix } from '$lib/map/rs';
 import { shortCityName } from '$lib/server/map/shareMeta';
+import { getWahlkreisMandates } from '$lib/server/map/mandates';
 import names from '$lib/server/map/region-names.json';
 
 type Db = typeof DbType;
@@ -17,15 +19,23 @@ export interface Candidacy {
 	electionType: number;
 	electionDescription: string;
 	date: string;
-	/** Gemeinde (Gemeinderat) or Kreis (Kreistag, summed over its Gemeinden). */
+	/** Gemeinde (Gemeinderat), Kreis (Kreistag, summed over its Gemeinden) or Wahlkreis. */
 	placeName: string;
-	/** Gemeinde rs for Gemeinderat, Kreis rs for Kreistag — for links to the map. */
+	/** Gemeinde rs for Gemeinderat, Kreis rs for Kreistag, Wahlkreis number for Bundestag/Landtag —
+	 * for links to the map. */
 	placeRs: number;
+	/** The list, or for Bundestag/Landtag the party. */
 	listName: string | null;
-	position: number;
+	/** Place on the ballot list; null for Bundestag/Landtag. */
+	position: number | null;
 	votes: number;
-	/** Gemeinderat only: place on the list by votes, list length and the list's seats. */
+	/** Gemeinderat: place on the list by votes; Bundestag/Landtag: place in the Wahlkreis (1 = won). */
 	voteRank: number | null;
+	/** Bundestag/Landtag: share of the Wahlkreis's Erststimmen in %. */
+	sharePct: number | null;
+	/** Bundestag/Landtag: how the seat was won (mandates/<date>.json); null where no data. */
+	mandate: 'direct' | 'directNoSeat' | 'list' | 'none' | null;
+	listPlace: number | null;
 	listSize: number | null;
 	listSeats: number | null;
 	elected: boolean | null;
@@ -56,6 +66,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				count(*) FILTER (WHERE c.elected) OVER w AS list_seats
 			FROM election_candidate c
 			WHERE (c.rs, c.election_id, c.party_id) IN (SELECT rs, election_id, party_id FROM mine)
+				AND c.election_type IN (5, 6)
 			WINDOW w AS (PARTITION BY c.rs, c.election_id, c.party_id ORDER BY c.votes DESC
 				RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 		)
@@ -73,7 +84,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 		date: string;
 		list_name: string | null;
 		name: string;
-		position: number;
+		position: number | null;
 		votes: number;
 		elected: boolean | null;
 		list_alphabetical: boolean;
@@ -82,7 +93,8 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 		list_seats: string;
 		city: string;
 	}[];
-	if (rows.length === 0) return null;
+	const wahlkreis = await loadWahlkreisCandidacies(db, key);
+	if (rows.length === 0 && wahlkreis.length === 0) return null;
 
 	const candidacies: Candidacy[] = [];
 	const kreistag = new Map<string, Candidacy>();
@@ -95,7 +107,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 			const existing = kreistag.get(k);
 			if (existing) {
 				existing.votes += r.votes;
-				existing.position = Math.min(existing.position, r.position);
+				existing.position = Math.min(existing.position ?? Infinity, r.position ?? Infinity);
 				// Elected is recorded per Gemeinde of the Wahlkreis; unknown only if unknown everywhere.
 				if (r.elected !== null) existing.elected = (existing.elected ?? false) || r.elected;
 				continue;
@@ -110,6 +122,9 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				position: r.position,
 				votes: r.votes,
 				voteRank: null,
+				sharePct: null,
+				mandate: null,
+				listPlace: null,
 				listSize: null,
 				listSeats: null,
 				elected: r.elected,
@@ -128,6 +143,9 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 				position: r.position,
 				votes: r.votes,
 				voteRank: Number(r.vote_rank),
+				sharePct: null,
+				mandate: null,
+				listPlace: null,
 				listSize: Number(r.list_size),
 				listSeats: r.elected === null ? null : Number(r.list_seats),
 				elected: r.elected,
@@ -138,12 +156,94 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 
 	// The most frequent spelling ("Dr. Erika Muster" beats a one-off variant).
 	const spellings = new Map<string, number>();
-	for (const r of rows) spellings.set(r.name, (spellings.get(r.name) ?? 0) + 1);
+	for (const n of [...rows.map((r) => r.name), ...wahlkreis.map((w) => w.name)])
+		spellings.set(n, (spellings.get(n) ?? 0) + 1);
 	const name = [...spellings].sort((a, b) => b[1] - a[1])[0][0];
+
+	candidacies.push(...wahlkreis.map((w) => w.candidacy));
+	candidacies.sort((a, b) => b.date.localeCompare(a.date) || b.electionType - a.electionType);
 
 	return {
 		name,
 		candidacies,
 		places: [...new Set(candidacies.filter((c) => c.electionType !== 5).map((c) => c.placeName))]
 	};
+}
+
+/** Bundestag/Landtag: the person's Erststimme candidacies, each summed over its Wahlkreis's Gemeinden
+ * and ranked among all candidates there; the mandate comes from the official mandate data. */
+async function loadWahlkreisCandidacies(
+	db: Db,
+	key: string
+): Promise<{ name: string; candidacy: Candidacy }[]> {
+	const rows = (await db.execute(sql`
+		WITH mine AS (
+			SELECT DISTINCT election_type, date, district_id FROM election_candidate
+			WHERE name_key = ${key} AND election_type IN (2, 3) AND district_id IS NOT NULL
+		),
+		per_person AS (
+			SELECT c.election_type, c.date, c.district_id, c.name_key, min(c.name) AS name,
+				min(c.list_name) AS party, sum(c.votes)::int AS votes
+			FROM election_candidate c JOIN mine USING (election_type, date, district_id)
+			GROUP BY 1, 2, 3, 4
+		),
+		ranked AS (
+			SELECT p.*,
+				rank() OVER (PARTITION BY election_type, date, district_id ORDER BY votes DESC) AS vote_rank,
+				sum(votes) OVER (PARTITION BY election_type, date, district_id) AS total
+			FROM per_person p
+		)
+		SELECT r.*, et.election_description FROM ranked r
+		JOIN election_type et ON et.election_type = r.election_type
+		WHERE r.name_key = ${key}
+	`)) as unknown as {
+		election_type: number;
+		date: string;
+		district_id: number;
+		name: string;
+		party: string;
+		votes: number;
+		vote_rank: string;
+		total: string;
+		election_description: string;
+	}[];
+
+	return rows.map((r) => {
+		const date = String(r.date).slice(0, 10);
+		const wkNames = (
+			r.election_type === 2 ? names.wahlkreisBundestag : names.wahlkreisLandtag
+		) as Record<string, string>;
+		const m = getWahlkreisMandates(date).find((w) => w.districtId === String(r.district_id));
+		const listEntry = m?.list.find((l) => nameKey(l.name) === key);
+		const mandate: Candidacy['mandate'] = !m
+			? null
+			: m.direct?.name && nameKey(m.direct.name) === key
+				? m.direct.seat
+					? 'direct'
+					: 'directNoSeat'
+				: listEntry
+					? 'list'
+					: 'none';
+		return {
+			name: r.name,
+			candidacy: {
+				electionType: r.election_type,
+				electionDescription: r.election_description,
+				date,
+				placeName: `${r.district_id} ${wkNames[String(r.district_id)] ?? ''}`.trim(),
+				placeRs: r.district_id,
+				listName: r.party,
+				position: null,
+				votes: r.votes,
+				voteRank: Number(r.vote_rank),
+				sharePct: Number(r.total) > 0 ? (r.votes / Number(r.total)) * 100 : null,
+				mandate,
+				listPlace: listEntry?.listPlace ?? null,
+				listSize: null,
+				listSeats: null,
+				elected: mandate === null ? null : mandate === 'direct' || mandate === 'list',
+				alphabetical: false
+			}
+		};
+	});
 }

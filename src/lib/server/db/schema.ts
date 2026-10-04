@@ -398,10 +398,11 @@ export const electionElectedCandidates = pgTable(
 // for. Adding NOT NULL here (required for primaryKey()) reflects that real invariant, not a new one.
 
 /**
- * Precomputed per-candidate totals of list elections (Gemeinderats-/Kreistagswahl) in one Gemeinde:
- * votes summed over its stations, the candidate's place on the ballot list and whether they won a
- * seat. Rebuilt by `updateCandidates` after each crawl; feeds the candidate pages and the
- * Listenspringer analysis. A Kreistag candidate has one row per Gemeinde of their Wahlkreis.
+ * Precomputed per-candidate totals in one Gemeinde: votes summed over its stations, and for list
+ * elections (Gemeinderats-/Kreistagswahl) the place on the ballot list and whether they won a seat.
+ * Rebuilt after each crawl (`updateCandidates`, `updateErststimmeCandidates`); feeds the candidate
+ * pages and the Listenspringer analysis. A Kreistag or Bundestag/Landtag candidate has one row per
+ * Gemeinde of their Wahlkreis.
  */
 export const electionCandidate = pgTable(
 	'election_candidate',
@@ -422,8 +423,11 @@ export const electionCandidate = pgTable(
 		/** Lower-cased name tokens without titles, sorted — "Dr. Max Mustermann" and "Mustermann, Max"
 		 * both become "max mustermann" (same rule as nameKey in map/queries.ts). */
 		nameKey: text('name_key').notNull(),
-		/** 1-based place on the ballot list — komm.one lists candidates in ballot order. */
-		position: integer('position').notNull(),
+		/** 1-based place on the ballot list — komm.one lists candidates in ballot order. Null for
+		 * Bundestag/Landtag Erststimme candidates, who stand alone in their Wahlkreis. */
+		position: integer('position'),
+		/** Bundestag/Landtag: the Wahlkreis (a Gemeinde split across several has a row per Wahlkreis). */
+		districtId: integer('district_id'),
 		votes: integer('votes').notNull(),
 		/** null where the source lists no elected members for this Gemeinde and election. */
 		elected: boolean('elected'),
@@ -431,7 +435,11 @@ export const electionCandidate = pgTable(
 		listAlphabetical: boolean('list_alphabetical').notNull().default(false)
 	},
 	(table) => [
-		unique('unique_election_candidate').on(table.rs, table.electionId, table.partyId, table.name),
+		// A split Gemeinde can have two Wahlkreise' candidates under one label; district null (list
+		// elections) counts as equal.
+		unique('unique_election_candidate')
+			.on(table.rs, table.electionId, table.partyId, table.name, table.districtId)
+			.nullsNotDistinct(),
 		index('idx_election_candidate_name_key').on(table.nameKey),
 		index('idx_election_candidate_election').on(table.electionType, table.date, table.rs)
 	]

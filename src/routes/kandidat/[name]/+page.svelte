@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import SiteHeader from '$lib/components/SiteHeader.svelte';
 	import PageMeta from '$lib/components/PageMeta.svelte';
-	import { fmtNum } from '$lib/map/breakdown';
+	import { fmtNum, fmtPct } from '$lib/map/breakdown';
 	import { listOutcome } from '$lib/map/listJump';
 	import { writeShareParams } from '$lib/map/shareUrl';
 	import type { Candidacy } from '$lib/server/candidatePage';
@@ -14,12 +14,20 @@
 	const fmtDate = (d: string) => new Date(d).toLocaleDateString('de-DE');
 
 	function outcome(x: Candidacy) {
-		if (x.elected === null || x.listSeats === null || x.alphabetical) return null;
+		if (x.elected === null || x.listSeats === null || x.position === null || x.alphabetical)
+			return null;
 		return listOutcome(x.position, x.elected, x.listSeats);
 	}
 
 	function placeHref(x: Candidacy) {
 		if (x.electionType === 6) return resolve('/gemeinde/[rs]', { rs: String(x.placeRs) });
+		if (x.electionType === 2 || x.electionType === 3)
+			return `${resolve('/')}?${writeShareParams({
+				wahl: x.electionType,
+				datum: x.date,
+				ebene: 'Wahlkreis',
+				wk: String(x.placeRs)
+			})}`;
 		return `${resolve('/')}?${writeShareParams({
 			wahl: x.electionType,
 			datum: x.date,
@@ -79,14 +87,30 @@
 								<td class="num" title={x.alphabetical ? m.candidate_alphabetical_hint() : undefined}
 									>{#if x.alphabetical}<span class="of"
 											>{m.candidate_alphabetical()}
-										</span>{/if}{x.position}{#if x.listSize}<span class="of">
+										</span>{/if}{x.position ?? '–'}{#if x.listSize}<span class="of">
 											/ {x.listSize}</span
 										>{/if}</td
 								>
-								<td class="num">{fmtNum(x.votes)}</td>
+								<td class="num"
+									>{fmtNum(x.votes)}{#if x.sharePct !== null}<span class="of">
+											({fmtPct(x.sharePct)})</span
+										>{/if}</td
+								>
 								<td class="num">{x.voteRank ?? '–'}</td>
 								<td>
-									{#if x.elected === null}
+									{#if x.mandate === 'direct'}
+										<span class="badge elected">{m.candidate_result_direct()}</span>
+									{:else if x.mandate === 'list'}
+										<span class="badge elected"
+											>{x.listPlace
+												? m.candidate_result_list_place({ place: x.listPlace })
+												: m.candidate_result_list()}</span
+										>
+									{:else if x.mandate === 'directNoSeat'}
+										<span class="badge out" title={m.candidate_result_direct_no_seat_hint()}
+											>{m.candidate_result_direct_no_seat()}</span
+										>
+									{:else if x.elected === null}
 										<span class="muted">{m.candidate_result_unknown()}</span>
 									{:else if x.elected}
 										<span class="badge elected">{m.candidate_result_elected()}</span>
@@ -97,7 +121,7 @@
 										<span
 											class="badge jump"
 											title={m.candidate_jumped_hint({ seats: x.listSeats ?? 0 })}
-											>{m.candidate_jumped({ from: x.position, to: x.voteRank ?? 0 })}</span
+											>{m.candidate_jumped({ from: x.position ?? 0, to: x.voteRank ?? 0 })}</span
 										>
 									{:else if o === 'pushedOut'}
 										<span
