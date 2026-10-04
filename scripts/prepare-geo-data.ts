@@ -47,7 +47,10 @@ function reprojectGeometry(
 }
 
 function reprojectFeatureCollection(geojson: GeoJSON, fromProj: string): GeoJSON {
-	const project = (xy: [number, number]) => proj4(fromProj, proj4.WGS84, xy);
+	// Rounded to 6 decimals (~0.1 m) like mapshaper's output elsewhere: proj4's full doubles doubled
+	// the file size for nothing.
+	const project = (xy: [number, number]) =>
+		proj4(fromProj, proj4.WGS84, xy).map((v) => Math.round(v * 1e6) / 1e6) as [number, number];
 	return {
 		...geojson,
 		features: geojson.features.map((f) => ({
@@ -175,7 +178,8 @@ async function main() {
 	const landtag = reprojectFeatureCollection(
 		await simplify(
 			readGeoJSON('Landtag_BW.geojson'),
-			15,
+			// The source is coarse already (~165 KiB gzipped at full detail), so nothing is dropped.
+			100,
 			'interval=50 -clean gap-fill-area=1000000'
 		),
 		EPSG_31467
