@@ -929,15 +929,23 @@
 		const exp = expanded;
 		const elig = eligibleGemeindeRs;
 		const bezirkCities = bezirkGemeinden;
+		// The geo files load asynchronously: a run that finishes after a newer one started must not
+		// overwrite it (on a shared link, the initial Land view's first file load used to land after
+		// the restored focus and reset the map to the whole Land while the panel kept the focus).
+		let superseded = false;
+		const cancel = () => {
+			superseded = true;
+		};
 
 		if (wk) {
 			const url = et === 3 ? GEO_URL.wahlkreisLandtag : GEO_URL.wahlkreisBundestag;
 			loadGeo(url).then((geo) => {
+				if (superseded) return;
 				displayGeojson = geo;
 				keyProperty = 'ref';
 				sourceKey = `wahlkreis:${et}`;
 			});
-			return;
+			return cancel;
 		}
 
 		const rbExpansions = exp.filter((n) => n.level === 'Regierungsbezirk');
@@ -960,6 +968,7 @@
 			showGemeinden ? loadGeo(GEO_URL.gemeinde) : null,
 			wbUrl ? loadGeo(wbUrl) : null
 		]).then(([rbGeo, kreisGeo, gemeindeGeo, wbGeo]) => {
+			if (superseded) return;
 			const combined: Feature[] = [];
 
 			const expandedRbPrefixes = new Set(rbExpansions.map((n) => rsPrefix(n.rs!, 2)));
@@ -1030,6 +1039,7 @@
 			keyProperty = 'rs';
 			sourceKey = `mosaic:${base}:${exp.map((n) => `${n.level}${n.rs}`).join(',')}`;
 		});
+		return cancel;
 	});
 
 	/** The finest layer for whatever's currently focused — its children if it has any (already part
@@ -1218,10 +1228,13 @@
 					})
 				)
 			);
+		// A newer run (e.g. the restored focus of a shared link) may finish first; see the mosaic effect.
+		let superseded = false;
 		untrack(() =>
 			Promise.all([fetchGrains(date), compareDate ? fetchGrains(compareDate) : null]).then(
 				([results, before]) => {
 					untrack(() => {
+						if (superseded) return;
 						let rawItems = results.flatMap((r) => r.items) as unknown as RegionItem[];
 						const oldItems = before
 							? new Map(
@@ -1332,6 +1345,9 @@
 				}
 			)
 		);
+		return () => {
+			superseded = true;
+		};
 	});
 
 	// ---- Full per-party breakdowns (left panel + hover card) -----------------------------------
