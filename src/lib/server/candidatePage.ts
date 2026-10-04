@@ -166,7 +166,7 @@ async function load(db: Db, key: string): Promise<CandidatePage | null> {
 	return {
 		name,
 		candidacies,
-		places: [...new Set(candidacies.filter((c) => c.electionType !== 5).map((c) => c.placeName))]
+		places: [...new Set(candidacies.filter((c) => c.electionType === 6).map((c) => c.placeName))]
 	};
 }
 
@@ -246,4 +246,37 @@ async function loadWahlkreisCandidacies(
 			}
 		};
 	});
+}
+
+export interface PersonHit {
+	name: string;
+	/** List/party and election of the latest candidacy, e.g. "GRÜNE", "Bundestagswahl 2025". */
+	party: string | null;
+	latest: string;
+	/** Distinct elections stood in. */
+	elections: number;
+}
+
+/** Everyone with a candidate page whose name contains every token of `q` (case-insensitive, LIKE
+ * wildcards escaped), most candidacies first. Callers enforce a minimum query length. */
+export async function searchPeople(db: Db, q: string, limit = 12): Promise<PersonHit[]> {
+	const tokens = q.trim().split(/\s+/).filter(Boolean).slice(0, 5);
+	if (tokens.length === 0) return [];
+	const escape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+	const match = sql.join(
+		tokens.map((t) => sql`c.name ILIKE ${`%${escape(t)}%`}`),
+		sql` AND `
+	);
+	return (await db.execute(sql`
+		SELECT mode() WITHIN GROUP (ORDER BY c.name) AS name,
+			(array_agg(c.list_name ORDER BY c.date DESC))[1] AS party,
+			(array_agg(et.election_description || ' ' || extract(year FROM c.date) ORDER BY c.date DESC))[1]
+				AS latest,
+			count(DISTINCT (c.election_type, c.date))::int AS elections
+		FROM election_candidate c JOIN election_type et USING (election_type)
+		WHERE ${match}
+		GROUP BY c.name_key
+		ORDER BY elections DESC, name
+		LIMIT ${limit}
+	`)) as unknown as PersonHit[];
 }

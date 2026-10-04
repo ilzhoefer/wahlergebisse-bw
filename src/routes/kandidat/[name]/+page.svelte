@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
+	import SearchBox, { type SearchHit } from '$lib/components/map/SearchBox.svelte';
 	import SiteHeader from '$lib/components/SiteHeader.svelte';
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import { fmtNum, fmtPct } from '$lib/map/breakdown';
 	import { listOutcome } from '$lib/map/listJump';
 	import { writeShareParams } from '$lib/map/shareUrl';
-	import type { Candidacy } from '$lib/server/candidatePage';
+	import type { Candidacy, PersonHit } from '$lib/server/candidatePage';
 	import * as m from '$lib/paraglide/messages';
 
 	let { data } = $props();
@@ -19,20 +21,32 @@
 		return listOutcome(x.position, x.elected, x.listSeats);
 	}
 
-	function placeHref(x: Candidacy) {
-		if (x.electionType === 6) return resolve('/gemeinde/[rs]', { rs: String(x.placeRs) });
-		if (x.electionType === 2 || x.electionType === 3)
-			return `${resolve('/')}?${writeShareParams({
-				wahl: x.electionType,
-				datum: x.date,
-				ebene: 'Wahlkreis',
-				wk: String(x.placeRs)
-			})}`;
+	/** The election on the map, focused on this candidacy's Gemeinde, Kreis or Wahlkreis. */
+	function electionHref(x: Candidacy) {
+		const wahlkreis = x.electionType === 2 || x.electionType === 3;
 		return `${resolve('/')}?${writeShareParams({
 			wahl: x.electionType,
 			datum: x.date,
-			gebiet: x.placeRs
+			...(wahlkreis ? { ebene: 'Wahlkreis', wk: String(x.placeRs) } : { gebiet: x.placeRs })
 		})}`;
+	}
+
+	function placeHref(x: Candidacy) {
+		if (x.electionType === 6) return resolve('/gemeinde/[rs]', { rs: String(x.placeRs) });
+		return electionHref(x);
+	}
+
+	async function findPeople(q: string): Promise<SearchHit[]> {
+		const res = await fetch(`${resolve('/api/kandidaten')}?q=${encodeURIComponent(q)}`);
+		if (!res.ok) return [];
+		return ((await res.json()) as PersonHit[]).map((h) => ({
+			id: h.name,
+			primary: h.name,
+			secondary: [h.party, h.latest, m.candidate_search_elections({ n: h.elections })]
+				.filter(Boolean)
+				.join(' · '),
+			pick: () => goto(resolve('/kandidat/[name]', { name: h.name }))
+		}));
 	}
 
 	const electedCount = $derived(c.candidacies.filter((x) => x.elected).length);
@@ -60,6 +74,13 @@
 			{#if c.places.length > 1}
 				<p class="note">{m.candidate_namesakes({ places: c.places.join(', ') })}</p>
 			{/if}
+			<div class="find">
+				<SearchBox
+					{findPeople}
+					placeholder={m.candidate_search_placeholder()}
+					peopleLabel={m.candidate_search_group()}
+				/>
+			</div>
 		</section>
 
 		<section class="card">
@@ -80,7 +101,8 @@
 						{#each c.candidacies as x (`${x.date}|${x.electionType}|${x.placeRs}|${x.listName}`)}
 							{@const o = outcome(x)}
 							<tr>
-								<td>{x.electionDescription} {fmtDate(x.date)}</td>
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- electionHref builds on resolve() -->
+								<td><a href={electionHref(x)}>{x.electionDescription} {fmtDate(x.date)}</a></td>
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- placeHref builds on resolve() -->
 								<td><a href={placeHref(x)}>{x.placeName}</a></td>
 								<td>{x.listName ?? '–'}</td>
@@ -165,6 +187,21 @@
 	@media (max-width: 759px) {
 		.card {
 			padding: 16px;
+		}
+	}
+	/* SearchBox brings the map panel's padding and divider; here it sits inside the card. */
+	.find {
+		margin: 14px -20px -20px;
+	}
+	.find :global(.search) {
+		border-bottom: none;
+	}
+	@media (max-width: 759px) {
+		.find {
+			margin: 12px -16px -16px;
+		}
+		.find :global(.search) {
+			padding: 10px 16px;
 		}
 	}
 	.head .map-lbl {
