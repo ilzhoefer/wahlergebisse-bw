@@ -1087,7 +1087,16 @@
 			)
 		};
 	});
-	const fitGeojson = $derived(scopedGeojson);
+	/** The camera follows the focus; in the Wahlkreis view that's the selected Wahlkreis (the counts
+	 * still use `scopedGeojson`, i.e. all of them). */
+	const fitGeojson = $derived.by((): FeatureCollection => {
+		if (!panelWk) return scopedGeojson;
+		const ref = panelWk.ref;
+		return {
+			type: 'FeatureCollection',
+			features: displayGeojson.features.filter((f) => String(f.properties?.ref) === ref)
+		};
+	});
 
 	/** Every Regierungsbezirk's rs, loaded once — independent of `expanded`/`displayGeojson`, since the
 	 * Land-wide sum below needs all four regardless of which (if any) are currently expanded elsewhere
