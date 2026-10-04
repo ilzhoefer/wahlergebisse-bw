@@ -17,13 +17,16 @@ export interface WahlkreisMandates {
 
 type MandateFile = Record<string, Omit<WahlkreisMandates, 'districtId'>>;
 
-const files = import.meta.glob<MandateFile>('./mandates/*.json', {
-	eager: true,
-	import: 'default'
-});
+// Inside a function so scripts run outside Vite (which can't do import.meta.glob) can still import
+// modules that import this one, as long as they never call it — see scripts/build-candidates.ts.
+const files = () =>
+	import.meta.glob<MandateFile>('./mandates/*.json', {
+		eager: true,
+		import: 'default'
+	});
 
 export function getWahlkreisMandates(date: string): WahlkreisMandates[] {
-	const file = files[`./mandates/${date}.json`];
+	const file = files()[`./mandates/${date}.json`];
 	return file ? Object.entries(file).map(([districtId, m]) => ({ districtId, ...m })) : [];
 }
 

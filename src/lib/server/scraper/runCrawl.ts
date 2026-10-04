@@ -6,7 +6,7 @@ import { cities } from '$lib/server/db/schema';
 import { DEFAULT_PARALLEL, type Logger } from './client';
 import { updateElectionDates, setElectionType } from './elections';
 import { getPollingStationsElection } from './pollingStations';
-import { getResultsCity, neutralizeCentralCountPlaceholders } from './results';
+import { getResultsCity, neutralizeCentralCountPlaceholders, unifyPartyIds } from './results';
 import { updatePartyFamily } from './partyFamily';
 import { updateAggregateParty } from './aggregates';
 import { updateMappingStuttgart, type StuttgartDistrictRow } from './stuttgartMapping';
@@ -83,7 +83,8 @@ const TOTAL_STEPS = 12;
 
 /**
  * Re-derives everything that depends on the party-family mapping for an already-crawled election —
- * the central-count placeholder cleanup (see neutralizeCentralCountPlaceholders), the mapping
+ * the central-count placeholder cleanup (see neutralizeCentralCountPlaceholders), the party_id
+ * cleanup for split Gemeinden (see unifyPartyIds), the mapping
  * itself, the region/district aggregates and Stuttgart's polling-station aggregates — without
  * re-fetching anything. Run after changing the families (party-families.csv) or the
  * matching rules in partyFamily.ts; see scripts/remap-parties.ts. (Seat counts need nothing: they're
@@ -91,6 +92,7 @@ const TOTAL_STEPS = 12;
  */
 export async function remapPartyFamilies(db: Db, params: CrawlParams, log: Logger) {
 	await neutralizeCentralCountPlaceholders(db, params.date, params.electionTypeId, log);
+	await unifyPartyIds(db, params.date, params.electionTypeId, log);
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
 	const districtRows = STUTTGART_DISTRICTS[params.date];
@@ -176,6 +178,7 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	stepTick('Ergebnisse abrufen');
 	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log, parallel);
 	await neutralizeCentralCountPlaceholders(db, params.date, params.electionTypeId, log);
+	await unifyPartyIds(db, params.date, params.electionTypeId, log);
 
 	stepTick('Wahlkreis-Gemeinden-Zuordnung importieren');
 	// Must run before the html5 import (which splits Gemeinden spanning several Wahlkreise by it) and
