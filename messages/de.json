@@ -507,5 +507,15 @@
 	"schedule_runs": "Letzte Läufe dieser Wahl",
 	"schedule_run_running": "läuft",
 	"schedule_run_done": "fertig",
-	"schedule_run_error": "Fehler"
+	"schedule_run_error": "Fehler",
+	"export_sources_filename": "QUELLEN.txt",
+	"export_sources_title": "Wahlergebnisse Baden-Württemberg: {election} am {date}",
+	"export_sources_scope": "{n} Gemeinden mit Ergebnissen. Erstellt am {created} von {url}",
+	"export_sources_status": "Datenstand: letzter vollständiger Abruf am {date}.",
+	"export_sources_status_unknown": "Datenstand: Für diese Wahl ist kein Abruf protokolliert, die Daten stammen aus einem Import.",
+	"export_sources_heading": "Quellen",
+	"export_sources_format": "Spalten und Schlüssel sind hier erklärt: {url}",
+	"export_sources_reuse": "Bei einer Weiterverwendung bitte die Quellen nennen.",
+	"export_no_results": "Für diese Wahl liegen keine Ergebnisse vor.",
+	"daten_direct_link": "Alle Gemeinden dieser Wahl als ZIP (fester Link, auch für Skripte)"
 }

@@ -507,5 +507,15 @@
 	"schedule_runs": "Latest runs of this election",
 	"schedule_run_running": "running",
 	"schedule_run_done": "done",
-	"schedule_run_error": "error"
+	"schedule_run_error": "error",
+	"export_sources_filename": "SOURCES.txt",
+	"export_sources_title": "Election results Baden-Württemberg: {election} on {date}",
+	"export_sources_scope": "{n} Gemeinden with results. Created on {created} by {url}",
+	"export_sources_status": "Data as of the last complete crawl on {date}.",
+	"export_sources_status_unknown": "No crawl is logged for this election; the data comes from an import.",
+	"export_sources_heading": "Sources",
+	"export_sources_format": "Columns and keys are explained here: {url}",
+	"export_sources_reuse": "When reusing the data, please credit the sources.",
+	"export_no_results": "There are no results for this election.",
+	"daten_direct_link": "All Gemeinden of this election as ZIP (fixed link, also for scripts)"
 }

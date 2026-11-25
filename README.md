@@ -36,6 +36,8 @@ What works today:
   side panel and every other page. The About page credits every data source below.
 - **Data export** (`/daten`): CSV of turnout, party or candidate results per Gemeinde or per
   polling district, and polling-station metadata, for any selection of Gemeinden.
+  `/daten/export/<electionType>/<date>.zip` is a fixed link per election: every file for every
+  Gemeinde with results, plus a `QUELLEN.txt` with the sources and the data status.
 - **Admin** (`/admin`, password from `ADMIN_PASSWORD`): starts a crawl for one election date and
   type, with live per-city progress. It runs the discovery, results, open-data import and
   aggregation steps in order. `/admin/qualitaet` checks an election for missing or inconsistent

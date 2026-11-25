@@ -407,6 +407,19 @@
 					{m.daten_cta_note()}
 					<a href={resolve('datenformat')}>{m.datenformat_download_link()} →</a>
 				</span>
+				{#if selectedElection}
+					<span class="cta-note">
+						<a
+							download
+							href={resolve('/daten/export/[electionType]/[date].zip', {
+								electionType: String(selectedElection.electionType),
+								date: selectedElection.date
+							})}
+						>
+							{m.daten_direct_link()} ↓
+						</a>
+					</span>
+				{/if}
 			</div>
 		</section>
 	</form>

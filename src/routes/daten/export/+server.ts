@@ -1,15 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { downloadZip } from 'client-zip';
-import { db } from '#lib/server/db/index.ts';
-import { csvStream } from '#lib/server/csv-export/csv.ts';
-import { EXPORT_FILES } from '#lib/csv-export/files.ts';
-import {
-	getMetaRows,
-	getAggregateRows,
-	getStationMetaRows,
-	getStationResultsByCandidate,
-	getStationResultsByParty
-} from '#lib/server/csv-export/queries.ts';
+import { exportFiles, type ExportKind } from '#lib/server/csv-export/exportFiles.ts';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -31,24 +22,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Mindestens eine Datenart muss ausgewählt werden');
 	}
 
-	// Each file is streamed in batches of Gemeinden (see csvStream); order in the ZIP follows this list.
-	const sorted = [...new Set(rsList)].sort((a, b) => a - b);
-	const file = <T extends Record<string, unknown>>(
-		spec: { name: string; columns: readonly (keyof T & string)[] },
-		query: (d: typeof db, rs: number[], type: number, date: string) => Promise<T[]>
-	) => ({
-		name: spec.name,
-		input: csvStream(sorted, (rs) => query(db, rs, electionType, date), spec.columns)
-	});
-	const files = [
-		wantMeta && file(EXPORT_FILES.meta, getMetaRows),
-		wantAggregate && file(EXPORT_FILES.aggregate, getAggregateRows),
-		wantPs &&
-			(person
-				? file(EXPORT_FILES.psByCandidate, getStationResultsByCandidate)
-				: file(EXPORT_FILES.psByParty, getStationResultsByParty)),
-		wantMetaPs && file(EXPORT_FILES.metaPs, getStationMetaRows)
-	].filter((f) => f !== false);
+	const kinds: ExportKind[] = [];
+	if (wantMeta) kinds.push('meta');
+	if (wantAggregate) kinds.push('aggregate');
+	if (wantPs) kinds.push(person ? 'psByCandidate' : 'psByParty');
+	if (wantMetaPs) kinds.push('metaPs');
+	const files = exportFiles(kinds, rsList, electionType, date);
 
 	if (files.length === 1) {
 		return new Response(files[0].input, {
