@@ -20,7 +20,7 @@
 		"geo:prepare": "bun run scripts/prepare-geo-data.ts"
 	},
 	"patchedDependencies": {
-		"@m1212e/rumble@0.24.2": "patches/@m1212e%2Frumble@0.24.2.patch"
+		"@m1212e/rumble@0.34.0": "patches/@m1212e%2Frumble@0.34.0.patch"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -54,7 +54,7 @@
 		"vite": "^8.3.8"
 	},
 	"dependencies": {
-		"@m1212e/rumble": "0.24.2",
+		"@m1212e/rumble": "0.34.0",
 		"@pothos/core": "^4.18.1",
 		"@pothos/plugin-drizzle": "^0.20.6",
 		"@turf/turf": "^7.4.0",
@@ -62,7 +62,7 @@
 		"client-zip": "^2.5.1",
 		"d3-scale-chromatic": "^3.1.1",
 		"graphql": "^17.1.0",
-		"graphql-yoga": "^5.24.6",
+		"graphql-yoga": "^6.1.1",
 		"maplibre-gl": "^6.19.0"
 	},
 	"overrides": {
