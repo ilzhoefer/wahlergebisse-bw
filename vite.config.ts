@@ -24,7 +24,9 @@ export default defineConfig({
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',
-			emitTsDeclarations: true
+			emitTsDeclarations: true,
+			// Real files, not Paraglide 3's Vite-only virtual modules: scripts/check-*.ts import messages under plain Bun.
+			outputStructure: 'message-modules'
 		})
 	]
 });
