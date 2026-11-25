@@ -12,7 +12,7 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { bbox, pointOnFeature } from '@turf/turf';
 	import type { Feature, FeatureCollection, Point } from 'geojson';
-	import { stripeImage } from '$lib/map/colors';
+	import { stripeImage } from '#lib/map/colors.ts';
 
 	// MapLibre locates its tile-processing worker via a URL relative to its own bundled chunk at
 	// runtime (import.meta.url + './maplibre-gl-worker.mjs') — Vite doesn't statically detect that

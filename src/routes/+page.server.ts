@@ -1,7 +1,7 @@
-import { db } from '$lib/server/db';
-import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
-import { mapShareMeta } from '$lib/server/map/shareMeta';
-import { readShareParams } from '$lib/map/shareUrl';
+import { db } from '#lib/server/db/index.ts';
+import { getElectionTypes, getAllElectionDates } from '#lib/server/map/queries.ts';
+import { mapShareMeta } from '#lib/server/map/shareMeta.ts';
+import { readShareParams } from '#lib/map/shareUrl.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {

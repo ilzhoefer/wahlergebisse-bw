@@ -1,5 +1,5 @@
-import type { VisualMode } from '$lib/map/shareUrl';
-import * as m from '$lib/paraglide/messages';
+import type { VisualMode } from '#lib/map/shareUrl.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 // Internal values stay the German domain vocabulary used throughout the backend/API — only the
 // displayed label is translated (see visualModeLabel below). "2. Stärkste Partei" is kept as a

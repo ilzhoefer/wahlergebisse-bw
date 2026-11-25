@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { crawlRun } from '$lib/server/db/schema';
-import { runCrawl } from '$lib/server/scraper/runCrawl';
+import { db } from '#lib/server/db/index.ts';
+import { crawlRun } from '#lib/server/db/schema.ts';
+import { runCrawl } from '#lib/server/scraper/runCrawl.ts';
 import {
 	mergeProgressTick,
 	createCityStatusTracker,
@@ -13,8 +13,8 @@ import {
 	type LogLevel,
 	type ProgressState,
 	type ProgressTick
-} from '$lib/server/scraper/client';
-import { acquireTaskLock, releaseTaskLock } from '$lib/server/task-lock';
+} from '#lib/server/scraper/client.ts';
+import { acquireTaskLock, releaseTaskLock } from '#lib/server/task-lock.ts';
 
 export { maxParallelism };
 

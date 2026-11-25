@@ -2,8 +2,8 @@
  * Pure helpers over `RegionBreakdown` rows for the Kartenansicht's panel and hover card: Land-wide
  * sums, bar rows and German number formatting. No component state — see src/routes/+page.svelte.
  */
-import type { RegionBreakdown } from '$lib/server/map/queries';
-import * as m from '$lib/paraglide/messages';
+import type { RegionBreakdown } from '#lib/server/map/queries.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 /** Weighted sum of several regions' breakdowns into one combined total — used for the Land scope,
  * which has no row of its own in the aggregate tables (see getRegionBreakdowns' doc comment).

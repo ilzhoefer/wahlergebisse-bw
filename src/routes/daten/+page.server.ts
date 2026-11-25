@@ -1,8 +1,8 @@
-import { db } from '$lib/server/db';
-import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
-import { getCities } from '$lib/server/csv-export/queries';
+import { db } from '#lib/server/db/index.ts';
+import { getElectionTypes, getAllElectionDates } from '#lib/server/map/queries.ts';
+import { getCities } from '#lib/server/csv-export/queries.ts';
 import type { PageServerLoad } from './$types';
-import { formatDate } from '$lib/formatDate';
+import { formatDate } from '#lib/formatDate.ts';
 
 export const load: PageServerLoad = async () => {
 	const [electionTypes, allDates, cities] = await Promise.all([

@@ -1,15 +1,15 @@
 import { error } from '@sveltejs/kit';
 import { downloadZip } from 'client-zip';
-import { db } from '$lib/server/db';
-import { csvStream } from '$lib/server/csv-export/csv';
-import { EXPORT_FILES } from '$lib/csv-export/files';
+import { db } from '#lib/server/db/index.ts';
+import { csvStream } from '#lib/server/csv-export/csv.ts';
+import { EXPORT_FILES } from '#lib/csv-export/files.ts';
 import {
 	getMetaRows,
 	getAggregateRows,
 	getStationMetaRows,
 	getStationResultsByCandidate,
 	getStationResultsByParty
-} from '$lib/server/csv-export/queries';
+} from '#lib/server/csv-export/queries.ts';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import SearchBox, { type SearchHit } from '$lib/components/map/SearchBox.svelte';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
-	import PageMeta from '$lib/components/PageMeta.svelte';
-	import { fmtNum, fmtPct } from '$lib/map/breakdown';
-	import { listOutcome } from '$lib/map/listJump';
-	import { writeShareParams } from '$lib/map/shareUrl';
-	import type { Candidacy, PersonHit } from '$lib/server/candidatePage';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate as fmtDate } from '$lib/formatDate';
+	import SearchBox, { type SearchHit } from '#lib/components/map/SearchBox.svelte';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { fmtNum, fmtPct } from '#lib/map/breakdown.ts';
+	import { listOutcome } from '#lib/map/listJump.ts';
+	import { writeShareParams } from '#lib/map/shareUrl.ts';
+	import type { Candidacy, PersonHit } from '#lib/server/candidatePage.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate as fmtDate } from '#lib/formatDate.ts';
 
 	let { data } = $props();
 	const c = $derived(data.candidate);
@@ -36,7 +36,7 @@
 	}
 
 	async function findPeople(q: string): Promise<SearchHit[]> {
-		const res = await fetch(`${resolve('/api/kandidaten')}?q=${encodeURIComponent(q)}`);
+		const res = await fetch(`${resolve('api/kandidaten')}?q=${encodeURIComponent(q)}`);
 		if (!res.ok) return [];
 		return ((await res.json()) as PersonHit[]).map((h) => ({
 			id: h.name,

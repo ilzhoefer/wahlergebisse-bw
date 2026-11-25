@@ -1,6 +1,6 @@
 import { rumble } from '@m1212e/rumble';
-import { db } from '$lib/server/db';
-import * as schema from '$lib/server/db/schema';
+import { db } from '#lib/server/db/index.ts';
+import * as schema from '#lib/server/db/schema.ts';
 import {
 	getElectionTypes,
 	getAllElectionDates,
@@ -18,15 +18,15 @@ import {
 	type MapInformationMode,
 	type BreakdownGrain,
 	type RegionBreakdown
-} from '$lib/server/map/queries';
-import { memo } from '$lib/server/queryCache';
+} from '#lib/server/map/queries.ts';
+import { memo } from '#lib/server/queryCache.ts';
 import {
 	getWahlkreisGemeinden,
 	getWahlkreisMandates,
 	getWahlkreisBezirke,
 	type WahlkreisMandates
-} from '$lib/server/map/mandates';
-import { turnoutColorScale, partyColorScale, diffColorScale } from '$lib/map/colors';
+} from '#lib/server/map/mandates.ts';
+import { turnoutColorScale, partyColorScale, diffColorScale } from '#lib/map/colors.ts';
 
 /** The map sends at most every Gemeinde (~1100); the lists also become memo keys, so bound them. */
 const MAX_RS = 2000;

@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { elections, pollingStations } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { elections, pollingStations } from '#lib/server/db/schema.ts';
 import {
 	BASE,
 	padAgs,

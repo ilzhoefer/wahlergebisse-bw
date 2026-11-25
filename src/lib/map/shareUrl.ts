@@ -7,9 +7,9 @@
  * Everything is optional; unknown or malformed values are dropped, never thrown on, since links get
  * hand-edited and outlive the data they were made for.
  */
-import type { MapInformationMode } from '$lib/server/map/queries';
-import type { MapLevel } from '$lib/map/path';
-import { KREISFREIE_STADT_RS } from '$lib/map/rs';
+import type { MapInformationMode } from '#lib/server/map/queries.ts';
+import type { MapLevel } from '#lib/map/path.ts';
+import { KREISFREIE_STADT_RS } from '#lib/map/rs.ts';
 
 export type ShareEbene = 'Regierungsbezirk' | 'Kreis' | 'Gemeinde' | 'Wahlkreis';
 /** The map's colouring modes: the server's, plus two the client builds itself (the server never
@@ -48,7 +48,7 @@ const MODE_SLUGS: [string, VisualMode][] = [
 ];
 const EBENEN: ShareEbene[] = ['Regierungsbezirk', 'Kreis', 'Gemeinde', 'Wahlkreis'];
 
-export function readShareParams(p: URLSearchParams): ShareState {
+export function readShareParams(p: Pick<URLSearchParams, 'get'>): ShareState {
 	const s: ShareState = {};
 	const wahl = Number(p.get('wahl'));
 	if (Number.isInteger(wahl) && wahl > 0) s.wahl = wahl;

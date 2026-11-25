@@ -4,10 +4,10 @@
  * that election ended. Started from hooks.server.ts's init.
  */
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { crawlRun, crawlSchedule } from '$lib/server/db/schema';
-import { startCrawl } from '$lib/server/crawl-runner';
-import { isAnyTaskRunning } from '$lib/server/task-lock';
+import { db } from '#lib/server/db/index.ts';
+import { crawlRun, crawlSchedule } from '#lib/server/db/schema.ts';
+import { startCrawl } from '#lib/server/crawl-runner/index.ts';
+import { isAnyTaskRunning } from '#lib/server/task-lock.ts';
 
 const TICK_MS = 60_000;
 /** A 'running' row older than this belongs to a dead process — don't let it block the schedule. */

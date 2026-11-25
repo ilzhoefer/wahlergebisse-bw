@@ -4,8 +4,8 @@
  * `mandates/<date>.json`. Elections without a file simply have no mandate data.
  */
 import { and, eq, isNotNull } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { elections, electionVoteDistrictMapping, pollingStations } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { elections, electionVoteDistrictMapping, pollingStations } from '#lib/server/db/schema.ts';
 
 export interface WahlkreisMandates {
 	districtId: string;

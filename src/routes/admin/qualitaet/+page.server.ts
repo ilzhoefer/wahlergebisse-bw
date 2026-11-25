@@ -1,8 +1,8 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { crawlRun } from '$lib/server/db/schema';
-import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
-import { getQualityReport } from '$lib/server/quality';
+import { db } from '#lib/server/db/index.ts';
+import { crawlRun } from '#lib/server/db/schema.ts';
+import { getElectionTypes, getAllElectionDates } from '#lib/server/map/queries.ts';
+import { getQualityReport } from '#lib/server/quality.ts';
 import type { PageServerLoad } from './$types';
 
 /** Access is enforced in hooks.server.ts. `?wahl=&datum=` (links) or `?e=wahl|datum` (the

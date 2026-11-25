@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
-	import { formatBerlin, toBerlinLocal } from '$lib/berlinTime';
-	import * as m from '$lib/paraglide/messages';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
+	import { formatBerlin, toBerlinLocal } from '#lib/berlinTime.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { data, form } = $props();
 	const s = $derived(data.schedule);
@@ -33,7 +33,7 @@
 
 <div class="map-root page">
 	<SiteHeader kicker={m.schedule_title()}>
-		<a class="admin-link" href={resolve('/admin')}>{m.admin_title()}</a>
+		<a class="admin-link" href={resolve('admin')}>{m.admin_title()}</a>
 	</SiteHeader>
 
 	<main class="layout">

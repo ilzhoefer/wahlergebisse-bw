@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { requireAdmin } from '$lib/server/auth/session';
-import { getCurrentState, subscribeToCrawl } from '$lib/server/crawl-runner';
+import { requireAdmin } from '#lib/server/auth/session.ts';
+import { getCurrentState, subscribeToCrawl } from '#lib/server/crawl-runner/index.ts';
 
 export const GET: RequestHandler = ({ locals, request }) => {
 	requireAdmin(locals);

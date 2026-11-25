@@ -1,7 +1,7 @@
 import { desc } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { cities, elections } from '$lib/server/db/schema';
-import { updateElectionDates, setElectionType } from '$lib/server/scraper/elections';
+import { db } from '#lib/server/db/index.ts';
+import { cities, elections } from '#lib/server/db/schema.ts';
+import { updateElectionDates, setElectionType } from '#lib/server/scraper/elections.ts';
 import {
 	mergeProgressTick,
 	createCityStatusTracker,
@@ -10,8 +10,8 @@ import {
 	type CityStatus,
 	type ProgressState,
 	type ProgressTick
-} from '$lib/server/scraper/client';
-import { acquireTaskLock, releaseTaskLock } from '$lib/server/task-lock';
+} from '#lib/server/scraper/client.ts';
+import { acquireTaskLock, releaseTaskLock } from '#lib/server/task-lock.ts';
 
 export interface DateDiscoveryState {
 	status: 'running' | 'done' | 'error';

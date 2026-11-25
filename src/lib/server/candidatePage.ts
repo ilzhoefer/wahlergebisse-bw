@@ -5,13 +5,13 @@
  * page; the page groups by place and says so.
  */
 import { sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { nameKey } from '$lib/server/map/queries';
-import { memo } from '$lib/server/queryCache';
-import { rsPrefix } from '$lib/map/rs';
-import { shortCityName } from '$lib/server/map/shareMeta';
-import { getWahlkreisMandates } from '$lib/server/map/mandates';
-import names from '$lib/server/map/region-names.json';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { nameKey } from '#lib/server/map/queries.ts';
+import { memo } from '#lib/server/queryCache.ts';
+import { rsPrefix } from '#lib/map/rs.ts';
+import { shortCityName } from '#lib/server/map/shareMeta.ts';
+import { getWahlkreisMandates } from '#lib/server/map/mandates.ts';
+import names from '#lib/server/map/region-names.json';
 
 type Db = typeof DbType;
 

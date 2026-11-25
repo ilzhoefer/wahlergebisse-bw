@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	let { class: className = '' }: { class?: string } = $props();
 </script>
 
 <nav class="site-links {className}">
-	<a href={resolve('/listenspringer')}>{m.listjump_title()}</a>
-	<a href={resolve('/ueber')}>{m.nav_about()}</a>
-	<a href={resolve('/impressum')}>{m.nav_impressum()}</a>
-	<a href={resolve('/datenschutz')}>{m.nav_datenschutz()}</a>
+	<a href={resolve('listenspringer')}>{m.listjump_title()}</a>
+	<a href={resolve('ueber')}>{m.nav_about()}</a>
+	<a href={resolve('impressum')}>{m.nav_impressum()}</a>
+	<a href={resolve('datenschutz')}>{m.nav_datenschutz()}</a>
 </nav>
 
 <style>

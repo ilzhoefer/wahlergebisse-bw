@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { getGemeindePage } from '$lib/server/gemeinde';
-import { getGemeindeListJumps } from '$lib/server/listJumps';
-import { levelOfRs } from '$lib/map/shareUrl';
+import { db } from '#lib/server/db/index.ts';
+import { getGemeindePage } from '#lib/server/gemeinde.ts';
+import { getGemeindeListJumps } from '#lib/server/listJumps.ts';
+import { levelOfRs } from '#lib/map/shareUrl.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {

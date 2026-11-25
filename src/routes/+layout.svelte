@@ -1,8 +1,8 @@
 <script lang="ts">
 	import './layout.css';
-	import '$lib/fonts.css';
-	import favicon from '$lib/assets/favicon.svg';
-	import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+	import '#lib/fonts.css';
+	import favicon from '#lib/assets/favicon.svg';
+	import LanguageSwitcher from '#lib/components/LanguageSwitcher.svelte';
 	import { page } from '$app/state';
 
 	let { children } = $props();

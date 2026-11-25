@@ -3,12 +3,12 @@
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { FeatureCollection } from 'geojson';
-	import * as m from '$lib/paraglide/messages';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
-	import SiteLinks from '$lib/components/SiteLinks.svelte';
-	import { GEO_URL } from '$lib/map/geoUrls';
-	import { rsPrefix } from '$lib/map/rs';
-	import { EXPORT_FILES } from '$lib/csv-export/files';
+	import * as m from '#lib/paraglide/messages.js';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
+	import SiteLinks from '#lib/components/SiteLinks.svelte';
+	import { GEO_URL } from '#lib/map/geoUrls.ts';
+	import { rsPrefix } from '#lib/map/rs.ts';
+	import { EXPORT_FILES } from '#lib/csv-export/files.ts';
 
 	let { data } = $props();
 
@@ -125,7 +125,13 @@
 	const byCandidate = $derived(!!selectedElection?.supportsPersonToggle && person);
 
 	const kinds = $derived([
-		{ name: 'meta', label: m.daten_meta_label(), file: EXPORT_FILES.meta, on: wantMeta },
+		{
+			name: 'meta',
+			label: m.daten_meta_label(),
+			file: EXPORT_FILES.meta,
+			on: wantMeta
+		},
+
 		{
 			name: 'aggregate',
 			label: m.daten_aggregate_label(),
@@ -184,6 +190,7 @@
 				failed = m.daten_cta_error({ status: String(res.status) });
 				return;
 			}
+
 			const name =
 				/filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ??
 				'wahlergebnisse.zip';
@@ -398,7 +405,7 @@
 				<p class="disclaimer">{m.about_disclaimer()}</p>
 				<span class="cta-note">
 					{m.daten_cta_note()}
-					<a href={resolve('/datenformat')}>{m.datenformat_download_link()} →</a>
+					<a href={resolve('datenformat')}>{m.datenformat_download_link()} →</a>
 				</span>
 			</div>
 		</section>

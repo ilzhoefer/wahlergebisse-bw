@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { electionElectedCandidates } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { electionElectedCandidates } from '#lib/server/db/schema.ts';
 import {
 	BASE,
 	formatDateForUrl,

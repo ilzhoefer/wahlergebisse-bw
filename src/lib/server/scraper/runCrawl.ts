@@ -1,8 +1,8 @@
 import { getElectedKreistagMembers } from './kreistagMembers';
 import { updateCandidates, updateErststimmeCandidates, mandatePeople } from './candidates';
-import { getWahlkreisMandates } from '$lib/server/map/mandates';
-import type { db as DbType } from '$lib/server/db';
-import { cities } from '$lib/server/db/schema';
+import { getWahlkreisMandates } from '#lib/server/map/mandates.ts';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { cities } from '#lib/server/db/schema.ts';
 import { DEFAULT_PARALLEL, type Logger } from './client';
 import { updateElectionDates, setElectionType } from './elections';
 import { getPollingStationsElection } from './pollingStations';

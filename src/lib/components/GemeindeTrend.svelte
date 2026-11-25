@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import TrendChart from '$lib/components/TrendChart.svelte';
-	import { lineColor } from '$lib/map/colors';
-	import { formatDate } from '$lib/formatDate';
-	import type { OverallTrend } from '$lib/server/gemeinde';
-	import * as m from '$lib/paraglide/messages';
+	import TrendChart from '#lib/components/TrendChart.svelte';
+	import { lineColor } from '#lib/map/colors.ts';
+	import { formatDate } from '#lib/formatDate.ts';
+	import type { OverallTrend } from '#lib/server/gemeinde.ts';
+	import * as m from '#lib/paraglide/messages.js';
 
 	/** Party-family shares across every election of one Gemeinde, with elections and parties
 	 * switchable. Mount it inside `{#key rs}` — the defaults are taken once from the first `trend`. */

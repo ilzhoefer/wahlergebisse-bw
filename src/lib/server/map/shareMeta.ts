@@ -4,11 +4,11 @@
  * Mirrors the defaults the map page applies on load (newest election, "Stärkste Partei").
  */
 import { eq } from 'drizzle-orm';
-import type { db as Db } from '$lib/server/db';
-import { cities } from '$lib/server/db/schema';
-import { levelOfRs, type ShareState } from '$lib/map/shareUrl';
-import { visualModeLabel } from '$lib/map/visualModes';
-import * as m from '$lib/paraglide/messages';
+import type { db as Db } from '#lib/server/db/index.ts';
+import { cities } from '#lib/server/db/schema.ts';
+import { levelOfRs, type ShareState } from '#lib/map/shareUrl.ts';
+import { visualModeLabel } from '#lib/map/visualModes.ts';
+import * as m from '#lib/paraglide/messages.js';
 import names from './region-names.json';
 
 export interface PageMetaData {
@@ -19,7 +19,7 @@ export interface PageMetaData {
 /** "Stuttgart, Landeshauptstadt" → "Stuttgart" (cities.name carries the official suffix). */
 export const shortCityName = (name: string) => name.split(',')[0].trim();
 
-import { formatDate } from '$lib/formatDate';
+import { formatDate } from '#lib/formatDate.ts';
 
 async function regionName(db: typeof Db, shared: ShareState): Promise<string | null> {
 	if (shared.ebene === 'Wahlkreis' && shared.wk) {

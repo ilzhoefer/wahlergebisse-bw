@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	/** Title, description and Open Graph tags — what search results and link previews show. */
 	let { title, description }: { title: string; description: string } = $props();

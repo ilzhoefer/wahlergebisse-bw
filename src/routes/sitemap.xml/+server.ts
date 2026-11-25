@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { memo } from '$lib/server/queryCache';
+import { db } from '#lib/server/db/index.ts';
+import { memo } from '#lib/server/queryCache.ts';
 import type { RequestHandler } from './$types';
 
 /** The map plus every Gemeinde page with results — what search engines should find. */

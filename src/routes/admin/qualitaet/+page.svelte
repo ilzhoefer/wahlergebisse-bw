@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
-	import type { CityIssue } from '$lib/server/quality';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate as fmtDate } from '$lib/formatDate';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
+	import type { CityIssue } from '#lib/server/quality.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate as fmtDate } from '#lib/formatDate.ts';
 
 	let { data } = $props();
 
@@ -68,7 +68,7 @@
 
 <div class="map-root page">
 	<SiteHeader kicker={m.quality_title()}>
-		<a class="admin-link" href={resolve('/admin')}>{m.admin_title()}</a>
+		<a class="admin-link" href={resolve('admin')}>{m.admin_title()}</a>
 	</SiteHeader>
 
 	<main class="layout">

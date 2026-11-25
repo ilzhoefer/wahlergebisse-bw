@@ -1,5 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { checkPassword, createSessionToken, SESSION_COOKIE_NAME } from '$lib/server/auth/session';
+import {
+	checkPassword,
+	createSessionToken,
+	SESSION_COOKIE_NAME
+} from '#lib/server/auth/session.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 // Failed attempts per client IP. Behind a reverse proxy set adapter-node's ADDRESS_HEADER (e.g.

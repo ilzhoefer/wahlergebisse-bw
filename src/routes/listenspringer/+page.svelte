@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
-	import PageMeta from '$lib/components/PageMeta.svelte';
-	import { fmtNum } from '$lib/map/breakdown';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate as fmtDate } from '$lib/formatDate';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import { fmtNum } from '#lib/map/breakdown.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate as fmtDate } from '#lib/formatDate.ts';
 
 	let { data } = $props();
 	const s = $derived(data.stats);

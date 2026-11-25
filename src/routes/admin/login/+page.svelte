@@ -2,8 +2,8 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages';
-	import '$lib/components/map/theme.css';
+	import * as m from '#lib/paraglide/messages.js';
+	import '#lib/components/map/theme.css';
 
 	let { form }: { form: ActionData } = $props();
 </script>

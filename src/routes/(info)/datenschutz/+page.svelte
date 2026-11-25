@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
-	import ProtectedEmail from '$lib/components/ProtectedEmail.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import ProtectedEmail from '#lib/components/ProtectedEmail.svelte';
 
 	let { data } = $props();
 	const operator = $derived(data.operator);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { diffGradientCss } from '$lib/map/colors';
+	import { diffGradientCss } from '#lib/map/colors.ts';
 
 	interface PartyEntry {
 		name: string;

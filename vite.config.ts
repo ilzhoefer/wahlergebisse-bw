@@ -5,6 +5,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	// graphql-armor imports `graphql/language/parser.mjs` from its own nested graphql 16; bundled, that bare
+	// import would resolve to the top-level graphql 17, whose exports map hides the subpath.
+	ssr: { external: ['@escape.tech/graphql-armor'] },
 	plugins: [
 		tailwindcss(),
 		sveltekit({
@@ -13,12 +16,7 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter(),
-			typescript: {
-				config: (config) => {
-					config.include.push('../drizzle.config.ts');
-				}
-			}
+			adapter: adapter()
 		}),
 
 		paraglideVitePlugin({

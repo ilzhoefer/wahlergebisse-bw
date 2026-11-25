@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { lineColor } from '$lib/map/colors';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate } from '$lib/formatDate';
+	import { lineColor } from '#lib/map/colors.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate } from '#lib/formatDate.ts';
 
 	export interface Series {
 		key: string | number;

@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import * as m from '$lib/paraglide/messages';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
 
 	let { children } = $props();
 
 	const pages = [
-		{ href: resolve('/ueber'), label: m.nav_about },
-		{ href: resolve('/impressum'), label: m.nav_impressum },
-		{ href: resolve('/datenformat'), label: m.nav_datenformat },
-		{ href: resolve('/datenschutz'), label: m.nav_datenschutz }
+		{ href: resolve('ueber'), label: m.nav_about },
+		{ href: resolve('impressum'), label: m.nav_impressum },
+		{ href: resolve('datenformat'), label: m.nav_datenformat },
+		{ href: resolve('datenschutz'), label: m.nav_datenschutz }
 	];
 </script>
 

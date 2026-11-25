@@ -9,9 +9,9 @@
  * Alphabetically ordered lists (election_candidate.list_alphabetical) rank nobody and are skipped.
  */
 import { sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { memo } from '$lib/server/queryCache';
-import { shortCityName } from '$lib/server/map/shareMeta';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { memo } from '#lib/server/queryCache.ts';
+import { shortCityName } from '#lib/server/map/shareMeta.ts';
 
 type Db = typeof DbType;
 const GEMEINDERAT = 6;

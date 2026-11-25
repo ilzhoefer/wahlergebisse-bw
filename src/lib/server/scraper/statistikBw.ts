@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	cities,
 	elections,
@@ -10,7 +10,7 @@ import {
 	electionResultPs,
 	electionVoteDistrictMapping,
 	pollingStations
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 import { decodeEntities } from './html5OpenData';
 import { parseOpenDataCsv } from './kreisOpenData';

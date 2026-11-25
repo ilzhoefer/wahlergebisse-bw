@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import SiteHeader from '$lib/components/SiteHeader.svelte';
-	import PageMeta from '$lib/components/PageMeta.svelte';
-	import TrendChart from '$lib/components/TrendChart.svelte';
-	import GemeindeTrend from '$lib/components/GemeindeTrend.svelte';
-	import SeatChart from '$lib/components/map/SeatChart.svelte';
-	import { fmtNum, fmtPct } from '$lib/map/breakdown';
-	import { KREISFREIE_STADT_RS } from '$lib/map/rs';
-	import { writeShareParams } from '$lib/map/shareUrl';
-	import type { ElectionHistory } from '$lib/server/gemeinde';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate as fmtDate } from '$lib/formatDate';
+	import SiteHeader from '#lib/components/SiteHeader.svelte';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import TrendChart from '#lib/components/TrendChart.svelte';
+	import GemeindeTrend from '#lib/components/GemeindeTrend.svelte';
+	import SeatChart from '#lib/components/map/SeatChart.svelte';
+	import { fmtNum, fmtPct } from '#lib/map/breakdown.ts';
+	import { KREISFREIE_STADT_RS } from '#lib/map/rs.ts';
+	import { writeShareParams } from '#lib/map/shareUrl.ts';
+	import type { ElectionHistory } from '#lib/server/gemeinde.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate as fmtDate } from '#lib/formatDate.ts';
 
 	let { data } = $props();
 	const g = $derived(data.gemeinde);
@@ -193,7 +193,7 @@
 					<h3>{m.listjump_heading({ date: fmtDate(lj.date) })}</h3>
 					<p class="note">
 						{m.listjump_gemeinde_intro({ jumped: lj.jumped.length, seats: lj.seats })}
-						<a href={resolve('/listenspringer')}>{m.listjump_statewide_link()}</a>
+						<a href={resolve('listenspringer')}>{m.listjump_statewide_link()}</a>
 					</p>
 					{#if lj.teilortswahl}
 						<p class="note warn">{m.listjump_teilort_note()}</p>

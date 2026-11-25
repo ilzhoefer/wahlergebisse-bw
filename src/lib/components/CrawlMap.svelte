@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { FeatureCollection } from 'geojson';
-	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
-	import * as m from '$lib/paraglide/messages';
-	import { GEO_URL } from '$lib/map/geoUrls';
+	import MapView, { type RegionItem } from '#lib/components/MapView.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { GEO_URL } from '#lib/map/geoUrls.ts';
 
 	type CityStatus = 'in_progress' | 'done' | 'skipped';
 	type DisplayStatus = CityStatus | 'pending';

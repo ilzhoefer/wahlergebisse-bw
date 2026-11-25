@@ -1,5 +1,5 @@
 import { and, eq, inArray, sum } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	cities,
 	elections,
@@ -10,7 +10,7 @@ import {
 	electionPartyFamily,
 	electionResultAggregateMetaRegion,
 	electionResultAggregatePartyRegion
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 
 type Db = typeof DbType;
 

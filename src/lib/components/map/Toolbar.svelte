@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
-	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
+	import * as m from '#lib/paraglide/messages.js';
+	import { getLocale, setLocale, locales } from '#lib/paraglide/runtime.js';
 
 	const localeLabels: Record<string, string> = { de: 'DE', en: 'EN' };
 

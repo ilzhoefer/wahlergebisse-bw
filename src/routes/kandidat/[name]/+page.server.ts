@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { getCandidatePage } from '$lib/server/candidatePage';
+import { db } from '#lib/server/db/index.ts';
+import { getCandidatePage } from '#lib/server/candidatePage.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {

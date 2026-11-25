@@ -1,10 +1,19 @@
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
-import { db } from '$lib/server/db';
-import { crawlRun, electionType, elections, cities, electionResult } from '$lib/server/db/schema';
-import { maxParallelism } from '$lib/server/crawl-runner';
-import { BASE as KOMM_ONE_BASE } from '$lib/server/scraper/client';
-import { statistikBwDates, SOURCES as STATISTIK_BW_SOURCES } from '$lib/server/scraper/statistikBw';
+import { db } from '#lib/server/db/index.ts';
+import {
+	crawlRun,
+	electionType,
+	elections,
+	cities,
+	electionResult
+} from '#lib/server/db/schema.ts';
+import { maxParallelism } from '#lib/server/crawl-runner/index.ts';
+import { BASE as KOMM_ONE_BASE } from '#lib/server/scraper/client.ts';
+import {
+	statistikBwDates,
+	SOURCES as STATISTIK_BW_SOURCES
+} from '#lib/server/scraper/statistikBw.ts';
 
 /**
  * Bürgermeisterwahl (7) and Bürgerentscheid (9) each happen on whatever date one specific municipality

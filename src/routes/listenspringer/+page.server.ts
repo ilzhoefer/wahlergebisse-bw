@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { getStatewideListJumps } from '$lib/server/listJumps';
+import { db } from '#lib/server/db/index.ts';
+import { getStatewideListJumps } from '#lib/server/listJumps.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {

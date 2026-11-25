@@ -4,7 +4,7 @@
  * (lists split by name, seats) — plus the current Gemeinderat. Memoized until the next crawl.
  */
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	cities,
 	electionElectedCandidates,
@@ -13,13 +13,13 @@ import {
 	electionResultAggregatePartyRegion,
 	electionType,
 	party
-} from '$lib/server/db/schema';
-import { getRegionBreakdowns, type RegionBreakdown } from '$lib/server/map/queries';
-import { memo } from '$lib/server/queryCache';
-import { rsPrefix } from '$lib/map/rs';
-import { shortCityName } from '$lib/server/map/shareMeta';
-import { WAEHLERVEREINIGUNGEN_FAMILY } from '$lib/server/scraper/partyFamily';
-import names from '$lib/server/map/region-names.json';
+} from '#lib/server/db/schema.ts';
+import { getRegionBreakdowns, type RegionBreakdown } from '#lib/server/map/queries.ts';
+import { memo } from '#lib/server/queryCache.ts';
+import { rsPrefix } from '#lib/map/rs.ts';
+import { shortCityName } from '#lib/server/map/shareMeta.ts';
+import { WAEHLERVEREINIGUNGEN_FAMILY } from '#lib/server/scraper/partyFamily.ts';
+import names from '#lib/server/map/region-names.json';
 
 type Db = typeof DbType;
 

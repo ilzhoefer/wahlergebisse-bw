@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import '$lib/components/map/theme.css';
+	import '#lib/components/map/theme.css';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages';
-	import { lastMapView } from '$lib/map/shareUrl';
-	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
+	import * as m from '#lib/paraglide/messages.js';
+	import { lastMapView } from '#lib/map/shareUrl.ts';
+	import { getLocale, setLocale, locales } from '#lib/paraglide/runtime.js';
 
 	/** The map page's header style for the secondary pages (Daten-Export, info pages). */
 	interface Props {

@@ -2,19 +2,19 @@
 	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
-	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
+	import MapView, { type RegionItem } from '#lib/components/MapView.svelte';
 	import Toolbar, {
 		type Tab,
 		type ModeItem,
 		type SelectOption
-	} from '$lib/components/map/Toolbar.svelte';
+	} from '#lib/components/map/Toolbar.svelte';
 	import ResultPanel, {
 		type PanelRow,
 		type PeopleGroup
-	} from '$lib/components/map/ResultPanel.svelte';
-	import SearchBox, { type SearchHit } from '$lib/components/map/SearchBox.svelte';
-	import { searchPlaces, type Place } from '$lib/map/search';
-	import { makeDots, niceDotValue, type DotArea } from '$lib/map/dots';
+	} from '#lib/components/map/ResultPanel.svelte';
+	import SearchBox, { type SearchHit } from '#lib/components/map/SearchBox.svelte';
+	import { searchPlaces, type Place } from '#lib/map/search.ts';
+	import { makeDots, niceDotValue, type DotArea } from '#lib/map/dots.ts';
 	import {
 		sumBreakdowns,
 		votersOf,
@@ -26,22 +26,22 @@
 		barWidth,
 		toRows,
 		toSingleRow
-	} from '$lib/map/breakdown';
-	import { VISUAL_MODES, visualModeLabel, visualModeHint } from '$lib/map/visualModes';
-	import type { CandidateHit } from '$lib/generated-client/client';
-	import HoverCard from '$lib/components/map/HoverCard.svelte';
-	import Legend from '$lib/components/map/Legend.svelte';
-	import BreadcrumbPill from '$lib/components/map/BreadcrumbPill.svelte';
-	import ModeBadge from '$lib/components/map/ModeBadge.svelte';
-	import StatusLine from '$lib/components/map/StatusLine.svelte';
-	import PageMeta from '$lib/components/PageMeta.svelte';
-	import '$lib/components/map/theme.css';
+	} from '#lib/map/breakdown.ts';
+	import { VISUAL_MODES, visualModeLabel, visualModeHint } from '#lib/map/visualModes.ts';
+	import type { CandidateHit } from '#lib/generated-client/client.ts';
+	import HoverCard from '#lib/components/map/HoverCard.svelte';
+	import Legend from '#lib/components/map/Legend.svelte';
+	import BreadcrumbPill from '#lib/components/map/BreadcrumbPill.svelte';
+	import ModeBadge from '#lib/components/map/ModeBadge.svelte';
+	import StatusLine from '#lib/components/map/StatusLine.svelte';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import '#lib/components/map/theme.css';
 	import {
 		GEO_URL,
 		wahlbezirkeUrl,
 		wahlbezirkGemeinden,
 		wahlbezirkPostalEstimated
-	} from '$lib/map/geoUrls';
+	} from '#lib/map/geoUrls.ts';
 	import {
 		lastMapView,
 		readShareParams,
@@ -50,20 +50,31 @@
 		type ShareState,
 		type ShareEbene,
 		type VisualMode
-	} from '$lib/map/shareUrl';
+	} from '#lib/map/shareUrl.ts';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
-	import { browser } from '$app/environment';
-	import { rsPrefix, STUTTGART_RS, KREISFREIE_STADT_RS, NO_ELECTION_RS } from '$lib/map/rs';
-	import { LAND_ROOT, hasChildren, childLevel, type MapLevel, type PathEntry } from '$lib/map/path';
-	import { turnoutColorScale, partyColorScale, diffColorScale, paleColor } from '$lib/map/colors';
-	import type { MapMode, MapInformationMode, RegionBreakdown } from '$lib/server/map/queries';
-	import { client } from '$lib/generated-client/client';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/env';
+	import { rsPrefix, STUTTGART_RS, KREISFREIE_STADT_RS, NO_ELECTION_RS } from '#lib/map/rs.ts';
+	import {
+		LAND_ROOT,
+		hasChildren,
+		childLevel,
+		type MapLevel,
+		type PathEntry
+	} from '#lib/map/path.ts';
+	import {
+		turnoutColorScale,
+		partyColorScale,
+		diffColorScale,
+		paleColor
+	} from '#lib/map/colors.ts';
+	import type { MapMode, MapInformationMode, RegionBreakdown } from '#lib/server/map/queries.ts';
+	import { client } from '#lib/generated-client/client.ts';
 	import type { LiveStatus } from './api/live/+server';
-	import { formatBerlin } from '$lib/berlinTime';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate } from '$lib/formatDate';
+	import { formatBerlin } from '#lib/berlinTime.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate } from '#lib/formatDate.ts';
 
 	let { data } = $props();
 
@@ -87,6 +98,7 @@
 	{
 		const byType = data.datesByType as Record<number, string[]>;
 		const newest = (t: number) => (byType[t] ?? []).reduce((a, b) => (b > a ? b : a), '');
+
 		selectedElectionType =
 			data.electionTypes.find((t) => t.electionType === shared.wahl)?.electionType ??
 			data.electionTypes.reduce<number | undefined>(
@@ -104,6 +116,7 @@
 			...(((data.datesByType as Record<number, string[]>)[selectedElectionType] ?? []) as string[])
 		].sort((a, b) => b.localeCompare(a))
 	);
+
 	let selectedDate = $state<string>(shared.datum ?? '');
 	$effect(() => {
 		if (!datesForType.includes(selectedDate)) selectedDate = datesForType[0] ?? '';
@@ -115,6 +128,7 @@
 	const hasTwoVotes = $derived(
 		selectedElectionType === 2 || (selectedElectionType === 3 && selectedDate >= '2026')
 	);
+
 	let selectedVoteType = $state<'0' | '1'>(shared.stimme ?? '0');
 	// Single-vote Landtagswahl (2021 and earlier): its one vote is stored as votetype 0.
 	$effect(() => {
@@ -243,11 +257,13 @@
 	 * `selectedParty` (no party is called like these). */
 	const CHANGE_METRICS = ['Wahlbeteiligung', 'Stärkste Partei', '2. Stärkste Partei'] as const;
 	type ChangeMetric = (typeof CHANGE_METRICS)[number];
+
 	const changeMetric = $derived(
 		changing && (CHANGE_METRICS as readonly string[]).includes(selectedParty)
 			? (selectedParty as ChangeMetric)
 			: null
 	);
+
 	// Leaving Veränderung with a metric selected: back to a real party.
 	$effect(() => {
 		if (!changing && (CHANGE_METRICS as readonly string[]).includes(selectedParty))
@@ -784,9 +800,10 @@
 			viewQs = writeShareParams(state);
 			lastMapView.qs = viewQs;
 			const search = qs ? `?${qs}` : '';
+
 			if (search !== page.url.search)
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- path IS resolve('/'); the rule just can't see through the appended query string
-				replaceState(`${resolve('/')}${search}`, page.state);
+				goto(`${resolve('/')}${search}`, { shallow: true, replace: true, state: page.state });
 		});
 	});
 
@@ -842,6 +859,7 @@
 					.join(' · ')
 			: ''
 	);
+
 	const liveNewer = $derived(
 		live !== null && liveFirstUpdate !== undefined && live.updatedAt !== liveFirstUpdate
 	);
@@ -957,6 +975,7 @@
 
 		// Which grains appear at all: everything at `base`, plus the children of expanded regions.
 		const showKreise = base === 'Kreis' || (base === 'Regierungsbezirk' && rbExpansions.length > 0);
+
 		const showGemeinden = base === 'Gemeinde' || (showKreise && kreisExpansions.length > 0);
 
 		Promise.all([
@@ -984,6 +1003,7 @@
 					...kreisGeo.features
 						.filter((f) => {
 							const rs = Number(f.properties?.rs);
+
 							return (
 								(base === 'Kreis' || expandedRbPrefixes.has(rsPrefix(rs, 2))) &&
 								!expandedKreisPrefixes.has(rsPrefix(rs, 4))
@@ -998,10 +1018,10 @@
 					...gemeindeGeo.features
 						.filter((f) => {
 							const rs = Number(f.properties?.rs);
+
 							return (
 								(base === 'Gemeinde' || expandedKreisPrefixes.has(rsPrefix(rs, 4))) &&
-								!bezirkExpanded.has(rs) &&
-								// Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
+								!bezirkExpanded.has(rs) && // Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
 								(elig === null || elig.has(rs))
 							);
 						})
@@ -1013,8 +1033,7 @@
 				combined.push(
 					...wbGeo.features
 						.filter((f) => bezirkExpanded.has(gemeindeOf(f)))
-						.map((f) => tagGrain(f, 'Wahlbezirk'))
-						// Synthetic `rs`, so Wahlbezirk features can share the same rs-keyed source as
+						.map((f) => tagGrain(f, 'Wahlbezirk')) // Synthetic `rs`, so Wahlbezirk features can share the same rs-keyed source as
 						// everything else instead of needing MapView to juggle a second keyProperty.
 						.map((f) => ({
 							...f,
@@ -1113,14 +1132,17 @@
 		if (wahlkreisActive) return ['Wahlkreis'];
 		const grains: MapMode[] = [];
 		if (baseLevel === 'Regierungsbezirk') grains.push('Regierungsbezirk');
+
 		const kreise =
 			baseLevel === 'Kreis' ||
 			(baseLevel === 'Regierungsbezirk' && expanded.some((n) => n.level === 'Regierungsbezirk'));
+
 		if (kreise) grains.push('Kreis');
 		if (baseLevel === 'Gemeinde' || (kreise && expanded.some((n) => n.level === 'Kreis')))
 			grains.push('Gemeinde');
 		if (expanded.some((n) => n.level === 'Gemeinde' && n.rs !== null && bezirkGemeinden.has(n.rs)))
 			grains.push('Wahlbezirk');
+
 		return grains;
 	});
 
@@ -1420,6 +1442,7 @@
 		if (foc.level === 'Land' && allRbRs.length > 0) {
 			const rb = perGrain.find((p) => p.mode === 'Regierungsbezirk');
 			const rbList = allRbRs.map(String);
+
 			if (rb) rb.rsList = [...new Set([...(rb.rsList ?? []), ...rbList])];
 			else perGrain.push({ mode: 'Regierungsbezirk', rsList: rbList });
 		}
@@ -1428,6 +1451,7 @@
 		if (dotRs.length > 0) {
 			const gem = perGrain.find((p) => p.mode === 'Gemeinde');
 			const list = dotRs.map(String);
+
 			if (gem) gem.rsList = [...new Set([...(gem.rsList ?? []), ...list])];
 			else perGrain.push({ mode: 'Gemeinde', rsList: list });
 		}
@@ -1551,6 +1575,7 @@
 	const panelKey = $derived(
 		focused.level === 'Wahlbezirk' ? (focused.stationKey ?? '') : String(focused.rs)
 	);
+
 	const panelBreakdown = $derived(
 		panelWk
 			? breakdownCache.get(panelWk.ref)
@@ -1558,8 +1583,8 @@
 				? landBreakdown
 				: breakdownCache.get(panelKey)
 	);
-	// ---- Bundestag/Landtag mandates per Wahlkreis (official, see server/map/mandates.ts) ----------
 
+	// ---- Bundestag/Landtag mandates per Wahlkreis (official, see server/map/mandates.ts) ----------
 	type Mandates = {
 		direct: { name: string | null; party: string; percent: number | null; seat: boolean } | null;
 		list: { name: string; party: string; listPlace: number | null }[];
@@ -2010,6 +2035,7 @@
 				? (focused.stationKey ?? '')
 				: String(focused.rs)
 	);
+
 	const panelSub = $derived(
 		(panelParentEntry ? panelParentEntry.name + ' · ' : '') + electionLabelText
 	);
@@ -2101,6 +2127,7 @@
 			)
 		)
 	);
+
 	function toPanelRow(r: ReturnType<typeof toRows>[number]): PanelRow {
 		const open = candidatesAvailable && candidateParty === r.key;
 		const row = {
@@ -2246,6 +2273,7 @@
 	 * and the city never published the assignment (see stuttgart-districts/2019-05-26.json), so each
 	 * Wahlbezirk shows urn votes only. */
 	const STUTTGART_URN_ONLY_DATES = new Set(['2019-05-26', '2016-03-13']);
+
 	const urnOnlyNote = $derived(
 		STUTTGART_URN_ONLY_DATES.has(selectedDate) &&
 			!panelWk &&
@@ -2254,6 +2282,7 @@
 			? m.map_panel_stuttgart_urn_only_note()
 			: null
 	);
+
 	const postalEstimatedNote = $derived(
 		wahlbezirkPostalEstimated(selectedDate) &&
 			!panelWk &&
@@ -2264,12 +2293,12 @@
 				: m.map_panel_postal_estimated_note()
 			: null
 	);
+
 	const panelFootnote = $derived(
 		panelWk || leaf ? m.map_panel_footnote_leaf() : m.map_panel_footnote_drill()
 	);
 
 	// ---- Map-area chrome ----------------------------------------------------------------------
-
 	const modeBadgeText = $derived(
 		wahlkreisActive
 			? m.map_mode_wahlkreis()
@@ -2318,8 +2347,9 @@
 					: m.map_legend_note_zweitstimme()
 				: ''
 			: legendMode === 'diff'
-				? '' // the end labels already say "Pkt."; leaves room for the title
-				: '%'
+				? ''
+				: // the end labels already say "Pkt."; leaves room for the title
+					'%'
 	);
 	// The backend's `regionData` results cover every region state-wide per grain (e.g. all ~44 Kreise,
 	// not just the current Regierungsbezirk's 12) — the legend should only name parties actually shown

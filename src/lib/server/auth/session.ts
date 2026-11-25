@@ -1,13 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { error, type RequestEvent } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
+import { SESSION_SECRET, ADMIN_PASSWORD } from '$app/env/private';
 
 export const SESSION_COOKIE_NAME = 'admin_session';
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
 
 function sign(payload: string): string {
-	if (!env.SESSION_SECRET) throw new Error('SESSION_SECRET is not set');
-	return createHmac('sha256', env.SESSION_SECRET).update(payload).digest('hex');
+	if (!SESSION_SECRET) throw new Error('SESSION_SECRET is not set');
+	return createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
 }
 
 /** A stateless signed cookie value: `<expiryMs>.<hmac>` — no session store, nothing to lose on restart. */
@@ -34,9 +34,9 @@ export function verifySessionToken(token: string | undefined): boolean {
  * timingSafeEqual — which requires equal-length inputs to run at all.
  */
 export function checkPassword(candidate: string): boolean {
-	if (!env.ADMIN_PASSWORD) throw new Error('ADMIN_PASSWORD is not set');
+	if (!ADMIN_PASSWORD) throw new Error('ADMIN_PASSWORD is not set');
 	const a = createHash('sha256').update(candidate).digest();
-	const b = createHash('sha256').update(env.ADMIN_PASSWORD).digest();
+	const b = createHash('sha256').update(ADMIN_PASSWORD).digest();
 	return timingSafeEqual(a, b);
 }
 

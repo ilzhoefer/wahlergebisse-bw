@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SiteLinks from '$lib/components/SiteLinks.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import SiteLinks from '#lib/components/SiteLinks.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
 	import SeatChart, { type SeatParty } from './SeatChart.svelte';
@@ -316,7 +316,7 @@
 				{embedCopied ? m.map_embed_copied() : m.map_embed_button()}
 			</button>
 		{/if}
-		<a class="csv" href={resolve('/daten')}>{m.map_panel_csv_button()}</a>
+		<a class="csv" href={resolve('daten')}>{m.map_panel_csv_button()}</a>
 	</div>
 </div>
 

@@ -1,5 +1,5 @@
 import { and, eq, inArray, like, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	electionsVotetypes,
@@ -7,7 +7,7 @@ import {
 	electionResult,
 	electionResultPs,
 	pollingStations
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import { BASE, formatDateForUrl, padAgs, parseJson, type Logger } from './client';
 import { getElectionIds } from './elections';
 

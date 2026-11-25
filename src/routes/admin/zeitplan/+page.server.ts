@@ -1,9 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { crawlRun, crawlSchedule, electionType } from '$lib/server/db/schema';
-import { getSchedule, nextScheduledRun } from '$lib/server/scheduler';
-import { fromBerlinLocal } from '$lib/berlinTime';
+import { db } from '#lib/server/db/index.ts';
+import { crawlRun, crawlSchedule, electionType } from '#lib/server/db/schema.ts';
+import { getSchedule, nextScheduledRun } from '#lib/server/scheduler.ts';
+import { fromBerlinLocal } from '#lib/berlinTime.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Guarded in hooks.server.ts; the actions' own `locals.isAdmin` checks are defence in depth. */

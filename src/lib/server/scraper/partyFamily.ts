@@ -1,6 +1,6 @@
 import { and, eq, ilike, like, or, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { elections, electionParty, electionPartyFamily, party } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { elections, electionParty, electionPartyFamily, party } from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 
 type Db = typeof DbType;

@@ -1,9 +1,9 @@
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { crawlRun } from '$lib/server/db/schema';
-import { getCurrentState } from '$lib/server/crawl-runner';
-import { getSchedule } from '$lib/server/scheduler';
+import { db } from '#lib/server/db/index.ts';
+import { crawlRun } from '#lib/server/db/schema.ts';
+import { getCurrentState } from '#lib/server/crawl-runner/index.ts';
+import { getSchedule } from '#lib/server/scheduler.ts';
 import type { RequestHandler } from './$types';
 
 export interface LiveStatus {
@@ -55,5 +55,5 @@ export const GET: RequestHandler = async ({ url }) => {
 		gemeinden: counts?.gemeinden ?? 0,
 		total: counts?.total ?? 0
 	};
-	return json(body, { headers: { 'Cache-Control': 'public, max-age=30' } });
+	return Response.json(body, { headers: { 'Cache-Control': 'public, max-age=30' } });
 };

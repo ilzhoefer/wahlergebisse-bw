@@ -4,7 +4,7 @@
  * the station's total, ballot lists without a party family, and impossible turnout figures.
  */
 import { sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 
 type Db = typeof DbType;
 

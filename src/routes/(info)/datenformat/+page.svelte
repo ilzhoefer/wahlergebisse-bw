@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
-	import { EXPORT_FILES } from '$lib/csv-export/files';
+	import * as m from '#lib/paraglide/messages.js';
+	import { EXPORT_FILES } from '#lib/csv-export/files.ts';
 
 	type FileKey = keyof typeof EXPORT_FILES;
 	type Column = (typeof EXPORT_FILES)[FileKey]['columns'][number];

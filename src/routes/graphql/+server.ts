@@ -1,4 +1,4 @@
-import { createYoga } from '$lib/server/graphql';
+import { createYoga } from '#lib/server/graphql/index.ts';
 import type { RequestHandler } from './$types';
 
 // Yoga 6 logs every request at info level; keep only warnings and errors.

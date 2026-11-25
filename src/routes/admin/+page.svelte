@@ -3,12 +3,12 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages';
-	import { formatDate } from '$lib/formatDate';
-	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
-	import '$lib/components/map/theme.css';
-	import ProgressBar from '$lib/components/ProgressBar.svelte';
-	import CrawlMap from '$lib/components/CrawlMap.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate } from '#lib/formatDate.ts';
+	import { getLocale, setLocale, locales } from '#lib/paraglide/runtime.js';
+	import '#lib/components/map/theme.css';
+	import ProgressBar from '#lib/components/ProgressBar.svelte';
+	import CrawlMap from '#lib/components/CrawlMap.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -300,6 +300,7 @@
 		return counts;
 	});
 	const finished = $derived(cityCounts.done + cityCounts.skipped);
+
 	const cityTotal = $derived(
 		running
 			? (display?.progress.city?.total ?? data.cityTotal)
@@ -307,6 +308,7 @@
 				? data.cityTotal
 				: finished
 	);
+
 	const progressPercent = $derived(
 		display?.status === 'done'
 			? 100
@@ -338,9 +340,24 @@
 		pending: 'var(--map-progress-pending)'
 	};
 	const counters = $derived([
-		{ key: 'done', label: m.admin_map_status_done(), value: cityCounts.done },
-		{ key: 'in_progress', label: m.admin_counter_running(), value: cityCounts.in_progress },
-		{ key: 'skipped', label: m.admin_map_status_skipped(), value: cityCounts.skipped },
+		{
+			key: 'done',
+			label: m.admin_map_status_done(),
+			value: cityCounts.done
+		},
+
+		{
+			key: 'in_progress',
+			label: m.admin_counter_running(),
+			value: cityCounts.in_progress
+		},
+
+		{
+			key: 'skipped',
+			label: m.admin_map_status_skipped(),
+			value: cityCounts.skipped
+		},
+
 		{
 			key: 'pending',
 			label: m.admin_counter_open(),
@@ -381,8 +398,8 @@
 					`${data.kommOneBase}/wahltermin-${date.replaceAll('-', '')}/{AGS}/`)
 			: ''
 	);
-	const selectedDateOption = $derived(availableDates.find((d) => d.date === date));
 
+	const selectedDateOption = $derived(availableDates.find((d) => d.date === date));
 	const warningCount = $derived(display?.log.filter((l) => l.level === 'warn').length ?? 0);
 	const visibleLog = $derived(
 		(display?.log ?? []).filter((l) => !onlyWarnings || l.level !== 'info')
@@ -417,9 +434,9 @@
 		<span class="spacer"></span>
 		<div class="aside">
 			<a class="link" href={resolve('/')}>{m.admin_nav_map()}</a>
-			<a class="link" href={resolve('/daten')}>{m.nav_daten_export()}</a>
-			<a class="link" href={resolve('/admin/qualitaet')}>{m.quality_title()}</a>
-			<a class="link" href={resolve('/admin/zeitplan')}>{m.schedule_title()}</a>
+			<a class="link" href={resolve('daten')}>{m.nav_daten_export()}</a>
+			<a class="link" href={resolve('admin/qualitaet')}>{m.quality_title()}</a>
+			<a class="link" href={resolve('admin/zeitplan')}>{m.schedule_title()}</a>
 			<form method="POST" action="/admin/logout">
 				<button type="submit" class="link">{m.admin_logout()}</button>
 			</form>
@@ -626,6 +643,7 @@
 				>
 					{primaryLabel}
 				</button>
+
 				{#if startError}
 					<p class="err">{startError}</p>
 				{/if}
@@ -770,7 +788,7 @@
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() plus the election's query string -->
 					<a
 						class="status-pill"
-						href="{resolve('/admin/qualitaet')}?{new URLSearchParams({
+						href="{resolve('admin/qualitaet')}?{new URLSearchParams({
 							wahl: String(display.electionType),
 							datum: display.date
 						})}"
