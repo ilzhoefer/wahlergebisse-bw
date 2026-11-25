@@ -127,9 +127,9 @@
 		<div class="header-top">
 			<span class="map-lbl" style="color: var(--map-ink-muted)">{levelLabel} · {code}</span>
 			{#if canGoUp}
-				<button type="button" class="up-link" onclick={onGoUp}
-					>{m.map_panel_up_to({ parent: parentName })}</button
-				>
+				<button type="button" class="up-link" onclick={onGoUp}>
+					{m.map_panel_up_to({ parent: parentName })}
+				</button>
 			{/if}
 		</div>
 		<h2 class="name">{name}</h2>
@@ -191,15 +191,18 @@
 						class:active={!absolute}
 						aria-pressed={!absolute}
 						onclick={() => absolute && onToggleAbsolute()}
-						>{m.map_rows_heading_right_anteil()}</button
 					>
+						{m.map_rows_heading_right_anteil()}
+					</button>
 					<button
 						type="button"
 						class="map-lbl"
 						class:active={absolute}
 						aria-pressed={absolute}
-						onclick={() => !absolute && onToggleAbsolute()}>{m.map_values_votes()}</button
+						onclick={() => !absolute && onToggleAbsolute()}
 					>
+						{m.map_values_votes()}
+					</button>
 				</span>
 			{/if}
 		</span>
@@ -238,10 +241,11 @@
 									aria-expanded={r.expanded}
 									title={m.map_panel_candidates_show()}
 									onclick={r.onSelect}
-									>{r.primary}<span class="chevron" aria-hidden="true"
-										>{r.expanded ? '▾' : '▸'}</span
-									></button
 								>
+									{r.primary}<span class="chevron" aria-hidden="true">
+										{r.expanded ? '▾' : '▸'}
+									</span>
+								</button>
 							{:else}
 								<span class="primary">{r.primary}</span>
 							{/if}
@@ -255,8 +259,10 @@
 								type="button"
 								class="pct pct-button"
 								title={absolute ? m.map_values_show_shares() : m.map_values_show_votes()}
-								onclick={onToggleAbsolute}>{r.pct}</button
+								onclick={onToggleAbsolute}
 							>
+								{r.pct}
+							</button>
 						{:else}
 							<span class="pct">{r.pct}</span>
 						{/if}
@@ -278,13 +284,13 @@
 								</div>
 								{#each r.candidates as c, i (`${i}:${c.name}`)}
 									<div class="cand">
-										<a class="cand-name" href={resolve('/kandidat/[name]', { name: c.name })}
-											>{c.name}</a
-										>
+										<a class="cand-name" href={resolve('/kandidat/[name]', { name: c.name })}>
+											{c.name}
+										</a>
 										{#if c.elected}
-											<span class="cand-elected" title={m.map_panel_candidate_elected()}
-												>✓<span class="sr-only">{m.map_panel_candidate_elected()}</span></span
-											>
+											<span class="cand-elected" title={m.map_panel_candidate_elected()}>
+												✓<span class="sr-only">{m.map_panel_candidate_elected()}</span>
+											</span>
 										{/if}
 										<span class="cand-votes">{c.votes}</span>
 									</div>
@@ -306,9 +312,9 @@
 			<SiteLinks class="site-links-row" />
 		</div>
 		{#if embedCode}
-			<button type="button" class="csv" title={m.map_embed_hint()} onclick={copyEmbed}
-				>{embedCopied ? m.map_embed_copied() : m.map_embed_button()}</button
-			>
+			<button type="button" class="csv" title={m.map_embed_hint()} onclick={copyEmbed}>
+				{embedCopied ? m.map_embed_copied() : m.map_embed_button()}
+			</button>
 		{/if}
 		<a class="csv" href={resolve('/daten')}>{m.map_panel_csv_button()}</a>
 	</div>

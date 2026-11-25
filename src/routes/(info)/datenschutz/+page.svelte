@@ -37,9 +37,9 @@
 <h2>{m.datenschutz_osm_title()}</h2>
 <p>{m.datenschutz_osm()}</p>
 <p>
-	<a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener" target="_blank"
-		>{m.datenschutz_osm_link()}</a
-	>
+	<a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener" target="_blank">
+		{m.datenschutz_osm_link()}
+	</a>
 </p>
 
 <h2>{m.datenschutz_fonts_title()}</h2>

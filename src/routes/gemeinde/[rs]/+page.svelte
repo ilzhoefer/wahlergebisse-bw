@@ -97,9 +97,10 @@
 				<h3>
 					{m.gemeinde_latest({ date: fmtDate(e.latest.date) })}
 					{#if e.latest.breakdown?.turnout != null}
-						<span class="turnout"
-							>· {m.map_info_wahlbeteiligung()} {fmtPct(e.latest.breakdown.turnout)}</span
-						>
+						<span class="turnout">
+							· {m.map_info_wahlbeteiligung()}
+							{fmtPct(e.latest.breakdown.turnout)}
+						</span>
 					{/if}
 				</h3>
 				{#if e.latest.voteType === '1'}
@@ -122,10 +123,9 @@
 					{#each b.rows as r (r.partyName)}
 						<li>
 							<span class="bar-name">{r.partyName}</span>
-							<span class="bar-track"
-								><span class="bar-fill" style="background: {r.color}; width: {r.width}%"
-								></span></span
-							>
+							<span class="bar-track">
+								<span class="bar-fill" style="background: {r.color}; width: {r.width}%"></span>
+							</span>
 							<span class="bar-val">{fmtPct(r.votePercent)}</span>
 							<span class="bar-seats">{r.seats ? m.gemeinde_seats({ n: r.seats }) : ''}</span>
 						</li>
@@ -194,12 +194,12 @@
 										{#each group.rows as j (j.name + j.listName)}
 											<li>
 												<a href={resolve('/kandidat/[name]', { name: j.name })}>{j.name}</a>
-												<span class="jump-detail"
-													>{j.listName} · {m.listjump_place_rank({
+												<span class="jump-detail">
+													{j.listName} · {m.listjump_place_rank({
 														position: j.position,
 														rank: j.voteRank
-													})}</span
-												>
+													})}
+												</span>
 											</li>
 										{/each}
 									</ul>

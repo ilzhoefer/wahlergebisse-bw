@@ -228,15 +228,15 @@
 			<div class="picker-head">
 				<span class="map-lbl" style="color: var(--map-ink)">{m.daten_gemeinden_legend()}</span>
 				<span class="spacer"></span>
-				<span class="count-line"
-					>{m.daten_picked_count({
+				<span class="count-line">
+					{m.daten_picked_count({
 						n: String(pickedList.length),
 						total: String(data.cities.length)
-					})}</span
-				>
-				<button type="button" class="link" onclick={() => setMany(data.cities, true)}
-					>{m.daten_all()}</button
-				>
+					})}
+				</span>
+				<button type="button" class="link" onclick={() => setMany(data.cities, true)}>
+					{m.daten_all()}
+				</button>
 				<button type="button" class="link" onclick={() => picked.clear()}>{m.daten_clear()}</button>
 			</div>
 			<div class="filter">
@@ -321,43 +321,43 @@
 				<div class="group">
 					<span class="map-lbl" style="color: var(--map-ink)">{m.daten_summary_heading()}</span>
 					<div class="summary-row">
-						<span class="map-lbl" style="color: var(--map-ink-muted)"
-							>{m.daten_gemeinden_legend()}</span
-						>
-						<span class="summary-value"
-							>{pickedList.length ? pickedList.length : m.daten_summary_none()}</span
-						>
+						<span class="map-lbl" style="color: var(--map-ink-muted)">
+							{m.daten_gemeinden_legend()}
+						</span>
+						<span class="summary-value">
+							{pickedList.length ? pickedList.length : m.daten_summary_none()}
+						</span>
 					</div>
 					<div class="summary-row">
-						<span class="map-lbl" style="color: var(--map-ink-muted)"
-							>{m.daten_summary_kreise()}</span
-						>
+						<span class="map-lbl" style="color: var(--map-ink-muted)">
+							{m.daten_summary_kreise()}
+						</span>
 						<span class="summary-value">{pickedList.length ? kreiseTouched : '—'}</span>
 					</div>
 					<div class="summary-row">
-						<span class="map-lbl" style="color: var(--map-ink-muted)"
-							>{m.daten_summary_files()}</span
-						>
-						<span class="summary-value"
-							>{chosen.length === 0
+						<span class="map-lbl" style="color: var(--map-ink-muted)">
+							{m.daten_summary_files()}
+						</span>
+						<span class="summary-value">
+							{chosen.length === 0
 								? '—'
 								: chosen.length === 1
 									? m.daten_summary_files_value({ n: '1' })
-									: m.daten_summary_files_zip({ n: String(chosen.length) })}</span
-						>
+									: m.daten_summary_files_zip({ n: String(chosen.length) })}
+						</span>
 					</div>
 				</div>
 
 				{#if preview && previewRows.length > 0}
 					<div class="preview">
 						<div class="preview-head">
-							<span class="map-lbl" style="color: var(--map-ink)"
-								>{m.daten_preview({ file: preview.name })}</span
-							>
+							<span class="map-lbl" style="color: var(--map-ink)">
+								{m.daten_preview({ file: preview.name })}
+							</span>
 							<span class="spacer"></span>
-							<span class="map-lbl" style="color: var(--map-ink-muted)"
-								>{m.daten_preview_cols({ n: String(preview.columns.length) })}</span
-							>
+							<span class="map-lbl" style="color: var(--map-ink-muted)">
+								{m.daten_preview_cols({ n: String(preview.columns.length) })}
+							</span>
 						</div>
 						<div class="preview-scroll">
 							<table>
@@ -384,22 +384,22 @@
 			</div>
 
 			<div class="cta">
-				<button type="submit" class="primary" disabled={!!blocked || busy} aria-busy={busy}
-					>{busy
+				<button type="submit" class="primary" disabled={!!blocked || busy} aria-busy={busy}>
+					{busy
 						? m.daten_cta_loading()
 						: (blocked ??
 							(chosen.length === 1
 								? m.daten_cta_one()
-								: m.daten_cta_many({ n: String(chosen.length) })))}</button
-				>
+								: m.daten_cta_many({ n: String(chosen.length) })))}
+				</button>
 				{#if failed}
 					<span class="error" role="alert">{failed}</span>
 				{/if}
 				<p class="disclaimer">{m.about_disclaimer()}</p>
-				<span class="cta-note"
-					>{m.daten_cta_note()}
-					<a href={resolve('/datenformat')}>{m.datenformat_download_link()} →</a></span
-				>
+				<span class="cta-note">
+					{m.daten_cta_note()}
+					<a href={resolve('/datenformat')}>{m.datenformat_download_link()} →</a>
+				</span>
 			</div>
 		</section>
 	</form>
@@ -417,8 +417,10 @@
 				aria-expanded={isOpen(g.key)}
 				aria-label={isOpen(g.key) ? m.daten_collapse() : m.daten_expand()}
 				disabled={!!query}
-				onclick={() => toggleOpen(g.key)}>{isOpen(g.key) ? '▾' : '▸'}</button
+				onclick={() => toggleOpen(g.key)}
 			>
+				{isOpen(g.key) ? '▾' : '▸'}
+			</button>
 		{/if}
 		<label class="row-label">
 			<input

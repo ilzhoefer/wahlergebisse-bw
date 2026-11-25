@@ -121,9 +121,9 @@
 		{#if stimmeTabs}
 			<div class="segmented" style="margin-left: 2px">
 				{#each stimmeTabs as t (t.key)}
-					<button type="button" class="pill" class:active={t.active} onclick={t.onClick}
-						>{innerWidth < 1280 && t.short ? t.short : t.label}</button
-					>
+					<button type="button" class="pill" class:active={t.active} onclick={t.onClick}>
+						{innerWidth < 1280 && t.short ? t.short : t.label}
+					</button>
 				{/each}
 			</div>
 		{/if}
@@ -148,9 +148,9 @@
 
 		<div class="segmented modes" bind:this={moreEl}>
 			{#each tabModes as t (t.key)}
-				<button type="button" class="pill" class:active={t.active} onclick={t.onClick}
-					>{t.label}</button
-				>
+				<button type="button" class="pill" class:active={t.active} onclick={t.onClick}>
+					{t.label}
+				</button>
 			{/each}
 			<button
 				type="button"
@@ -158,8 +158,10 @@
 				class:active={!!activeInMore}
 				aria-haspopup="true"
 				aria-expanded={moreOpen}
-				onclick={() => (moreOpen = !moreOpen)}>{moreLabel} ▾</button
+				onclick={() => (moreOpen = !moreOpen)}
 			>
+				{moreLabel} ▾
+			</button>
 			{#if moreOpen}
 				<div class="more-menu" role="menu">
 					{#each moreModes as t (t.key)}
@@ -191,8 +193,10 @@
 					type="button"
 					class="pill"
 					class:active={getLocale() === locale}
-					onclick={() => setLocale(locale)}>{localeLabels[locale] ?? locale}</button
+					onclick={() => setLocale(locale)}
 				>
+					{localeLabels[locale] ?? locale}
+				</button>
 			{/each}
 		</div>
 	</div>

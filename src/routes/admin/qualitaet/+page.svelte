@@ -80,8 +80,10 @@
 						<option
 							value={key(e)}
 							selected={data.selected !== null && key(e) === key(data.selected)}
-							>{e.label} {fmtDate(e.date)}</option
 						>
+							{e.label}
+							{fmtDate(e.date)}
+						</option>
 					{/each}
 				</select>
 			</label>

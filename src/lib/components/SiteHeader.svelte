@@ -33,17 +33,19 @@
 	{@render children?.()}
 	<span class="spacer"></span>
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the path IS resolve('/') -->
-	<a class="back" href={`${resolve('/')}${lastMapView.qs ? `?${lastMapView.qs}` : ''}`}
-		>{m.nav_back_to_map()}</a
-	>
+	<a class="back" href={`${resolve('/')}${lastMapView.qs ? `?${lastMapView.qs}` : ''}`}>
+		{m.nav_back_to_map()}
+	</a>
 	<div class="segmented">
 		{#each locales as locale (locale)}
 			<button
 				type="button"
 				class="pill"
 				class:active={getLocale() === locale}
-				onclick={() => setLocale(locale)}>{localeLabels[locale] ?? locale}</button
+				onclick={() => setLocale(locale)}
 			>
+				{localeLabels[locale] ?? locale}
+			</button>
 		{/each}
 	</div>
 </header>

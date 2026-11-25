@@ -436,8 +436,10 @@
 						type="button"
 						class="pill"
 						class:active={getLocale() === locale}
-						onclick={() => setLocale(locale)}>{locale.toUpperCase()}</button
+						onclick={() => setLocale(locale)}
 					>
+						{locale.toUpperCase()}
+					</button>
 				{/each}
 			</div>
 		</div>
@@ -488,8 +490,9 @@
 							class="text-link"
 							onclick={refreshDates}
 							disabled={starting || running || isDateRefreshRunning}
-							>↻ {m.admin_crawl_date_refresh_button()}</button
 						>
+							↻ {m.admin_crawl_date_refresh_button()}
+						</button>
 					</span>
 					<select
 						id="admin-date"
@@ -505,12 +508,12 @@
 						{/each}
 					</select>
 					{#if selectedDateOption && selectedDateOption.withData !== null}
-						<span class="hint"
-							>{m.admin_date_coverage({
+						<span class="hint">
+							{m.admin_date_coverage({
 								n: String(selectedDateOption.withData),
 								total: String(data.cityTotal)
-							})}</span
-						>
+							})}
+						</span>
 					{/if}
 					{#if dateDiscoveryState}
 						{#if dateDiscoveryState.status === 'running'}
@@ -553,17 +556,18 @@
 					class="advanced-toggle"
 					aria-expanded={advancedOpen}
 					onclick={() => (advancedOpen = !advancedOpen)}
-					>{advancedOpen ? '▾' : '▸'}
+				>
+					{advancedOpen ? '▾' : '▸'}
 					{m.admin_advanced({ n: String(parallel) })}{fullRun
 						? ` · ${m.admin_advanced_fullrun()}`
-						: ''}</button
-				>
+						: ''}
+				</button>
 				{#if advancedOpen}
 					<div class="advanced">
 						<div class="advanced-row">
-							<span class="advanced-label" id="parallel-label"
-								>{m.admin_crawl_parallel_label({ max: String(data.maxParallel) })}</span
-							>
+							<span class="advanced-label" id="parallel-label">
+								{m.admin_crawl_parallel_label({ max: String(data.maxParallel) })}
+							</span>
 							<div class="segmented parallel" role="radiogroup" aria-labelledby="parallel-label">
 								{#each Array.from({ length: data.maxParallel }, (_, i) => i + 1) as n (n)}
 									<button
@@ -573,8 +577,10 @@
 										class="pill"
 										class:active={parallel === n}
 										disabled={starting || running}
-										onclick={() => (parallel = n)}>{n}</button
+										onclick={() => (parallel = n)}
 									>
+										{n}
+									</button>
 								{/each}
 							</div>
 						</div>
@@ -585,11 +591,11 @@
 								disabled={starting || running}
 								onchange={() => (confirming = false)}
 							/>
-							<span class="checkbox-text"
-								>{m.admin_crawl_fullrun_label()}<span class="checkbox-hint"
-									>{m.admin_crawl_fullrun_hint()}</span
-								></span
-							>
+							<span class="checkbox-text">
+								{m.admin_crawl_fullrun_label()}<span class="checkbox-hint">
+									{m.admin_crawl_fullrun_hint()}
+								</span>
+							</span>
 						</label>
 					</div>
 				{/if}
@@ -598,18 +604,18 @@
 			<div class="section action">
 				{#if confirming}
 					<div class="confirm" role="alertdialog" aria-labelledby="confirm-text">
-						<span id="confirm-text" class="confirm-text"
-							>{m.admin_confirm_text({
+						<span id="confirm-text" class="confirm-text">
+							{m.admin_confirm_text({
 								what: `${typeLabel(electionTypeId)} ${date ? formatDate(date) : ''}`
-							})}</span
-						>
+							})}
+						</span>
 						<div class="confirm-actions">
-							<button type="button" class="danger" onclick={startCrawl}
-								>{m.admin_confirm_yes()}</button
-							>
-							<button type="button" class="secondary" onclick={() => (confirming = false)}
-								>{m.admin_confirm_no()}</button
-							>
+							<button type="button" class="danger" onclick={startCrawl}>
+								{m.admin_confirm_yes()}
+							</button>
+							<button type="button" class="secondary" onclick={() => (confirming = false)}>
+								{m.admin_confirm_no()}
+							</button>
 						</div>
 					</div>
 				{/if}
@@ -633,37 +639,39 @@
 
 				<div class="progress">
 					<div class="progress-top">
-						<span class="map-lbl" style="color: var(--map-ink)"
-							>{running
+						<span class="map-lbl" style="color: var(--map-ink)">
+							{running
 								? m.admin_progress_title({ done: String(finished), total: String(cityTotal) })
 								: display
 									? m.admin_progress_last({ what: runLabel })
-									: m.admin_progress_none()}</span
-						>
+									: m.admin_progress_none()}
+						</span>
 						<span class="progress-pct">{display ? `${progressPercent} %` : ''}</span>
 					</div>
-					<span class="track"
-						><span
+					<span class="track">
+						<span
 							class="fill"
 							class:done={display?.status === 'done'}
 							style="width: {progressPercent}%"
-						></span></span
-					>
+						></span>
+					</span>
 					{#if running && display?.progress.step}
-						<span class="step-line"
-							>{levelKicker('step')}
+						<span class="step-line">
+							{levelKicker('step')}
 							{display.progress.step.index}/{display.progress.step.total} · {display.progress.step
-								.label}</span
-						>
+								.label}
+						</span>
 					{/if}
 					<div class="counters">
 						{#each counters as c (c.key)}
 							<div class="counter">
-								<span class="counter-top"
-									><span class="swatch" style="background: {COLORS[c.key]}"></span><span
-										class="map-lbl counter-label">{c.label}</span
-									></span
-								>
+								<span class="counter-top">
+									<span class="swatch" style="background: {COLORS[c.key]}"></span><span
+										class="map-lbl counter-label"
+									>
+										{c.label}
+									</span>
+								</span>
 								<span class="counter-value">{c.value}</span>
 							</div>
 						{/each}
@@ -672,18 +680,18 @@
 
 				{#if running && Object.keys(display?.progress.stations ?? {}).length > 0}
 					<div class="fetches">
-						<span class="map-lbl" style="color: var(--map-ink-muted)"
-							>{m.admin_fetches_heading()}</span
-						>
+						<span class="map-lbl" style="color: var(--map-ink-muted)">
+							{m.admin_fetches_heading()}
+						</span>
 						{#each Object.entries(display?.progress.stations ?? {}) as [slot, tick] (slot)}
 							<div class="fetch">
 								<span class="fetch-name">{tick.label}</span>
-								<span class="fetch-track"
-									><span
+								<span class="fetch-track">
+									<span
 										class="fetch-fill"
 										style="width: {tick.total ? Math.round((tick.index / tick.total) * 100) : 0}%"
-									></span></span
-								>
+									></span>
+								</span>
 								<span class="fetch-count">{tick.index}/{tick.total}</span>
 							</div>
 						{/each}
@@ -713,12 +721,13 @@
 						class:has-warnings={warningCount > 0}
 						aria-pressed={onlyWarnings}
 						onclick={() => (onlyWarnings = !onlyWarnings)}
-						>{onlyWarnings
+					>
+						{onlyWarnings
 							? m.admin_log_show_all({ n: String(display.log.length) })
 							: warningCount === 1
 								? m.admin_log_warn_filter_one()
-								: m.admin_log_warn_filter({ n: String(warningCount) })}</button
-					>
+								: m.admin_log_warn_filter({ n: String(warningCount) })}
+					</button>
 				{/if}
 			</div>
 			<div bind:this={logEl} class="log">
@@ -754,9 +763,9 @@
 					></span>
 					{#if display}
 						{runLabel}
-						<span class="pill-status"
-							>· {durationLabel(display.status, formatDuration(display.durationMs))}</span
-						>
+						<span class="pill-status">
+							· {durationLabel(display.status, formatDuration(display.durationMs))}
+						</span>
 					{:else}
 						{m.admin_status_idle()}
 					{/if}
@@ -771,8 +780,10 @@
 						href="{resolve('/admin/qualitaet')}?{new URLSearchParams({
 							wahl: String(display.electionType),
 							datum: display.date
-						})}">{m.admin_quality_check()}</a
+						})}"
 					>
+						{m.admin_quality_check()}
+					</a>
 				{/if}
 			</div>
 

@@ -106,32 +106,35 @@
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- placeHref builds on resolve() -->
 								<td><a href={placeHref(x)}>{x.placeName}</a></td>
 								<td>{x.listName ?? '–'}</td>
-								<td class="num" title={x.alphabetical ? m.candidate_alphabetical_hint() : undefined}
-									>{#if x.alphabetical}<span class="of"
-											>{m.candidate_alphabetical()}
+								<td
+									class="num"
+									title={x.alphabetical ? m.candidate_alphabetical_hint() : undefined}
+								>
+									{#if x.alphabetical}<span class="of">
+											{m.candidate_alphabetical()}
 										</span>{/if}{x.position ?? '–'}{#if x.listSize}<span class="of">
-											/ {x.listSize}</span
-										>{/if}</td
-								>
-								<td class="num"
-									>{fmtNum(x.votes)}{#if x.sharePct !== null}<span class="of">
-											({fmtPct(x.sharePct)})</span
-										>{/if}</td
-								>
+											/ {x.listSize}
+										</span>{/if}
+								</td>
+								<td class="num">
+									{fmtNum(x.votes)}{#if x.sharePct !== null}<span class="of">
+											({fmtPct(x.sharePct)})
+										</span>{/if}
+								</td>
 								<td class="num">{x.voteRank ?? '–'}</td>
 								<td>
 									{#if x.mandate === 'direct'}
 										<span class="badge elected">{m.candidate_result_direct()}</span>
 									{:else if x.mandate === 'list'}
-										<span class="badge elected"
-											>{x.listPlace
+										<span class="badge elected">
+											{x.listPlace
 												? m.candidate_result_list_place({ place: x.listPlace })
-												: m.candidate_result_list()}</span
-										>
+												: m.candidate_result_list()}
+										</span>
 									{:else if x.mandate === 'directNoSeat'}
-										<span class="badge out" title={m.candidate_result_direct_no_seat_hint()}
-											>{m.candidate_result_direct_no_seat()}</span
-										>
+										<span class="badge out" title={m.candidate_result_direct_no_seat_hint()}>
+											{m.candidate_result_direct_no_seat()}
+										</span>
 									{:else if x.elected === null}
 										<span class="muted">{m.candidate_result_unknown()}</span>
 									{:else if x.elected}
@@ -143,14 +146,16 @@
 										<span
 											class="badge jump"
 											title={m.candidate_jumped_hint({ seats: x.listSeats ?? 0 })}
-											>{m.candidate_jumped({ from: x.position ?? 0, to: x.voteRank ?? 0 })}</span
 										>
+											{m.candidate_jumped({ from: x.position ?? 0, to: x.voteRank ?? 0 })}
+										</span>
 									{:else if o === 'pushedOut'}
 										<span
 											class="badge out"
 											title={m.candidate_pushed_out_hint({ seats: x.listSeats ?? 0 })}
-											>{m.candidate_pushed_out()}</span
 										>
+											{m.candidate_pushed_out()}
+										</span>
 									{/if}
 								</td>
 							</tr>

@@ -121,11 +121,11 @@
 							<span>{formatBerlin(new Date(r.startedAt))}</span>
 							<span class="run-status {r.status}">{statusText(r.status)}</span>
 							{#if r.finishedAt}
-								<span class="muted"
-									>{Math.round(
+								<span class="muted">
+									{Math.round(
 										(new Date(r.finishedAt).getTime() - new Date(r.startedAt).getTime()) / 60000
-									)} min</span
-								>
+									)} min
+								</span>
 							{/if}
 						</li>
 					{/each}

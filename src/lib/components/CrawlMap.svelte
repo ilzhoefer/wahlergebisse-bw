@@ -73,9 +73,9 @@
 <MapView {geojson} {sourceKey} keyProperty="rs" {items} {formatPopup} />
 
 <div class="legend">
-	<span class="map-lbl" style="color: var(--map-ink); margin-bottom: 2px"
-		>{m.admin_map_heading()}</span
-	>
+	<span class="map-lbl" style="color: var(--map-ink); margin-bottom: 2px">
+		{m.admin_map_heading()}
+	</span>
 	{#each STATUSES as status (status)}
 		<span class="row">
 			<span class="swatch" style="background: {COLORS[status]}"></span>

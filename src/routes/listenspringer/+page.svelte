@@ -49,29 +49,29 @@
 				<div class="tile">
 					<span class="tile-label">{m.listjump_tile_share()}</span>
 					<span class="tile-value">{pct(s.jumpedSeats, s.seats)}</span>
-					<span class="tile-sub"
-						>{m.listjump_tile_share_sub({
+					<span class="tile-sub">
+						{m.listjump_tile_share_sub({
 							jumped: fmtNum(s.jumpedSeats),
 							seats: fmtNum(s.seats)
-						})}</span
-					>
+						})}
+					</span>
 				</div>
 				<div class="tile">
 					<span class="tile-label">{m.listjump_tile_gemeinden()}</span>
 					<span class="tile-value">{fmtNum(s.gemeinden)}</span>
-					<span class="tile-sub"
-						>{m.listjump_tile_gemeinden_sub({ excluded: fmtNum(s.excludedTeilort) })}</span
-					>
+					<span class="tile-sub">
+						{m.listjump_tile_gemeinden_sub({ excluded: fmtNum(s.excludedTeilort) })}
+					</span>
 				</div>
 				<div class="tile">
 					<span class="tile-label">{m.listjump_tile_alphabetical()}</span>
 					<span class="tile-value">{pct(s.alphabeticalLists, s.lists)}</span>
-					<span class="tile-sub"
-						>{m.listjump_tile_alphabetical_sub({
+					<span class="tile-sub">
+						{m.listjump_tile_alphabetical_sub({
 							n: fmtNum(s.alphabeticalLists),
 							lists: fmtNum(s.lists)
-						})}</span
-					>
+						})}
+					</span>
 				</div>
 			</div>
 		</section>

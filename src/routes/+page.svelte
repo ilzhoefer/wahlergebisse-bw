@@ -2547,9 +2547,10 @@
 
 			{#if embed}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- viewHref is resolve('/') plus the view's query string -->
-				<a class="embed-link" href={viewHref} target="_blank" rel="noopener"
-					>{m.map_brand_name()} {m.map_brand_region()} ↗</a
-				>
+				<a class="embed-link" href={viewHref} target="_blank" rel="noopener">
+					{m.map_brand_name()}
+					{m.map_brand_region()} ↗
+				</a>
 			{/if}
 
 			<HoverCard
