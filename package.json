@@ -40,7 +40,7 @@
 		"eslint-plugin-svelte": "^3.24.1",
 		"globals": "^17.14.0",
 		"lefthook": "^2.2.3",
-		"mapshaper": "^0.7.101",
+		"mapshaper": "^0.8.10",
 		"postgres": "^4.1.1",
 		"prettier": "^3.10.1",
 		"prettier-plugin-svelte": "^4.2.0",
