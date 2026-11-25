@@ -7,6 +7,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	cities,
+	electionCandidate,
 	electionElectedCandidates,
 	electionParty,
 	electionResultAggregateMetaRegion,
@@ -52,6 +53,8 @@ export interface OverallTrend {
 export interface CouncilMember {
 	name: string;
 	list: string | null;
+	/** The list's votes in this election: orders groups with the same number of seats. */
+	listVotes: number | null;
 }
 
 export interface GemeindePage {
@@ -250,7 +253,12 @@ async function getCouncil(db: Db, rs: number): Promise<GemeindePage['council']> 
 			name: c.name,
 			list: sql<string | null>`(select ${electionParty.name} from ${electionParty}
 				where ${electionParty.rs} = ${c.rs} and ${electionParty.electionId} = ${c.electionId}
-				and ${electionParty.partyId} = ${c.partyId} limit 1)`
+				and ${electionParty.partyId} = ${c.partyId} limit 1)`,
+			listVotes: sql<
+				number | null
+			>`(select sum(${electionCandidate.votes})::int from ${electionCandidate}
+				where ${electionCandidate.rs} = ${c.rs} and ${electionCandidate.electionType} = 6
+				and ${electionCandidate.date} = ${c.date} and ${electionCandidate.partyId} = ${c.partyId})`
 		})
 		.from(c)
 		.where(and(eq(c.rs, rs), eq(c.electionType, 6), eq(c.date, latest.date)))

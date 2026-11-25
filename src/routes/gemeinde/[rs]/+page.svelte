@@ -68,9 +68,15 @@
 
 	/** Council members grouped by the list they were elected on, biggest group first. */
 	const councilGroups = $derived.by(() => {
-		const byList: Record<string, string[]> = {};
-		for (const p of g.council?.members ?? []) (byList[p.list ?? '–'] ??= []).push(p.name);
-		return Object.entries(byList).sort((a, b) => b[1].length - a[1].length);
+		const byList: Record<string, { votes: number; people: string[] }> = {};
+		for (const p of g.council?.members ?? []) {
+			const group = (byList[p.list ?? '–'] ??= { votes: p.listVotes ?? 0, people: [] });
+			group.people.push(p.name);
+		}
+		// Most seats first; a tie goes to the list with more votes.
+		return Object.entries(byList)
+			.sort((a, b) => b[1].people.length - a[1].people.length || b[1].votes - a[1].votes)
+			.map(([list, { people }]) => [list, people] as const);
 	});
 
 	const description = $derived(
