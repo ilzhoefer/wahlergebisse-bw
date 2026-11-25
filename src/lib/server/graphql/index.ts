@@ -28,6 +28,12 @@ import {
 } from '$lib/server/map/mandates';
 import { turnoutColorScale, partyColorScale, diffColorScale } from '$lib/map/colors';
 
+/** The map sends at most every Gemeinde (~1100); the lists also become memo keys, so bound them. */
+const MAX_RS = 2000;
+function checkRs<T>(rs: T[] | null | undefined) {
+	if (rs && rs.length > MAX_RS) throw new Error(`rs: at most ${MAX_RS} entries`);
+}
+
 /*
  * Phase 1/2 data (map view, CSV export) is fully public — no abilities are defined here, and these
  * query fields are plain custom resolvers wrapping the existing hand-written Drizzle query functions
@@ -360,7 +366,10 @@ schemaBuilder.queryFields((t) => ({
 			// rendered right now (see MapInformationParams.selectedRsList's doc comment).
 			rs: t.arg.stringList({ required: false })
 		},
-		resolve: (_root, args) => memo('regionData', args, () => resolveRegionData(args))
+		resolve: (_root, args) => {
+			checkRs(args.rs);
+			return memo('regionData', args, () => resolveRegionData(args));
+		}
 	}),
 	regionBreakdowns: t.field({
 		type: [RegionBreakdownRef],
@@ -372,8 +381,9 @@ schemaBuilder.queryFields((t) => ({
 			rs: t.arg.stringList({ required: false }),
 			voteType: t.arg.string({ required: false })
 		},
-		resolve: (_root, args) =>
-			memo('regionBreakdowns', args, () =>
+		resolve: (_root, args) => {
+			checkRs(args.rs);
+			return memo('regionBreakdowns', args, () =>
 				getRegionBreakdowns(db, {
 					grain: grainOf(args.mapMode as MapMode),
 					rsList: args.rs?.filter((r): r is string => r !== null).map(Number),
@@ -381,7 +391,8 @@ schemaBuilder.queryFields((t) => ({
 					date: args.date,
 					voteType: (args.voteType as '0' | '1' | null) ?? undefined
 				})
-			)
+			);
+		}
 	})
 }));
 

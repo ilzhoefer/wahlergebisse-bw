@@ -5,7 +5,7 @@ import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
 import { getQualityReport } from '$lib/server/quality';
 import type { PageServerLoad } from './$types';
 
-/** Access is enforced by admin/+layout.server.ts. `?wahl=&datum=` (links) or `?e=wahl|datum` (the
+/** Access is enforced in hooks.server.ts. `?wahl=&datum=` (links) or `?e=wahl|datum` (the
  * page's picker form) selects the election; default is the last finished crawl, else the newest. */
 export const load: PageServerLoad = async ({ url }) => {
 	const [types, dates, [lastDone]] = await Promise.all([

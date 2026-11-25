@@ -6,8 +6,7 @@ import { getSchedule, nextScheduledRun } from '$lib/server/scheduler';
 import { fromBerlinLocal } from '$lib/berlinTime';
 import type { Actions, PageServerLoad } from './$types';
 
-/** The page is guarded by admin/+layout.server.ts; actions run before any load, so they check
- * `locals.isAdmin` themselves. */
+/** Guarded in hooks.server.ts; the actions' own `locals.isAdmin` checks are defence in depth. */
 export const load: PageServerLoad = async () => {
 	const [schedule, types, next] = await Promise.all([
 		getSchedule(),

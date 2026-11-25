@@ -64,7 +64,8 @@
 	});
 
 	function formatPopup(properties: Record<string, unknown>, item: RegionItem | undefined) {
-		const name = (properties.name as string) ?? '';
+		// Goes through Popup.setHTML — escape rather than trust the geojson.
+		const name = String(properties.name ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 		const status = (item?.status as DisplayStatus | undefined) ?? 'pending';
 		return `<strong>${name}</strong><br/>${statusLabel(status)}`;
 	}
