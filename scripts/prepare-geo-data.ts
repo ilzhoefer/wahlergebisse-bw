@@ -215,7 +215,11 @@ async function main() {
 	const stuttgartOutline = admin.gemeinde.features.find((f) => f.properties.rs === 81110000000)!;
 	for (const [file, date] of stuttgartByDate) {
 		const geo = readGeoJSON(file);
-		const simplified = fitToOutline(await simplify(geo, 30), stuttgartOutline);
+		// Snap within ~1 m (the interval is in degrees here): the city digitizes each Bezirk on its own, so
+		// neighbouring borders almost but not quite coincide, every near-miss became an arc endpoint
+		// `-simplify` must keep, and 2024/2025 went through at ~98% of their vertices. Not `-clean`: it
+		// drops whole self-intersecting Bezirke (2024: 002-02, 002-07).
+		const simplified = fitToOutline(await simplify(geo, 30, 'interval=0.00001'), stuttgartOutline);
 		write(
 			`stuttgart-bezirke-${date}.json`,
 			pickProperties(simplified, ['AWBEZ_T', 'name'], { STBNAM_T: 'name' })
