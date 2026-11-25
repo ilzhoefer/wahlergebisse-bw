@@ -9,11 +9,10 @@
 	import { writeShareParams } from '$lib/map/shareUrl';
 	import type { Candidacy, PersonHit } from '$lib/server/candidatePage';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDate as fmtDate } from '$lib/formatDate';
 
 	let { data } = $props();
 	const c = $derived(data.candidate);
-
-	const fmtDate = (d: string) => new Date(d).toLocaleDateString('de-DE');
 
 	function outcome(x: Candidacy) {
 		if (x.elected === null || x.listSeats === null || x.position === null || x.alphabetical)

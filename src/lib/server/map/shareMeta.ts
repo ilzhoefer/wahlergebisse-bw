@@ -19,7 +19,7 @@ export interface PageMetaData {
 /** "Stuttgart, Landeshauptstadt" → "Stuttgart" (cities.name carries the official suffix). */
 export const shortCityName = (name: string) => name.split(',')[0].trim();
 
-export const formatDate = (date: string) => new Date(date).toLocaleDateString('de-DE');
+import { formatDate } from '$lib/formatDate';
 
 async function regionName(db: typeof Db, shared: ShareState): Promise<string | null> {
 	if (shared.ebene === 'Wahlkreis' && shared.wk) {

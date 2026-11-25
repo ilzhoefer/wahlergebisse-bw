@@ -4,6 +4,7 @@
 	import type { PageData } from './$types';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDate } from '$lib/formatDate';
 	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime';
 	import '$lib/components/map/theme.css';
 	import ProgressBar from '$lib/components/ProgressBar.svelte';
@@ -364,14 +365,6 @@
 		else void startCrawl();
 	}
 
-	/** "08.03.2026" for an ISO date. */
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleDateString('de-DE', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric'
-		});
-	}
 	const runLabel = $derived(
 		display
 			? m.admin_status_pill_meta({

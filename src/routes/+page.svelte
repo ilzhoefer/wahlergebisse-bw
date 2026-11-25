@@ -63,6 +63,7 @@
 	import type { LiveStatus } from './api/live/+server';
 	import { formatBerlin } from '$lib/berlinTime';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDate } from '$lib/formatDate';
 
 	let { data } = $props();
 
@@ -145,9 +146,7 @@
 		data.electionTypes.find((t) => t.electionType === selectedElectionType)?.electionDescription ??
 			''
 	);
-	const formattedSelectedDate = $derived(
-		selectedDate ? new Date(selectedDate).toLocaleDateString('de-DE') : ''
-	);
+	const formattedSelectedDate = $derived(selectedDate ? formatDate(selectedDate) : '');
 	const electionLabelText = $derived(`${currentElectionDescription} ${formattedSelectedDate}`);
 
 	function onElectionChange(value: string) {
@@ -170,7 +169,7 @@
 		data.electionTypes.map((t) => ({ value: String(t.electionType), label: t.electionDescription }))
 	);
 	const dateOptions = $derived<SelectOption[]>(
-		datesForType.map((d) => ({ value: d, label: new Date(d).toLocaleDateString('de-DE') }))
+		datesForType.map((d) => ({ value: d, label: formatDate(d) }))
 	);
 	const stimmeTabs = $derived<Tab[] | null>(
 		// Stimmensplitting compares both votes, so there's no single Stimme to pick.
@@ -269,9 +268,7 @@
 		hoveredProps = undefined;
 	}
 	const compareOptions = $derived<SelectOption[] | null>(
-		changing
-			? compareDates.map((d) => ({ value: d, label: new Date(d).toLocaleDateString('de-DE') }))
-			: null
+		changing ? compareDates.map((d) => ({ value: d, label: formatDate(d) })) : null
 	);
 	function onCompareChange(value: string) {
 		selectedCompareDate = value;

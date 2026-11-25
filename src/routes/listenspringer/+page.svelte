@@ -4,11 +4,11 @@
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import { fmtNum } from '$lib/map/breakdown';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDate as fmtDate } from '$lib/formatDate';
 
 	let { data } = $props();
 	const s = $derived(data.stats);
 
-	const fmtDate = (d: string) => new Date(d).toLocaleDateString('de-DE');
 	const pct = (a: number, b: number) =>
 		b > 0 ? `${((a / b) * 100).toFixed(1).replace('.', ',')} %` : '–';
 </script>
