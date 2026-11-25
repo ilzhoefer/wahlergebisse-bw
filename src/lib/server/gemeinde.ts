@@ -18,6 +18,7 @@ import { getRegionBreakdowns, type RegionBreakdown } from '$lib/server/map/queri
 import { memo } from '$lib/server/queryCache';
 import { rsPrefix } from '$lib/map/rs';
 import { shortCityName } from '$lib/server/map/shareMeta';
+import { WAEHLERVEREINIGUNGEN_FAMILY } from '$lib/server/scraper/partyFamily';
 import names from '$lib/server/map/region-names.json';
 
 type Db = typeof DbType;
@@ -40,6 +41,14 @@ export interface ElectionHistory {
 	latest: { date: string; voteType: '0' | '1'; breakdown: RegionBreakdown | null };
 }
 
+export interface OverallTrend {
+	/** Every election here with results, oldest first (same-day elections in TYPE_ORDER). */
+	elections: { electionType: number; description: string; date: string }[];
+	/** Every party family that reached TREND_MIN_PCT in any of them, highest peak first; `values`
+	 * line up with `elections`. */
+	series: TrendSeries[];
+}
+
 export interface CouncilMember {
 	name: string;
 	list: string | null;
@@ -53,6 +62,8 @@ export interface GemeindePage {
 	kreis: string | null;
 	regierungsbezirk: string | null;
 	elections: ElectionHistory[];
+	/** All elections on one time axis, for the page's "Entwicklung über alle Wahlen". */
+	overall: OverallTrend;
 	council: { date: string; members: CouncilMember[] } | null;
 }
 
@@ -61,6 +72,7 @@ const TYPE_ORDER = [6, 7, 8, 5, 4, 3, 2, 1, 9, 10];
 /** A party appears in the trend once it reached this share in any election here. */
 const TREND_MIN_PCT = 3;
 const TREND_MAX_SERIES = 8;
+const peak = (s: TrendSeries) => Math.max(...s.values.map((v) => v ?? 0));
 
 export function getGemeindePage(db: Db, rs: number): Promise<GemeindePage | null> {
 	return memo('gemeindePage', rs, () => load(db, rs));
@@ -108,6 +120,9 @@ async function load(db: Db, rs: number): Promise<GemeindePage | null> {
 	const isListVote = (r: { electionType: number; date: string; votetypeId: number }) =>
 		listVote.get(`${r.electionType}|${r.date}`) === r.votetypeId;
 
+	const description = (typeId: number) =>
+		types.find((t) => t.electionType === typeId)?.electionDescription ?? '';
+
 	const elections: ElectionHistory[] = [];
 	for (const typeId of [...new Set(metaRows.map((r) => r.electionType))].sort(
 		(a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b)
@@ -132,7 +147,6 @@ async function load(db: Db, rs: number): Promise<GemeindePage | null> {
 			s.values[dates.indexOf(r.date)] = Number(r.votePercent) * 100; // stored as a fraction
 			byFamily.set(r.partyFamilyId, s);
 		}
-		const peak = (s: TrendSeries) => Math.max(...s.values.map((v) => v ?? 0));
 		const series = [...byFamily.values()]
 			.filter((s) => peak(s) >= TREND_MIN_PCT)
 			.sort((a, b) => (b.values.at(-1) ?? -1) - (a.values.at(-1) ?? -1) || peak(b) - peak(a))
@@ -149,7 +163,7 @@ async function load(db: Db, rs: number): Promise<GemeindePage | null> {
 		});
 		elections.push({
 			electionType: typeId,
-			description: types.find((t) => t.electionType === typeId)?.electionDescription ?? '',
+			description: description(typeId),
 			dates,
 			turnout,
 			series,
@@ -159,6 +173,7 @@ async function load(db: Db, rs: number): Promise<GemeindePage | null> {
 
 	return {
 		rs,
+		overall: overallTrend(metaRows.filter(isListVote), partyRows.filter(isListVote), description),
 		name: shortCityName(city.name ?? String(rs)),
 		officialName: city.name ?? String(rs),
 		population: city.population,
@@ -167,6 +182,53 @@ async function load(db: Db, rs: number): Promise<GemeindePage | null> {
 		elections,
 		council: await getCouncil(db, rs)
 	};
+}
+
+function overallTrend(
+	metaRows: { electionType: number; date: string }[],
+	partyRows: {
+		electionType: number;
+		date: string;
+		partyFamilyId: number;
+		name: string | null;
+		color: string | null;
+		votePercent: string | number | null;
+	}[],
+	description: (typeId: number) => string
+): OverallTrend {
+	const key = (r: { electionType: number; date: string }) => `${r.electionType}|${r.date}`;
+	const elections = [...new Map(metaRows.map((r) => [key(r), r])).values()]
+		.sort(
+			(a, b) =>
+				a.date.localeCompare(b.date) ||
+				TYPE_ORDER.indexOf(a.electionType) - TYPE_ORDER.indexOf(b.electionType)
+		)
+		.map((r) => ({
+			electionType: r.electionType,
+			description: description(r.electionType),
+			date: r.date
+		}));
+	const index = new Map(elections.map((e, i) => [key(e), i]));
+
+	const byFamily = new Map<number, TrendSeries>();
+	for (const r of partyRows) {
+		const i = index.get(key(r));
+		// A catch-all of unrelated local lists — a line through it across elections means nothing.
+		if (i === undefined || r.votePercent == null || r.partyFamilyId === WAEHLERVEREINIGUNGEN_FAMILY)
+			continue;
+		const s = byFamily.get(r.partyFamilyId) ?? {
+			partyFamilyId: r.partyFamilyId,
+			name: r.name ?? '?',
+			color: r.color,
+			values: elections.map(() => null)
+		};
+		s.values[i] = Number(r.votePercent) * 100; // stored as a fraction
+		byFamily.set(r.partyFamilyId, s);
+	}
+	const series = [...byFamily.values()]
+		.filter((s) => peak(s) >= TREND_MIN_PCT)
+		.sort((a, b) => peak(b) - peak(a));
+	return { elections, series };
 }
 
 function regionName(rs: number): string | null {

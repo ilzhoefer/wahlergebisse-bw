@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { lineColor } from '$lib/map/colors';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDate } from '$lib/formatDate';
 
 	export interface Series {
 		key: string | number;
@@ -16,19 +17,42 @@
 	 * the same numbers as a table (party colours are conventional, not colour-blind safe — so identity
 	 * never rests on colour alone).
 	 */
-	let { dates, series, label }: { dates: string[]; series: Series[]; label: string } = $props();
+	let {
+		dates,
+		series,
+		label,
+		points
+	}: {
+		dates: string[];
+		series: Series[];
+		label: string;
+		/** Per date: a short tick label above the year and a tooltip title. Several points may share a
+		 * date (elections on the same day), so with `points` they are spaced evenly, not by time. */
+		points?: { tick: string; title: string }[];
+	} = $props();
 
 	let width = $state(600);
-	const height = 230;
-	const pad = { top: 12, right: 96, bottom: 26, left: 34 };
+	const height = $derived(points ? 244 : 230);
+	const pad = $derived({ top: 12, right: 96, bottom: points ? 40 : 26, left: 34 });
 	const innerW = $derived(Math.max(120, width - pad.left - pad.right));
-	const innerH = height - pad.top - pad.bottom;
+	const innerH = $derived(height - pad.top - pad.bottom);
 
 	const times = $derived(dates.map((d) => new Date(d).getTime()));
 	const tMin = $derived(Math.min(...times));
 	const tMax = $derived(Math.max(...times));
 	const x = (i: number) =>
-		pad.left + (tMax === tMin ? innerW / 2 : ((times[i] - tMin) / (tMax - tMin)) * innerW);
+		pad.left +
+		(points
+			? dates.length > 1
+				? (i / (dates.length - 1)) * innerW
+				: innerW / 2
+			: tMax === tMin
+				? innerW / 2
+				: ((times[i] - tMin) / (tMax - tMin)) * innerW);
+	/** Show every n-th x label so neighbours don't overlap. */
+	const labelEvery = $derived(
+		points && dates.length > 1 ? Math.ceil(36 / (innerW / (dates.length - 1))) : 1
+	);
 
 	const yMax = $derived(
 		Math.max(
@@ -113,8 +137,17 @@
 				<line class="grid" x1={pad.left} x2={pad.left + innerW} y1={y(t)} y2={y(t)} />
 				<text class="tick" x={pad.left - 6} y={y(t) + 4} text-anchor="end">{t}</text>
 			{/each}
-			{#each dates as d, i (d)}
-				<text class="tick" x={x(i)} y={height - 8} text-anchor="middle">{year(d)}</text>
+			{#each dates as d, i (i)}
+				{#if i % labelEvery === 0}
+					<text class="tick" x={x(i)} y={height - 8} text-anchor="middle">
+						{#if points}<tspan x={x(i)} dy="-13" class="tick-type">{points[i].tick}</tspan><tspan
+								x={x(i)}
+								dy="13"
+							>
+								{year(d)}
+							</tspan>{:else}{year(d)}{/if}
+					</text>
+				{/if}
 			{/each}
 
 			{#if hover !== null}
@@ -148,7 +181,9 @@
 				style="left: {x(hover) > width / 2 ? Math.max(0, x(hover) - 190) : x(hover) + 12}px"
 				aria-hidden="true"
 			>
-				<div class="tt-head">{new Date(dates[hover]).toLocaleDateString('de-DE')}</div>
+				<div class="tt-head">
+					{points ? `${points[hover].title} · ` : ''}{formatDate(dates[hover])}
+				</div>
 				{#each hoverRows as r (r.s.key)}
 					<div class="tt-row">
 						<span class="key" style="background: {stroke(r.s.color)}"></span>
@@ -166,7 +201,9 @@
 			<thead>
 				<tr>
 					<th scope="col"></th>
-					{#each dates as d (d)}<th scope="col">{year(d)}</th>{/each}
+					{#each dates as d, i (i)}<th scope="col">
+							{points ? `${points[i].tick} ` : ''}{year(d)}
+						</th>{/each}
 				</tr>
 			</thead>
 			<tbody>
@@ -228,6 +265,9 @@
 		font: 500 10.5px var(--map-font-mono);
 		fill: var(--map-ink-muted);
 		font-variant-numeric: tabular-nums;
+	}
+	.tick-type {
+		font-weight: 600;
 	}
 	.line {
 		stroke-width: 2;

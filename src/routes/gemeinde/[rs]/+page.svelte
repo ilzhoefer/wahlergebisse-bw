@@ -3,17 +3,20 @@
 	import SiteHeader from '$lib/components/SiteHeader.svelte';
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import TrendChart from '$lib/components/TrendChart.svelte';
+	import GemeindeTrend from '$lib/components/GemeindeTrend.svelte';
 	import SeatChart from '$lib/components/map/SeatChart.svelte';
 	import { fmtNum, fmtPct } from '$lib/map/breakdown';
 	import { KREISFREIE_STADT_RS } from '$lib/map/rs';
 	import { writeShareParams } from '$lib/map/shareUrl';
 	import type { ElectionHistory } from '$lib/server/gemeinde';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDate as fmtDate } from '$lib/formatDate';
 
 	let { data } = $props();
 	const g = $derived(data.gemeinde);
 
-	const fmtDate = (d: string) => new Date(d).toLocaleDateString('de-DE');
+	const hasOverall = $derived(g.overall.elections.length > 1 && g.overall.series.length > 0);
+
 	const kreisLabel = $derived(KREISFREIE_STADT_RS.has(g.rs) ? m.gemeinde_stadtkreis() : g.kreis);
 
 	function mapHref(e: ElectionHistory) {
@@ -74,6 +77,7 @@
 			{/if}
 			{#if g.elections.length > 1}
 				<nav class="jump" aria-label={m.gemeinde_jump()}>
+					{#if hasOverall}<a href="#entwicklung">{m.gemeinde_overall_title()}</a>{/if}
 					{#each g.elections as e (e.electionType)}
 						<a href="#wahl-{e.electionType}">{e.description}</a>
 					{/each}
@@ -83,6 +87,20 @@
 
 		{#if g.elections.length === 0}
 			<p class="card">{m.gemeinde_no_data()}</p>
+		{/if}
+
+		{#if hasOverall}
+			<section class="card" id="entwicklung">
+				<h2>{m.gemeinde_overall_title()}</h2>
+				<p class="sub intro">{m.gemeinde_overall_note({ name: g.name })}</p>
+				{#key g.rs}
+					<GemeindeTrend
+						trend={g.overall}
+						name={g.name}
+						typeOrder={g.elections.map((e) => e.electionType)}
+					/>
+				{/key}
+			</section>
 		{/if}
 
 		{#each g.elections as e (e.electionType)}
@@ -265,6 +283,9 @@
 		margin: 2px 0 0;
 		font-size: 13px;
 		color: var(--map-ink-3);
+	}
+	.intro {
+		margin: 4px 0 14px;
 	}
 	.jump {
 		display: flex;
