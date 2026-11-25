@@ -451,7 +451,9 @@
 	"candidate_pushed_out_hint": "On a list position within the list's {seats} seats, but overtaken by candidates further down.",
 	"candidate_table_note": "Rank = place within the list by votes (municipal council only). For district council elections, votes are summed over the district's municipalities. Who was elected is published by the districts, but not by all of them in 2019; those show 'not recorded'. In municipalities with 'unechte Teilortswahl', seats are allocated per residential district, so list position and rank say less there. For Bundestag and Landtag elections: first votes in the constituency, rank = place in the constituency.",
 
-	"gemeinde_rest": "and {n} more lists with {pct} combined",
+	"gemeinde_rest_parties": "Show all {total} parties ({n} more with {value} combined)",
+	"gemeinde_rest_lists": "Show all {total} lists ({n} more with {value} combined)",
+	"gemeinde_rest_less": "Show only the largest",
 
 	"map_gemeinde_page_link": "All elections in {name} →",
 

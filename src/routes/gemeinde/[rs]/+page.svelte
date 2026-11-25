@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { SvelteSet } from 'svelte/reactivity';
 	import SiteHeader from '#lib/components/SiteHeader.svelte';
 	import PageMeta from '#lib/components/PageMeta.svelte';
 	import TrendChart from '#lib/components/TrendChart.svelte';
@@ -29,17 +30,39 @@
 	}
 
 	const TOP_ROWS = 10;
+	/** Regional-, Kreistags-, Gemeinderatswahl: the ballot has local voter groups' lists, not only
+	 * parties (same set as LOCAL_ELECTION_TYPES in scraper/partyFamily.ts). */
+	const LIST_ELECTIONS = new Set([4, 5, 6]);
+
+	/** Shares or vote counts, for every election on the page at once (like the map panel's switch). */
+	let absolute = $state(false);
+	/** Elections whose full list is open instead of the top rows. */
+	const expanded = new SvelteSet<number>();
+	const fmtValue = (r: { votePercent: number | null; voteCount: number | null }) =>
+		absolute ? fmtNum(r.voteCount) : fmtPct(r.votePercent);
+
 	/** The latest result's top rows, scaled to the largest share like the map panel's bars; the rest
-	 * (a Europawahl has 30+ lists) is summed into one line. Rows with seats are always shown. */
+	 * (a Europawahl has 30+ lists) is summed into one line that opens the full list. Rows with seats
+	 * are always shown. */
 	function bars(e: ElectionHistory) {
 		const rows = e.latest.breakdown?.rows.filter((r) => r.votePercent != null) ?? [];
 		const max = Math.max(0.0001, ...rows.map((r) => r.votePercent!));
-		const shown = rows.filter((r, i) => i < TOP_ROWS || r.seats);
-		const rest = rows.filter((r) => !shown.includes(r));
+		const top = rows.filter((r, i) => i < TOP_ROWS || r.seats);
+		const rest = rows.filter((r) => !top.includes(r));
+		const restVotes = rest.some((r) => r.voteCount == null)
+			? null
+			: rest.reduce((sum, r) => sum + r.voteCount!, 0);
 		return {
-			rows: shown.map((r) => ({ ...r, width: (r.votePercent! / max) * 100 })),
+			rows: (expanded.has(e.electionType) ? rows : top).map((r) => ({
+				...r,
+				width: (r.votePercent! / max) * 100
+			})),
+			total: rows.length,
 			restCount: rest.length,
-			restPct: rest.reduce((sum, r) => sum + r.votePercent!, 0)
+			restValue: fmtValue({
+				votePercent: rest.reduce((sum, r) => sum + r.votePercent!, 0),
+				voteCount: restVotes
+			})
 		};
 	}
 
@@ -137,6 +160,28 @@
 					</div>
 				{/if}
 
+				{#if b.rows.length > 0}
+					<div class="bars-head">
+						<span class="value-switch" role="group" aria-label={m.map_values_switch_label()}>
+							<button
+								type="button"
+								class:active={!absolute}
+								aria-pressed={!absolute}
+								onclick={() => (absolute = false)}
+							>
+								{m.map_rows_heading_right_anteil()}
+							</button>
+							<button
+								type="button"
+								class:active={absolute}
+								aria-pressed={absolute}
+								onclick={() => (absolute = true)}
+							>
+								{m.map_values_votes()}
+							</button>
+						</span>
+					</div>
+				{/if}
 				<ul class="bars">
 					{#each b.rows as r (r.partyName)}
 						<li>
@@ -144,13 +189,30 @@
 							<span class="bar-track">
 								<span class="bar-fill" style="background: {r.color}; width: {r.width}%"></span>
 							</span>
-							<span class="bar-val">{fmtPct(r.votePercent)}</span>
+							<span class="bar-val">{fmtValue(r)}</span>
 							<span class="bar-seats">{r.seats ? m.gemeinde_seats({ n: r.seats }) : ''}</span>
 						</li>
 					{/each}
 				</ul>
 				{#if b.restCount > 0}
-					<p class="rest">{m.gemeinde_rest({ n: b.restCount, pct: fmtPct(b.restPct) })}</p>
+					{@const open = expanded.has(e.electionType)}
+					<button
+						type="button"
+						class="rest"
+						aria-expanded={open}
+						onclick={() => (open ? expanded.delete(e.electionType) : expanded.add(e.electionType))}
+					>
+						{open
+							? m.gemeinde_rest_less()
+							: (LIST_ELECTIONS.has(e.electionType)
+									? m.gemeinde_rest_lists
+									: m.gemeinde_rest_parties)({
+									total: b.total,
+									n: b.restCount,
+									value: b.restValue
+								})}
+						{open ? '▴' : '▾'}
+					</button>
 				{/if}
 
 				{#if e.dates.length > 1 && e.series.length > 0}
@@ -372,8 +434,45 @@
 	}
 	.rest {
 		margin: 6px 0 0;
+		padding: 0;
+		border: none;
+		background: none;
+		font: inherit;
 		font-size: 12px;
+		color: var(--map-accent);
+		cursor: pointer;
+		text-align: left;
+	}
+	.rest:hover,
+	.rest:focus-visible {
+		text-decoration: underline;
+	}
+	.bars-head {
+		display: flex;
+		justify-content: flex-end;
+		margin: -4px 0 6px;
+	}
+	/* Same switch as the map panel's (ResultPanel.svelte). */
+	.value-switch {
+		display: flex;
+		padding: 2px;
+		border-radius: 6px;
+		background: var(--map-bg-surface-sunken);
+		font-size: 11.5px;
+	}
+	.value-switch button {
+		border: none;
+		background: none;
+		padding: 3px 8px;
+		border-radius: 4px;
+		font: inherit;
+		cursor: pointer;
 		color: var(--map-ink-muted);
+	}
+	.value-switch button.active {
+		background: var(--map-bg-surface);
+		color: var(--map-ink);
+		box-shadow: 0 0 0 1px var(--map-border-soft);
 	}
 	.note.warn {
 		color: var(--map-warning-text);

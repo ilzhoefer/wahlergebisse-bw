@@ -451,7 +451,9 @@
 	"candidate_pushed_out_hint": "Auf einem Listenplatz innerhalb der {seats} Sitze der Liste, aber von Kandidierenden weiter hinten überholt.",
 	"candidate_table_note": "Rang = Platz innerhalb der Liste nach Stimmen (nur Gemeinderat). Bei Kreistagswahlen sind die Stimmen über die Gemeinden des Kreises summiert. Wer gewählt wurde, veröffentlichen die Landkreise, 2019 aber nicht alle; dort steht „keine Angabe“. In Gemeinden mit unechter Teilortswahl werden Sitze je Wohnbezirk vergeben, Listenplatz und Rang sagen dort weniger aus. Bei Bundestags- und Landtagswahlen: Erststimmen im Wahlkreis, Rang = Platz im Wahlkreis.",
 
-	"gemeinde_rest": "und {n} weitere Listen mit zusammen {pct}",
+	"gemeinde_rest_parties": "Alle {total} Parteien anzeigen ({n} weitere mit zusammen {value})",
+	"gemeinde_rest_lists": "Alle {total} Listen anzeigen ({n} weitere mit zusammen {value})",
+	"gemeinde_rest_less": "Nur die größten anzeigen",
 
 	"map_gemeinde_page_link": "Alle Wahlen in {name} →",
 
