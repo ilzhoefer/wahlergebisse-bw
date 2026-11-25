@@ -388,7 +388,9 @@ export const electionElectedCandidates = pgTable(
 			table.electionId,
 			table.partyId,
 			table.name
-		)
+		),
+		// Trigram index for the `name ILIKE '%…%'` search (needs the pg_trgm extension).
+		index('idx_election_elected_candidates_name_trgm').using('gin', table.name.op('gin_trgm_ops'))
 	]
 );
 
@@ -441,6 +443,8 @@ export const electionCandidate = pgTable(
 			.on(table.rs, table.electionId, table.partyId, table.name, table.districtId)
 			.nullsNotDistinct(),
 		index('idx_election_candidate_name_key').on(table.nameKey),
+		// Trigram index for the person search's `name ILIKE '%…%'` (needs the pg_trgm extension).
+		index('idx_election_candidate_name_trgm').using('gin', table.name.op('gin_trgm_ops')),
 		index('idx_election_candidate_election').on(table.electionType, table.date, table.rs)
 	]
 );
