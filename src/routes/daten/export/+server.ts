@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { downloadZip } from 'client-zip';
 import { db } from '$lib/server/db';
-import { toCsv } from '$lib/server/csv-export/csv';
+import { csvStream } from '$lib/server/csv-export/csv';
 import { EXPORT_FILES } from '$lib/csv-export/files';
 import {
 	getMetaRows,
@@ -31,37 +31,27 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Mindestens eine Datenart muss ausgewählt werden');
 	}
 
-	// Independent queries — run them concurrently; order in the ZIP follows this list.
-	const files = await Promise.all([
-		wantMeta &&
-			getMetaRows(db, rsList, electionType, date).then((rows) => ({
-				name: EXPORT_FILES.meta.name,
-				csv: toCsv(rows, EXPORT_FILES.meta.columns)
-			})),
-		wantAggregate &&
-			getAggregateRows(db, rsList, electionType, date).then((rows) => ({
-				name: EXPORT_FILES.aggregate.name,
-				csv: toCsv(rows, EXPORT_FILES.aggregate.columns)
-			})),
+	// Each file is streamed in batches of Gemeinden (see csvStream); order in the ZIP follows this list.
+	const sorted = [...new Set(rsList)].sort((a, b) => a - b);
+	const file = <T extends Record<string, unknown>>(
+		spec: { name: string; columns: readonly (keyof T & string)[] },
+		query: (d: typeof db, rs: number[], type: number, date: string) => Promise<T[]>
+	) => ({
+		name: spec.name,
+		input: csvStream(sorted, (rs) => query(db, rs, electionType, date), spec.columns)
+	});
+	const files = [
+		wantMeta && file(EXPORT_FILES.meta, getMetaRows),
+		wantAggregate && file(EXPORT_FILES.aggregate, getAggregateRows),
 		wantPs &&
 			(person
-				? getStationResultsByCandidate(db, rsList, electionType, date).then((rows) => ({
-						name: EXPORT_FILES.psByCandidate.name,
-						csv: toCsv(rows, EXPORT_FILES.psByCandidate.columns)
-					}))
-				: getStationResultsByParty(db, rsList, electionType, date).then((rows) => ({
-						name: EXPORT_FILES.psByParty.name,
-						csv: toCsv(rows, EXPORT_FILES.psByParty.columns)
-					}))),
-		wantMetaPs &&
-			getStationMetaRows(db, rsList, electionType, date).then((rows) => ({
-				name: EXPORT_FILES.metaPs.name,
-				csv: toCsv(rows, EXPORT_FILES.metaPs.columns)
-			}))
-	]).then((all) => all.filter((f) => f !== false));
+				? file(EXPORT_FILES.psByCandidate, getStationResultsByCandidate)
+				: file(EXPORT_FILES.psByParty, getStationResultsByParty)),
+		wantMetaPs && file(EXPORT_FILES.metaPs, getStationMetaRows)
+	].filter((f) => f !== false);
 
 	if (files.length === 1) {
-		return new Response(files[0].csv, {
+		return new Response(files[0].input, {
 			headers: {
 				'Content-Type': 'text/csv; charset=utf-8',
 				'Content-Disposition': `attachment; filename="${files[0].name}"`
@@ -69,7 +59,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		});
 	}
 
-	const zipResponse = downloadZip(files.map((f) => ({ name: f.name, input: f.csv })));
+	const zipResponse = downloadZip(files);
 	zipResponse.headers.set('Content-Disposition', 'attachment; filename="wahlergebnisse.zip"');
 	return zipResponse;
 };
