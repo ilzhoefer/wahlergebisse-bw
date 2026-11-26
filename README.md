@@ -227,3 +227,16 @@ per Landkreis and fetched from komm.one). New crawls do both themselves.
 ## History
 
 This project began as part of a master's thesis ("Do names matter in local elections?").
+
+## License
+
+The code is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+You may use, change and share it, including commercially, as long as everything you build on it
+stays under the AGPL. That includes running a modified version as a website: its users must be able
+to get its source code (the footer's "Quellcode" link points to this repository; change
+`SOURCE_URL` in `src/lib/components/SiteLinks.svelte` if you deploy a fork).
+
+The license covers the code only. The election results, boundaries and other data belong to their
+sources and stay under their terms (listed on the site's "Über das Projekt" page): for example
+OpenStreetMap boundaries under the ODbL and the Bundeswahlleiterin's data under the Datenlizenz
+Deutschland – Namensnennung 2.0.

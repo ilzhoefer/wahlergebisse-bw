@@ -201,6 +201,7 @@
 	"nav_about": "About",
 	"nav_impressum": "Legal notice",
 	"nav_datenschutz": "Privacy",
+	"nav_source": "Source code (AGPL)",
 
 	"about_title": "About this project",
 	"about_intro": "This project grew out of my master's thesis “Do names matter in local elections?” in International Business and Economics at the University of Hohenheim, submitted in 2025.",
