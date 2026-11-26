@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { FeatureCollection } from 'geojson';
@@ -14,14 +14,17 @@
 
 	// ---- Election ---------------------------------------------------------------------------------
 	const electionKey = (e: { electionType: number; date: string }) => `${e.electionType}|${e.date}`;
-	let selectedElectionKey = $state(data.elections[0] ? electionKey(data.elections[0]) : '');
+	// Seeded once from the page data (untrack); afterwards the selection is the user's.
+	let selectedElectionKey = $state(
+		untrack(() => (data.elections[0] ? electionKey(data.elections[0]) : ''))
+	);
 	const selectedElection = $derived(
 		data.elections.find((e) => electionKey(e) === selectedElectionKey)
 	);
 
 	// ---- Gemeinde picker: Baden-Württemberg → Regierungsbezirk → Kreis → Gemeinde ------------------
 	type City = (typeof data.cities)[number];
-	const picked = new SvelteSet<number>(data.cities.map((c) => c.rs));
+	const picked = new SvelteSet<number>(untrack(() => data.cities.map((c) => c.rs)));
 
 	// Kreis/RB names come from the boundary files the map uses (same cached asset), keyed by rs prefix.
 	let groupNames = $state<Record<string, string>>({});

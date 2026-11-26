@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import { resolve } from '$app/paths';
@@ -60,8 +60,9 @@
 		cityStatus: Record<number, CityStatus>;
 	}
 
+	// The form starts from the last run (seeded once, untrack); afterwards the choices are the user's.
 	let electionTypeId = $state(
-		data.lastRun?.electionType ?? data.electionTypes[0]?.electionType ?? 0
+		untrack(() => data.lastRun?.electionType ?? data.electionTypes[0]?.electionType ?? 0)
 	);
 	// For Bürgermeisterwahl/Bürgerentscheid (see citySpecificTypes), the city is picked first and the
 	// date dropdown is scoped to that city — every other Wahlart shares one statewide date, so there's no
@@ -76,10 +77,10 @@
 		return cityList.find((c) => c.dates.includes(lastDate))?.rs ?? null;
 	}
 	let selectedCityRs = $state<number | null>(initialCityRs());
-	let date = $state(data.lastRun?.date ?? '');
+	let date = $state(untrack(() => data.lastRun?.date ?? ''));
 	// How many cities the crawl processes concurrently — network-bound work, so this isn't really "one
 	// per CPU core", but core count − 1 is still a legible cap on the input (see maxParallelism).
-	let parallel = $state(Math.min(4, data.maxParallel));
+	let parallel = $state(untrack(() => Math.min(4, data.maxParallel)));
 	// Deletes this election's previously fetched data before re-crawling instead of skipping cities that
 	// already look complete — for when the upstream source data changed and needs to actually replace
 	// what's stored, not just fill in gaps.

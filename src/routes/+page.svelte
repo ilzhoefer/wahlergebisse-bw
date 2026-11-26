@@ -91,23 +91,25 @@
 	/** Map only (iframe on another site): no toolbar, no panel, a link back to the full view. */
 	const embed = shared.embed === true;
 
-	let selectedElectionType = $state<number>(0);
 	// Start on the shared link's election, else the most recent one: the type with the newest date
 	// (ties — several types voted the same day — keep `electionTypes` order). The date effect below
-	// then keeps the shared date if valid, else picks that type's newest date.
-	{
-		const byType = data.datesByType as Record<number, string[]>;
-		const newest = (t: number) => (byType[t] ?? []).reduce((a, b) => (b > a ? b : a), '');
-
-		selectedElectionType =
-			data.electionTypes.find((t) => t.electionType === shared.wahl)?.electionType ??
-			data.electionTypes.reduce<number | undefined>(
-				(best, t) =>
-					best === undefined || newest(t.electionType) > newest(best) ? t.electionType : best,
-				undefined
-			) ??
-			0;
-	}
+	// then keeps the shared date if valid, else picks that type's newest date. Seeded once from the
+	// page data (untrack): afterwards the selection is the user's.
+	let selectedElectionType = $state<number>(
+		untrack(() => {
+			const byType = data.datesByType as Record<number, string[]>;
+			const newest = (t: number) => (byType[t] ?? []).reduce((a, b) => (b > a ? b : a), '');
+			return (
+				data.electionTypes.find((t) => t.electionType === shared.wahl)?.electionType ??
+				data.electionTypes.reduce<number | undefined>(
+					(best, t) =>
+						best === undefined || newest(t.electionType) > newest(best) ? t.electionType : best,
+					undefined
+				) ??
+				0
+			);
+		})
+	);
 
 	// Most recent first — matches the click-dummy's own ELECTIONS[].dates convention and its
 	// onElection handler, which resets to `dates[0]` expecting that to be the newest.
@@ -619,7 +621,7 @@
 	// Wahlkreis is an electoral-district view with no place in the rs hierarchy above — reachable only
 	// for Bundestags-/Landtagswahl, as one of the Ebene select's options (see `ebeneOptions`) rather
 	// than a separate toggle (confirmed with the user).
-	let wahlkreisActive = $state(shared.ebene === 'Wahlkreis' && isBundestagOrLandtag);
+	let wahlkreisActive = $state(untrack(() => shared.ebene === 'Wahlkreis' && isBundestagOrLandtag));
 	/** The clicked Wahlkreis (keyed by `ref`), shown in the left panel instead of `focused` while the
 	 * Wahlkreis view is active. Kept apart from `focused`/`expanded` since a Wahlkreis isn't part of
 	 * the rs hierarchy; cleared whenever the election, Ebene or view is reset (refs differ between
