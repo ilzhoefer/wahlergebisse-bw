@@ -66,12 +66,17 @@
 	);
 	const moreModes = $derived(modes.filter((mode) => !tabModes.includes(mode)));
 	const activeInMore = $derived(moreModes.find((mode) => mode.active));
+	/** "Modus: Stärkste Partei" — on phones just the mode (the button's aria-label keeps the full text),
+	 * so Stimme, Ebene and Modus fit one row. */
+	const moreFullLabel = $derived(
+		activeInMore ? m.map_modes_button({ mode: activeInMore.label }) : m.map_modes_more()
+	);
 	const moreLabel = $derived(
 		!activeInMore
 			? m.map_modes_more()
-			: tabModes.length
+			: tabModes.length || innerWidth < 520
 				? activeInMore.label
-				: m.map_modes_button({ mode: activeInMore.label })
+				: moreFullLabel
 	);
 
 	let moreOpen = $state(false);
@@ -158,6 +163,7 @@
 				class:active={!!activeInMore}
 				aria-haspopup="true"
 				aria-expanded={moreOpen}
+				aria-label={moreFullLabel}
 				onclick={() => (moreOpen = !moreOpen)}
 			>
 				{moreLabel} ▾
@@ -372,11 +378,43 @@
 		display: flex;
 		flex-direction: column;
 	}
+	@media (max-width: 519px) {
+		/* Phones: Stimme, Ebene and Modus on one row instead of two (the Ebene select names a level
+		   by itself; its label and the divider are what pushed Modus onto a row of its own). */
+		.divider,
+		.ebene .map-lbl {
+			display: none;
+		}
+		.controls {
+			gap: 5px;
+		}
+		.ebene {
+			padding: 5px 8px;
+		}
+		.controls .pill {
+			padding: 5px 8px;
+		}
+	}
 	@media (max-width: 1199px) {
 		/* The lone "Modus ▾" button may sit at the left edge — open the menu rightwards. */
 		.more-menu {
 			right: auto;
 			left: 0;
+		}
+	}
+	@media (max-width: 519px) {
+		/* Phones: the Modus button ends its row, so a menu opening from it ran off-screen. Anchor it to
+		   the whole controls row instead (after the 1199px rule, which it overrides). */
+		.controls {
+			position: relative;
+		}
+		.modes {
+			position: static;
+		}
+		.more-menu {
+			left: 0;
+			right: 0;
+			min-width: 0;
 		}
 	}
 	.more-item {
