@@ -51,6 +51,13 @@ See `README.md` for the full dev workflow (`bun install`, `docker compose up -d 
 `bun run db:migrate`, `bun run dev`). `bun run check` type-checks; `bun run lint`/`format` run
 ESLint/Prettier.
 
+### Tests
+
+`tests/*.test.ts` run with `bun run test` (offline, no database); `scripts/smoke.ts` checks a running
+production build and runs in CI. Test data must never contain real people's names: no candidate or
+council-member names from the data, no plausible real full names. Use Mustermann-style placeholders
+(Max/Erika Mustermann); place and party names are fine.
+
 ### Shareable map links
 
 Every piece of map state a user can change (election, date, Stimme, mode incl. new modes, party,
