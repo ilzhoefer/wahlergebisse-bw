@@ -1,6 +1,6 @@
 /**
  * Dot-density map ("Punktdichte"): each dot stands for `perDot` votes of one party, scattered at a
- * random spot inside its area. Pure (no DOM), so scripts/check-dots.ts can test it.
+ * random spot inside its area. Pure (no DOM), so tests/dots.test.ts can test it.
  *
  * Randomness is seeded per (area, party), so the same data always yields the same dots — they don't
  * jump around when the map re-renders or the user pans.

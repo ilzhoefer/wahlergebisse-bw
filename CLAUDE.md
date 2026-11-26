@@ -30,7 +30,7 @@ tree and live only in git history.
   `src/lib/server/scraper/vote-districts/` from the raw inputs in `scripts/source-data/`.
 - `docker-compose.yaml` is for **local dev only** (Postgres + pgAdmin). Deployment images are built
   and published to GHCR by `.github/workflows/publish-image.yml`; `.github/workflows/ci.yml` runs
-  check, lint and the offline `scripts/check-*.ts` self-checks.
+  check, lint and the offline tests in `tests/` (`bun run test`).
 
 ### Domain identifiers
 
@@ -57,8 +57,8 @@ Every piece of map state a user can change (election, date, Stimme, mode incl. n
 comparison date, Ebene, focus …) must round-trip through the URL so a copied link reproduces the
 view. When adding a mode or control: add it to `src/lib/map/shareUrl.ts` (`ShareState`,
 `MODE_SLUGS` / read / write), write it in the `writeShareParams` effect and restore it from `shared`
-in `src/routes/+page.svelte`, and extend `scripts/check-share-url.ts`
-(`bun run scripts/check-share-url.ts`). Then check the running app's URL actually changes.
+in `src/routes/+page.svelte`, and extend `tests/share-url.test.ts`
+(`bun run test`). Then check the running app's URL actually changes.
 
 ## graphify
 
