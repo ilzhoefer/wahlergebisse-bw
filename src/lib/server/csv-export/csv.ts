@@ -25,12 +25,21 @@ export function csvStream<T extends Record<string, unknown>>(
 			controller.enqueue(encoder.encode('\uFEFF' + columns.join(',') + '\r\n'));
 		},
 		async pull(controller) {
-			if (i >= rsList.length) return controller.close();
-			const rows = await load(rsList.slice(i, (i += BATCH)));
-			const text = rows
-				.map((row) => columns.map((col) => escapeCsvField(row[col])).join(',') + '\r\n')
-				.join('');
-			if (text) controller.enqueue(encoder.encode(text));
+			// A pull that enqueues nothing is never followed by another one, so a batch of Gemeinden
+			// without rows used to stall the download for good: keep loading until there is data.
+			while (i < rsList.length) {
+				const rows = await load(rsList.slice(i, (i += BATCH)));
+				if (rows.length === 0) continue;
+				controller.enqueue(
+					encoder.encode(
+						rows
+							.map((row) => columns.map((col) => escapeCsvField(row[col])).join(',') + '\r\n')
+							.join('')
+					)
+				);
+				return;
+			}
+			controller.close();
 		}
 	});
 }
