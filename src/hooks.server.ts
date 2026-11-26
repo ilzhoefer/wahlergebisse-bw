@@ -55,15 +55,43 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 		error(401, 'Unauthorized');
 	}
 	const response = await resolve(event);
-	// Nothing here is meant to be framed (clickjacking on /admin).
-	response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
-	response.headers.set('X-Frame-Options', 'DENY');
+	// Only the map's embed view (`/?…&embed=1`, the "Einbetten" iframe code) may be framed by other
+	// sites; nothing else is meant to be (clickjacking on /admin).
+	if (!(route === '/' && event.url.searchParams.get('embed') === '1')) {
+		response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+		response.headers.set('X-Frame-Options', 'DENY');
+	}
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	return response;
 };
 
-export const handle: Handle = sequence(handleAuth, handleParaglide);
+/** adapter-node only serves static files precompressed; pages, GraphQL and CSV went out raw (a
+ * Gemeinde page ~128 KB instead of ~20). Not text/event-stream: the admin progress streams must
+ * flush every event, and gzip would buffer them. */
+const COMPRESSIBLE =
+	/^(text\/(html|plain|csv|xml)|application\/(json|graphql-response\+json|xml))\b/;
+const handleCompression: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	if (
+		!response.body ||
+		response.headers.has('Content-Encoding') ||
+		!COMPRESSIBLE.test(response.headers.get('Content-Type') ?? '') ||
+		!/\bgzip\b/.test(event.request.headers.get('Accept-Encoding') ?? '')
+	)
+		return response;
+	const headers = new Headers(response.headers);
+	headers.set('Content-Encoding', 'gzip');
+	headers.delete('Content-Length');
+	headers.append('Vary', 'Accept-Encoding');
+	return new Response(response.body.pipeThrough(new CompressionStream('gzip')), {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
+};
+
+export const handle: Handle = sequence(handleCompression, handleAuth, handleParaglide);
 
 // The default handler only prints `error.stack`, which is silently "undefined" for thrown non-Error
 // values — logging the raw value too makes those cases diagnosable instead of a bare "undefined".

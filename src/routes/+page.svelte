@@ -905,13 +905,21 @@
 
 	// ---- Geometry loading ----------------------------------------------------------------------
 
+	// Holds the pending promise, not the result: the map's first render asks for the same file from two
+	// places at once, and caching only the result downloaded it twice.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain imperative cache, never read reactively/from the template
-	const geoCache = new Map<string, FeatureCollection>();
-	async function loadGeo(url: string): Promise<FeatureCollection> {
-		const cached = geoCache.get(url);
-		if (cached) return cached;
-		const geo = (await fetch(url).then((r) => r.json())) as FeatureCollection;
-		geoCache.set(url, geo);
+	const geoCache = new Map<string, Promise<FeatureCollection>>();
+	function loadGeo(url: string): Promise<FeatureCollection> {
+		let geo = geoCache.get(url);
+		if (!geo) {
+			geo = fetch(url).then((r) => {
+				if (!r.ok) throw new Error(`${url}: ${r.status}`);
+				return r.json() as Promise<FeatureCollection>;
+			});
+			geoCache.set(url, geo);
+			// A failed load must not stay cached, or the map could never retry it.
+			geo.catch(() => geoCache.delete(url));
+		}
 		return geo;
 	}
 
