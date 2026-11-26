@@ -58,9 +58,17 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	// Only the map's embed view (`/?…&embed=1`, the "Einbetten" iframe code) may be framed by other
 	// sites; nothing else is meant to be (clickjacking on /admin).
 	if (!(route === '/' && event.url.searchParams.get('embed') === '1')) {
-		response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+		// Appended to Kit's own policy (see csp in vite.config.ts), not replacing it.
+		const csp = response.headers.get('Content-Security-Policy');
+		response.headers.set(
+			'Content-Security-Policy',
+			csp ? `${csp}; frame-ancestors 'none'` : "frame-ancestors 'none'"
+		);
 		response.headers.set('X-Frame-Options', 'DENY');
 	}
+	// Browsers only honour it over HTTPS, so it's harmless where a deployment has none. No
+	// includeSubDomains: other services under the same domain aren't this app's to decide for.
+	if (!dev) response.headers.set('Strict-Transport-Security', 'max-age=31536000');
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	return response;

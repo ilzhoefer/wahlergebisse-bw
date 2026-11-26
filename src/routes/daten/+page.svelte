@@ -190,7 +190,8 @@
 			const body = new URLSearchParams(new FormData(form) as unknown as Record<string, string>);
 			const res = await fetch(form.action, { method: 'POST', body });
 			if (!res.ok) {
-				failed = m.daten_cta_error({ status: String(res.status) });
+				failed =
+					res.status === 503 ? m.export_busy() : m.daten_cta_error({ status: String(res.status) });
 				return;
 			}
 

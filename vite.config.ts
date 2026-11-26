@@ -16,7 +16,25 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter(),
+			// Scripts only from this origin, with Kit's per-request nonces: a script smuggled into
+			// scraped data can't run. Styles stay 'unsafe-inline' for Svelte's style="" attributes.
+			// frame-ancestors is added per response in hooks.server.ts (the embed view may be framed).
+			csp: {
+				mode: 'auto',
+				directives: {
+					'default-src': ['self'],
+					'script-src': ['self'],
+					'style-src': ['self', 'unsafe-inline'],
+					'img-src': ['self', 'data:', 'blob:'],
+					'font-src': ['self'],
+					'connect-src': ['self', 'https://tiles.openfreemap.org'],
+					'worker-src': ['self', 'blob:'],
+					'object-src': ['none'],
+					'base-uri': ['self'],
+					'form-action': ['self']
+				}
+			}
 		}),
 
 		paraglideVitePlugin({

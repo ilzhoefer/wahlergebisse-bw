@@ -521,5 +521,6 @@
 	"export_sources_format": "Spalten und Schlüssel sind hier erklärt: {url}",
 	"export_sources_reuse": "Bei einer Weiterverwendung bitte die Quellen nennen.",
 	"export_no_results": "Für diese Wahl liegen keine Ergebnisse vor.",
+	"export_busy": "Gerade laufen mehrere Exporte. Bitte in einer Minute erneut versuchen.",
 	"daten_direct_link": "Alle Gemeinden dieser Wahl als ZIP (fester Link, auch für Skripte)"
 }

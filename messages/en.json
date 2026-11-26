@@ -521,5 +521,6 @@
 	"export_sources_format": "Columns and keys are explained here: {url}",
 	"export_sources_reuse": "When reusing the data, please credit the sources.",
 	"export_no_results": "There are no results for this election.",
+	"export_busy": "Several exports are running right now. Please try again in a minute.",
 	"daten_direct_link": "All Gemeinden of this election as ZIP (fixed link, also for scripts)"
 }

@@ -4,7 +4,11 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { crawlRun } from '#lib/server/db/schema.ts';
 import { getElectionTypes, getGemeindenWithData } from '#lib/server/map/queries.ts';
-import { exportFiles, type ExportKind } from '#lib/server/csv-export/exportFiles.ts';
+import {
+	exportFiles,
+	withExportSlot,
+	type ExportKind
+} from '#lib/server/csv-export/exportFiles.ts';
 import { hasStatistikBwSource } from '#lib/server/scraper/statistikBw.ts';
 import { formatDate } from '#lib/formatDate.ts';
 import { formatBerlin } from '#lib/berlinTime.ts';
@@ -77,12 +81,18 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		.replace(/ü/g, 'ue')
 		.replace(/ß/g, 'ss')
 		.replace(/[^a-z0-9]+/g, '-');
-	const zip = downloadZip([
-		{ name: m.export_sources_filename(), input: sources },
-		...exportFiles(kinds, rsList, electionType, date)
-	]);
-	zip.headers.set('Content-Disposition', `attachment; filename="${slug}-${date}.zip"`);
-	// Results only change with a crawl; short enough for election night.
-	zip.headers.set('Cache-Control', 'public, max-age=300');
-	return zip;
+	const response = withExportSlot(() => {
+		const zip = downloadZip([
+			{ name: m.export_sources_filename(), input: sources },
+			...exportFiles(kinds, rsList, electionType, date)
+		]);
+		zip.headers.set('Content-Disposition', `attachment; filename="${slug}-${date}.zip"`);
+		// Results only change with a crawl; short enough for election night.
+		zip.headers.set('Cache-Control', 'public, max-age=300');
+		return zip;
+	});
+	return (
+		response ??
+		Response.json({ message: m.export_busy() }, { status: 503, headers: { 'Retry-After': '60' } })
+	);
 };

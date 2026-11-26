@@ -1,6 +1,11 @@
 import { error } from '@sveltejs/kit';
 import { downloadZip } from 'client-zip';
-import { exportFiles, type ExportKind } from '#lib/server/csv-export/exportFiles.ts';
+import {
+	exportFiles,
+	withExportSlot,
+	type ExportKind
+} from '#lib/server/csv-export/exportFiles.ts';
+import * as m from '#lib/paraglide/messages.js';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -27,18 +32,22 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (wantAggregate) kinds.push('aggregate');
 	if (wantPs) kinds.push(person ? 'psByCandidate' : 'psByParty');
 	if (wantMetaPs) kinds.push('metaPs');
-	const files = exportFiles(kinds, rsList, electionType, date);
-
-	if (files.length === 1) {
-		return new Response(files[0].input, {
-			headers: {
-				'Content-Type': 'text/csv; charset=utf-8',
-				'Content-Disposition': `attachment; filename="${files[0].name}"`
-			}
-		});
-	}
-
-	const zipResponse = downloadZip(files);
-	zipResponse.headers.set('Content-Disposition', 'attachment; filename="wahlergebnisse.zip"');
-	return zipResponse;
+	const response = withExportSlot(() => {
+		const files = exportFiles(kinds, rsList, electionType, date);
+		if (files.length === 1) {
+			return new Response(files[0].input, {
+				headers: {
+					'Content-Type': 'text/csv; charset=utf-8',
+					'Content-Disposition': `attachment; filename="${files[0].name}"`
+				}
+			});
+		}
+		const zip = downloadZip(files);
+		zip.headers.set('Content-Disposition', 'attachment; filename="wahlergebnisse.zip"');
+		return zip;
+	});
+	return (
+		response ??
+		Response.json({ message: m.export_busy() }, { status: 503, headers: { 'Retry-After': '60' } })
+	);
 };

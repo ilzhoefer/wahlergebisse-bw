@@ -219,6 +219,16 @@ deployment:
 4. Behind a reverse proxy, set adapter-node's `ORIGIN` (link previews, `sitemap.xml`) and
    `ADDRESS_HEADER` (the admin login's per-IP lockout).
 
+Operating notes:
+
+- The image runs as the unprivileged `bun` user and has a Docker `HEALTHCHECK` on `/healthz`, which
+  answers 200 while the app reaches its database and 503 otherwise.
+- Admin sessions are stateless signed cookies valid for 24 hours. There is no session store, so the
+  only way to log every session out at once (e.g. after a leaked password) is to change
+  `SESSION_SECRET` and restart.
+- At most three CSV/ZIP exports stream at once; further requests get a 503 with `Retry-After`. For
+  per-client limits on `/graphql` and `/daten/export`, put a rate limit in front at the reverse proxy.
+
 A database crawled before the candidate pages existed needs two one-off backfills:
 `bun run scripts/build-candidates.ts` (per-candidate table for Gemeinderat/Kreistag) and
 `bun run scripts/fetch-kreistag-elected.ts <date>` per Kreistagswahl (elected members, published

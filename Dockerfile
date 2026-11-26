@@ -25,5 +25,10 @@ COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./package.json
 COPY --from=prod-deps /app/node_modules ./node_modules
 
+# The image's unprivileged user instead of root: a compromised app can't modify its own image.
+USER bun
 EXPOSE 3000
+# /healthz checks the database too, so Docker/Dokploy see a hung app or lost DB connection.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD bun -e "fetch('http://127.0.0.1:' + (process.env.PORT ?? 3000) + '/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 CMD ["bun", "./build/index.js"]
