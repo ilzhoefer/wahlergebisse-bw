@@ -142,12 +142,17 @@
 										<span class="muted">{m.candidate_result_not_elected()}</span>
 									{/if}
 									{#if o === 'jumped'}
-										<span
+										<!-- Gemeinderatswahl: the badge opens that election's Listenspringer analysis. -->
+										<svelte:element
+											this={x.electionType === 6 ? 'a' : 'span'}
 											class="badge jump"
+											href={x.electionType === 6
+												? `${resolve('/listenspringer')}?datum=${x.date}`
+												: undefined}
 											title={m.candidate_jumped_hint({ seats: x.listSeats ?? 0 })}
 										>
 											{m.candidate_jumped({ from: x.position ?? 0, to: x.voteRank ?? 0 })}
-										</span>
+										</svelte:element>
 									{:else if o === 'pushedOut'}
 										<span
 											class="badge out"
@@ -262,6 +267,12 @@
 	.of,
 	.muted {
 		color: var(--map-ink-muted);
+	}
+	a.badge {
+		text-decoration: none;
+	}
+	a.badge:hover {
+		text-decoration: underline;
 	}
 	.badge {
 		display: inline-block;

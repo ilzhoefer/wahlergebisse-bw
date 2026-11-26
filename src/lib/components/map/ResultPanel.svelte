@@ -67,6 +67,8 @@
 		embedCode?: string;
 		/** Link under the heading to the area's own page (Gemeinde page), with its label. */
 		detailLink?: { href: string; label: string } | null;
+		/** A related analysis for the shown election (Gemeinderatswahl: the Listenspringer page). */
+		analysisLink?: { href: string; label: string } | null;
 	}
 
 	let {
@@ -95,7 +97,8 @@
 		absolute = false,
 		onToggleAbsolute,
 		embedCode,
-		detailLink = null
+		detailLink = null,
+		analysisLink = null
 	}: Props = $props();
 
 	let embedCopied = $state(false);
@@ -304,6 +307,10 @@
 		{#if explanation}
 			<p class="explanation">{explanation}</p>
 		{/if}
+		{#if analysisLink}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolve()d href -->
+			<a class="detail-link analysis-link" href={analysisLink.href}>{analysisLink.label}</a>
+		{/if}
 	</div>
 
 	<div class="footer">
@@ -385,6 +392,9 @@
 	}
 	.detail-link:hover {
 		color: var(--map-accent-hover);
+	}
+	.analysis-link {
+		margin-top: 12px;
 	}
 	.stats {
 		padding: 12px 20px;

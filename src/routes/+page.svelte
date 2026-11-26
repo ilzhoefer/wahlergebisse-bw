@@ -2487,6 +2487,12 @@
 							label: m.map_gemeinde_page_link({ name: focused.name })
 						}
 					: null}
+				analysisLink={selectedElectionType === 6 && selectedDate
+					? {
+							href: `${resolve('/listenspringer')}?datum=${selectedDate}`,
+							label: m.map_listjump_link()
+						}
+					: null}
 				onToggleAbsolute={() => (absoluteValues = !absoluteValues)}
 				notes={[
 					missingNote,

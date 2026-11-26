@@ -458,6 +458,7 @@
 
 	"map_gemeinde_page_link": "All elections in {name} →",
 
+	"map_listjump_link": "Listenspringer: who moved up the lists through cumulative and split voting? →",
 	"listjump_title": "List jumpers",
 	"listjump_meta_title": "List jumpers – municipal council election {date} in Baden-Württemberg",
 	"listjump_meta_description": "Through cumulative and split voting, {share} of seats in the municipal council election of {date} went to candidates further down their list.",

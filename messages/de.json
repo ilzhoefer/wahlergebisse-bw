@@ -458,6 +458,7 @@
 
 	"map_gemeinde_page_link": "Alle Wahlen in {name} →",
 
+	"map_listjump_link": "Listenspringer: Wer ist hier per Kumulieren und Panaschieren nach vorne gerückt? →",
 	"listjump_title": "Listenspringer",
 	"listjump_meta_title": "Listenspringer – Gemeinderatswahl {date} in Baden-Württemberg",
 	"listjump_meta_description": "Bei der Gemeinderatswahl am {date} gingen durch Kumulieren und Panaschieren {share} der Sitze an Kandidierende, die auf ihrer Liste weiter hinten standen.",
