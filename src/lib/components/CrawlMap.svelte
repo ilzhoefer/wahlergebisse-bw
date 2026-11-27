@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { FeatureCollection } from 'geojson';
-	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
-	import * as m from '$lib/paraglide/messages';
-	import { GEO_URL } from '$lib/map/geoUrls';
+	import MapView, { type RegionItem } from '#lib/components/MapView.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import { GEO_URL } from '#lib/map/geoUrls.ts';
 
 	type CityStatus = 'in_progress' | 'done' | 'skipped';
 	type DisplayStatus = CityStatus | 'pending';
@@ -57,8 +57,15 @@
 		})
 	);
 
+	const counts = $derived.by(() => {
+		const c: Record<DisplayStatus, number> = { pending: 0, in_progress: 0, done: 0, skipped: 0 };
+		for (const item of items) c[item.status] += 1;
+		return c;
+	});
+
 	function formatPopup(properties: Record<string, unknown>, item: RegionItem | undefined) {
-		const name = (properties.name as string) ?? '';
+		// Goes through Popup.setHTML — escape rather than trust the geojson.
+		const name = String(properties.name ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 		const status = (item?.status as DisplayStatus | undefined) ?? 'pending';
 		return `<strong>${name}</strong><br/>${statusLabel(status)}`;
 	}
@@ -67,13 +74,14 @@
 <MapView {geojson} {sourceKey} keyProperty="rs" {items} {formatPopup} />
 
 <div class="legend">
-	<span class="map-lbl" style="color: var(--map-ink); margin-bottom: 2px"
-		>{m.admin_map_heading()}</span
-	>
+	<span class="map-lbl" style="color: var(--map-ink); margin-bottom: 2px">
+		{m.admin_map_heading()}
+	</span>
 	{#each STATUSES as status (status)}
 		<span class="row">
 			<span class="swatch" style="background: {COLORS[status]}"></span>
 			{statusLabel(status)}
+			<span class="count">{counts[status]}</span>
 		</span>
 	{/each}
 </div>
@@ -99,6 +107,13 @@
 		gap: 8px;
 		font-size: 12px;
 		color: var(--map-ink-2);
+		white-space: nowrap;
+	}
+	.count {
+		margin-left: auto;
+		padding-left: 10px;
+		font: 500 11px var(--map-font-mono);
+		color: var(--map-ink);
 	}
 	.swatch {
 		width: 11px;

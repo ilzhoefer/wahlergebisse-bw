@@ -1,8 +1,8 @@
 /**
  * Client-side place search for the map's search box (Gemeinden, Kreise, Regierungsbezirke from the
- * geo files). Pure, so scripts/check-search.ts can test it.
+ * geo files). Pure, so tests/search.test.ts can test it.
  */
-import type { MapLevel } from '$lib/map/path';
+import type { MapLevel } from '#lib/map/path.ts';
 
 export interface Place {
 	rs: number;

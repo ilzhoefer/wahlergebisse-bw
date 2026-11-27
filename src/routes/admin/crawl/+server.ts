@@ -1,7 +1,6 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireAdmin } from '$lib/server/auth/session';
-import { startCrawl } from '$lib/server/crawl-runner';
+import { requireAdmin } from '#lib/server/auth/session.ts';
+import { startCrawl } from '#lib/server/crawl-runner/index.ts';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	requireAdmin(locals);
@@ -15,9 +14,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const fullRun = body.fullRun === true;
 
 	if (!date || !Number.isFinite(electionTypeId)) {
-		return json({ started: false, reason: 'missing_fields' }, { status: 400 });
+		return Response.json({ started: false, reason: 'missing_fields' }, { status: 400 });
 	}
 
 	const result = await startCrawl({ date, electionTypeId, parallel, fullRun });
-	return json(result);
+	return Response.json(result);
 };

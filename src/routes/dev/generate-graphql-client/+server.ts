@@ -1,6 +1,6 @@
-import { dev } from '$app/environment';
-import { error, json } from '@sveltejs/kit';
-import { clientCreator } from '$lib/server/graphql';
+import { dev } from '$app/env';
+import { error } from '@sveltejs/kit';
+import { clientCreator } from '#lib/server/graphql/index.ts';
 
 /**
  * Dev-only trigger for regenerating the typed GraphQL client at src/lib/generated-client/. Hit
@@ -30,5 +30,5 @@ export const GET = async () => {
 		rumbleImportPath: '@m1212e/rumble/client'
 	});
 
-	return json({ ok: true });
+	return Response.json({ ok: true });
 };

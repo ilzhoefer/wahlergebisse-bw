@@ -1,0 +1,1 @@
+ALTER TABLE "election_candidate" ADD COLUMN "list_alphabetical" boolean DEFAULT false NOT NULL;

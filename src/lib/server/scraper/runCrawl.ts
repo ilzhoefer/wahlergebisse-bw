@@ -1,9 +1,12 @@
-import type { db as DbType } from '$lib/server/db';
-import { cities } from '$lib/server/db/schema';
+import { getElectedKreistagMembers } from './kreistagMembers';
+import { updateCandidates, updateErststimmeCandidates, mandatePeople } from './candidates';
+import { getWahlkreisMandates } from '#lib/server/map/mandates.ts';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { cities } from '#lib/server/db/schema.ts';
 import { DEFAULT_PARALLEL, type Logger } from './client';
 import { updateElectionDates, setElectionType } from './elections';
 import { getPollingStationsElection } from './pollingStations';
-import { getResultsCity, neutralizeCentralCountPlaceholders } from './results';
+import { getResultsCity, neutralizeCentralCountPlaceholders, unifyPartyIds } from './results';
 import { updatePartyFamily } from './partyFamily';
 import { updateAggregateParty } from './aggregates';
 import { updateMappingStuttgart, type StuttgartDistrictRow } from './stuttgartMapping';
@@ -76,11 +79,12 @@ export interface CrawlParams {
 // Fixed step count for progress reporting — the Stuttgart-mapping and Wahlkreis-import steps always
 // run (as a no-op log line when there's no data for the date/type), so the total is constant
 // regardless of branch.
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 12;
 
 /**
  * Re-derives everything that depends on the party-family mapping for an already-crawled election —
- * the central-count placeholder cleanup (see neutralizeCentralCountPlaceholders), the mapping
+ * the central-count placeholder cleanup (see neutralizeCentralCountPlaceholders), the party_id
+ * cleanup for split Gemeinden (see unifyPartyIds), the mapping
  * itself, the region/district aggregates and Stuttgart's polling-station aggregates — without
  * re-fetching anything. Run after changing the families (party-families.csv) or the
  * matching rules in partyFamily.ts; see scripts/remap-parties.ts. (Seat counts need nothing: they're
@@ -88,6 +92,7 @@ const TOTAL_STEPS = 11;
  */
 export async function remapPartyFamilies(db: Db, params: CrawlParams, log: Logger) {
 	await neutralizeCentralCountPlaceholders(db, params.date, params.electionTypeId, log);
+	await unifyPartyIds(db, params.date, params.electionTypeId, log);
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
 	const districtRows = STUTTGART_DISTRICTS[params.date];
@@ -116,11 +121,18 @@ async function runStatistikBwCrawl(db: Db, params: CrawlParams, log: Logger) {
 	await updatePartyFamily(db, params.date, params.electionTypeId, true, log);
 	stepTick(2);
 	await updateAggregateParty(db, params.date, params.electionTypeId, true, log);
+	await updateErststimmeCandidates(
+		db,
+		params.date,
+		params.electionTypeId,
+		mandatePeople(getWahlkreisMandates(params.date)),
+		log
+	);
 	if (postal) {
 		stepTick(3);
 		await updateWahlbezirkAggregates(db, postal, params.date, params.electionTypeId, log);
 	}
-	log('Crawl abgeschlossen');
+	log('Crawl abgeschlossen', undefined, 'ok');
 }
 
 export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
@@ -166,6 +178,7 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	stepTick('Ergebnisse abrufen');
 	await getResultsCity(db, cityList, params.date, params.electionTypeId, true, log, parallel);
 	await neutralizeCentralCountPlaceholders(db, params.date, params.electionTypeId, log);
+	await unifyPartyIds(db, params.date, params.electionTypeId, log);
 
 	stepTick('Wahlkreis-Gemeinden-Zuordnung importieren');
 	// Must run before the html5 import (which splits Gemeinden spanning several Wahlkreise by it) and
@@ -218,7 +231,20 @@ export async function runCrawl(db: Db, params: CrawlParams, log: Logger) {
 	}
 
 	stepTick('Gewählte Mitglieder abrufen');
-	await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
+	// Kreistag members are only published per Landkreis, not per Gemeinde.
+	if (params.electionTypeId === 5) await getElectedKreistagMembers(db, params.date, log);
+	else await getElectedMembers(db, cityList, params.date, params.electionTypeId, log, parallel);
 
-	log('Crawl abgeschlossen');
+	stepTick('Kandidierende auswerten');
+	// Needs the elected members above; only list elections have candidates.
+	if (params.electionTypeId === 5 || params.electionTypeId === 6) {
+		await updateCandidates(db, params.date, params.electionTypeId, log);
+	} else if (params.electionTypeId === 2 || params.electionTypeId === 3) {
+		const people = mandatePeople(getWahlkreisMandates(params.date));
+		await updateErststimmeCandidates(db, params.date, params.electionTypeId, people, log);
+	} else {
+		log('Keine Kandidatenlisten bei dieser Wahlart, überspringe');
+	}
+
+	log('Crawl abgeschlossen', undefined, 'ok');
 }

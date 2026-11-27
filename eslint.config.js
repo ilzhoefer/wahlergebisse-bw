@@ -12,7 +12,7 @@ export default defineConfig(
 	includeIgnoreFile(gitignorePath),
 	{
 		// Legacy R/Shiny stack (removed in a later cleanup pass, see CLAUDE.md), local worktrees, vendored MapLibre
-		ignores: ['R-Code/**', 'Docker/**', 'SQL/**', '00_daten/**', '.claude/**', 'static/**']
+		ignores: ['.claude/**', 'static/**']
 	},
 	js.configs.recommended,
 	ts.configs.recommended,

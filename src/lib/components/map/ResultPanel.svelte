@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SiteLinks from '$lib/components/SiteLinks.svelte';
-	import * as m from '$lib/paraglide/messages';
+	import SiteLinks from '#lib/components/SiteLinks.svelte';
+	import * as m from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
 	import SeatChart, { type SeatParty } from './SeatChart.svelte';
@@ -63,6 +63,12 @@
 		/** Values shown as vote counts instead of shares; the switch only appears with `onToggleAbsolute`. */
 		absolute?: boolean;
 		onToggleAbsolute?: () => void;
+		/** iframe snippet of the current view; shows an "Einbetten" button that copies it. */
+		embedCode?: string;
+		/** Link under the heading to the area's own page (Gemeinde page), with its label. */
+		detailLink?: { href: string; label: string } | null;
+		/** A related analysis for the shown election (Gemeinderatswahl: the Listenspringer page). */
+		analysisLink?: { href: string; label: string } | null;
 	}
 
 	let {
@@ -89,8 +95,19 @@
 		children,
 		peopleGroups = [],
 		absolute = false,
-		onToggleAbsolute
+		onToggleAbsolute,
+		embedCode,
+		detailLink = null,
+		analysisLink = null
 	}: Props = $props();
+
+	let embedCopied = $state(false);
+	async function copyEmbed() {
+		if (!embedCode) return;
+		await navigator.clipboard.writeText(embedCode);
+		embedCopied = true;
+		setTimeout(() => (embedCopied = false), 2000);
+	}
 </script>
 
 {#snippet bars(r: PanelRow)}
@@ -113,13 +130,17 @@
 		<div class="header-top">
 			<span class="map-lbl" style="color: var(--map-ink-muted)">{levelLabel} · {code}</span>
 			{#if canGoUp}
-				<button type="button" class="up-link" onclick={onGoUp}
-					>{m.map_panel_up_to({ parent: parentName })}</button
-				>
+				<button type="button" class="up-link" onclick={onGoUp}>
+					{m.map_panel_up_to({ parent: parentName })}
+				</button>
 			{/if}
 		</div>
 		<h2 class="name">{name}</h2>
 		<div class="sub">{sub}</div>
+		{#if detailLink}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolve()d href -->
+			<a class="detail-link" href={detailLink.href}>{detailLink.label}</a>
+		{/if}
 	</div>
 
 	<div class="stats">
@@ -173,15 +194,18 @@
 						class:active={!absolute}
 						aria-pressed={!absolute}
 						onclick={() => absolute && onToggleAbsolute()}
-						>{m.map_rows_heading_right_anteil()}</button
 					>
+						{m.map_rows_heading_right_anteil()}
+					</button>
 					<button
 						type="button"
 						class="map-lbl"
 						class:active={absolute}
 						aria-pressed={absolute}
-						onclick={() => !absolute && onToggleAbsolute()}>{m.map_values_votes()}</button
+						onclick={() => !absolute && onToggleAbsolute()}
 					>
+						{m.map_values_votes()}
+					</button>
 				</span>
 			{/if}
 		</span>
@@ -220,10 +244,11 @@
 									aria-expanded={r.expanded}
 									title={m.map_panel_candidates_show()}
 									onclick={r.onSelect}
-									>{r.primary}<span class="chevron" aria-hidden="true"
-										>{r.expanded ? '▾' : '▸'}</span
-									></button
 								>
+									{r.primary}<span class="chevron" aria-hidden="true">
+										{r.expanded ? '▾' : '▸'}
+									</span>
+								</button>
 							{:else}
 								<span class="primary">{r.primary}</span>
 							{/if}
@@ -237,8 +262,10 @@
 								type="button"
 								class="pct pct-button"
 								title={absolute ? m.map_values_show_shares() : m.map_values_show_votes()}
-								onclick={onToggleAbsolute}>{r.pct}</button
+								onclick={onToggleAbsolute}
 							>
+								{r.pct}
+							</button>
 						{:else}
 							<span class="pct">{r.pct}</span>
 						{/if}
@@ -260,11 +287,13 @@
 								</div>
 								{#each r.candidates as c, i (`${i}:${c.name}`)}
 									<div class="cand">
-										<span class="cand-name">{c.name}</span>
+										<a class="cand-name" href={resolve('/kandidat/[name]', { name: c.name })}>
+											{c.name}
+										</a>
 										{#if c.elected}
-											<span class="cand-elected" title={m.map_panel_candidate_elected()}
-												>✓<span class="sr-only">{m.map_panel_candidate_elected()}</span></span
-											>
+											<span class="cand-elected" title={m.map_panel_candidate_elected()}>
+												✓<span class="sr-only">{m.map_panel_candidate_elected()}</span>
+											</span>
 										{/if}
 										<span class="cand-votes">{c.votes}</span>
 									</div>
@@ -278,13 +307,24 @@
 		{#if explanation}
 			<p class="explanation">{explanation}</p>
 		{/if}
+		{#if analysisLink}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolve()d href -->
+			<a class="detail-link analysis-link" href={analysisLink.href}>{analysisLink.label}</a>
+		{/if}
 	</div>
 
 	<div class="footer">
-		<span class="footnote">{footnote}</span>
-		<a class="csv" href={resolve('/daten')}>{m.map_panel_csv_button()}</a>
+		<div class="footer-text">
+			<span class="footnote">{footnote}</span>
+			<SiteLinks class="site-links-row" />
+		</div>
+		{#if embedCode}
+			<button type="button" class="csv" title={m.map_embed_hint()} onclick={copyEmbed}>
+				{embedCopied ? m.map_embed_copied() : m.map_embed_button()}
+			</button>
+		{/if}
+		<a class="csv" href={resolve('daten')}>{m.map_panel_csv_button()}</a>
 	</div>
-	<SiteLinks class="site-links-row" />
 </div>
 
 <style>
@@ -298,6 +338,16 @@
 		flex-direction: column;
 		overflow: hidden;
 		font-family: var(--map-font-body);
+	}
+	@media (max-width: 759px) {
+		/* Stacked under the map: full width, grows with its content (the page scrolls). */
+		.panel {
+			width: 100%;
+			flex: none;
+			order: 2;
+			border-right: none;
+			border-top: 1px solid var(--map-border-strong);
+		}
 	}
 	.header {
 		padding: 18px 20px 15px;
@@ -332,21 +382,38 @@
 		font-size: 12px;
 		color: var(--map-ink-3);
 	}
+	.detail-link {
+		display: inline-block;
+		margin-top: 6px;
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--map-accent);
+		text-decoration: none;
+	}
+	.detail-link:hover {
+		color: var(--map-accent-hover);
+	}
+	.analysis-link {
+		margin-top: 12px;
+	}
 	.stats {
-		padding: 14px 20px;
+		padding: 12px 20px;
 		display: flex;
-		flex-wrap: wrap;
-		column-gap: 16px;
-		row-gap: 12px;
+		justify-content: space-between;
+		gap: 12px;
 		border-bottom: 1px solid var(--map-border-soft);
+	}
+	.stat {
+		flex: none;
 	}
 	.stat-label {
 		color: var(--map-ink-muted);
 		margin-bottom: 3px;
 	}
 	.stat-value {
-		font: 500 19px var(--map-font-mono);
+		font: 500 15px var(--map-font-mono);
 		color: var(--map-ink);
+		white-space: nowrap;
 	}
 	.rows-heading {
 		padding: 14px 20px 10px;
@@ -499,6 +566,8 @@
 		color: var(--map-ink-2);
 	}
 	.cand-name {
+		color: inherit;
+		text-decoration: none;
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
@@ -556,11 +625,18 @@
 		height: 100%;
 	}
 	.footer {
-		padding: 13px 20px 17px;
+		padding: 11px 20px 12px;
 		border-top: 1px solid var(--map-border-soft);
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 10px;
+	}
+	.footer-text {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
 	}
 	.people {
 		padding: 12px 20px;
@@ -613,15 +689,14 @@
 		color: var(--map-ink-3);
 	}
 	.footnote {
-		flex: 1;
 		font-size: 11.5px;
 		line-height: 1.4;
 		color: var(--map-ink-3);
 	}
 	.panel :global(.site-links-row) {
-		padding: 0 20px 12px;
-		color: var(--map-ink-3);
-		font-size: 11.5px;
+		gap: 2px 12px;
+		color: var(--map-ink-muted);
+		font-size: 11px;
 	}
 	.csv {
 		padding: 9px 12px;

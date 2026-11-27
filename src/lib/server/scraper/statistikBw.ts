@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	cities,
 	elections,
@@ -10,7 +10,7 @@ import {
 	electionResultPs,
 	electionVoteDistrictMapping,
 	pollingStations
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 import { decodeEntities } from './html5OpenData';
 import { parseOpenDataCsv } from './kreisOpenData';
@@ -212,7 +212,11 @@ export async function importStatistikBw(db: Db, date: string, log: Logger) {
 		if (r.Gebietsart !== 'URNENWAHLBEZIRK' && r.Gebietsart !== 'BRIEFWAHLBEZIRK') continue;
 		if (!rsByAgs.has(r.AGS)) {
 			skipped++;
-			log(`Wahlbezirk "${r.Gebietsname}" (AGS ${r.AGS}) keiner Gemeinde zuordenbar, übersprungen`);
+			log(
+				`Wahlbezirk "${r.Gebietsname}" (AGS ${r.AGS}) keiner Gemeinde zuordenbar, übersprungen`,
+				undefined,
+				'warn'
+			);
 			continue;
 		}
 		stationsByAgs.set(r.AGS, [...(stationsByAgs.get(r.AGS) ?? []), r]);

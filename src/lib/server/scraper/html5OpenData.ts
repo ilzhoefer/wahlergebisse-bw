@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	electionsVotetypes,
@@ -9,7 +9,7 @@ import {
 	electionResultPs,
 	electionVoteDistrictMapping,
 	pollingStations
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import { BASE, formatDateForUrl, padAgs, runWithConcurrency, type Logger } from './client';
 import { setElectionType } from './elections';
 import { parseOpenDataCsv } from './kreisOpenData';
@@ -214,7 +214,9 @@ export async function importHtml5OpenData(
 			if (own.some((e) => e.name?.startsWith(w.title))) continue;
 			if (own.some((e) => e.electionId === w.electionId)) {
 				log(
-					`${label}: Wahl-ID ${w.electionId} ("${w.title}") schon anderweitig belegt, überspringe`
+					`${label}: Wahl-ID ${w.electionId} ("${w.title}") schon anderweitig belegt, überspringe`,
+					undefined,
+					'warn'
 				);
 				continue;
 			}
@@ -276,7 +278,7 @@ export async function importHtml5OpenData(
 		else if (!last) retry.push(t);
 		else {
 			failed++;
-			log(`${label}: ${error}`);
+			log(`${label}: ${error}`, undefined, 'warn');
 		}
 		return error;
 	};
@@ -450,7 +452,11 @@ async function ownStations(
 			if (districtId === undefined) {
 				// A station without a Wahlkreis would drop into updateAggregateDistrict's Stuttgart
 				// guess — rather keep the whole-Gemeinde assignment.
-				log(`${label}: Wahlkreis nicht für alle Wahlbezirke bestimmbar, keine Zuordnung je Bezirk`);
+				log(
+					`${label}: Wahlkreis nicht für alle Wahlbezirke bestimmbar, keine Zuordnung je Bezirk`,
+					undefined,
+					'warn'
+				);
 				wahlkreisOf.clear();
 			} else rest.forEach((s) => wahlkreisOf.set(s['gebiet-nr'], districtId));
 		}
@@ -530,7 +536,9 @@ async function importElection(
 	// come with its whole Wahlkreis's votes, so there they never match.)
 	if (mismatches > 0 && !viaKreis)
 		log(
-			`${label}: Summe der Wahlbezirke weicht bei ${mismatches} Stimmspalten vom Gesamtergebnis ab`
+			`${label}: Summe der Wahlbezirke weicht bei ${mismatches} Stimmspalten vom Gesamtergebnis ab`,
+			undefined,
+			'warn'
 		);
 
 	const lokaleCsv = await fetchText(`${base}/opendata-wahllokale.csv`);
@@ -806,7 +814,9 @@ export async function mapJsonStationsToWahlkreise(
 		});
 		if (stations.length === 0 || rows.length < stations.length) {
 			log(
-				`${label}: nur ${rows.length} von ${stations.length} Wahlbezirken einem Wahlkreis zuordenbar, keine Zuordnung je Bezirk`
+				`${label}: nur ${rows.length} von ${stations.length} Wahlbezirken einem Wahlkreis zuordenbar, keine Zuordnung je Bezirk`,
+				undefined,
+				'warn'
 			);
 			continue;
 		}

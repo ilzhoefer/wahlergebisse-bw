@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	pollingStations,
@@ -11,7 +11,7 @@ import {
 	electionVoteDistrictMapping,
 	electionResultAggregateMetaPs,
 	electionResultAggregatePartyPs
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 
 type Db = typeof DbType;
@@ -162,7 +162,11 @@ export async function updateMappingStuttgart(
 		const psId = inPersonStation?.psId ?? null;
 
 		if (psId === null) {
-			log(`Stuttgart-Bezirk "${row.AWBEZ_T}": kein Wahlbezirk gefunden, überspringe`);
+			log(
+				`Stuttgart-Bezirk "${row.AWBEZ_T}": kein Wahlbezirk gefunden, überspringe`,
+				undefined,
+				'warn'
+			);
 			continue;
 		}
 

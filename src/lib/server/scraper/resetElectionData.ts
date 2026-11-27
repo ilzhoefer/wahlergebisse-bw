@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	pollingStations,
@@ -12,7 +12,7 @@ import {
 	electionVoteDistrictMapping,
 	electionResultAggregateMetaPs,
 	electionResultAggregatePartyPs
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 
 type Db = typeof DbType;

@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { elections, electionParty, electionElectedCandidates } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { elections, electionParty, electionElectedCandidates } from '#lib/server/db/schema.ts';
 import {
 	BASE,
 	padAgs,
@@ -50,14 +50,18 @@ export async function getElectedMembers(
 		// whenever an earlier-started city finishes after later ones have already begun.
 		const position = ++started;
 		const citySkip = (message: string) =>
-			log(message, {
-				level: 'city',
-				index: ++completed,
-				total: cityList.length,
-				label: cityLabel,
-				rs: city.rs,
-				cityStatus: 'skipped'
-			});
+			log(
+				message,
+				{
+					level: 'city',
+					index: ++completed,
+					total: cityList.length,
+					label: cityLabel,
+					rs: city.rs,
+					cityStatus: 'skipped'
+				},
+				'warn'
+			);
 
 		log(`[${position}/${cityList.length}] ${cityLabel}: gewählte Mitglieder abrufen`, {
 			level: 'city',

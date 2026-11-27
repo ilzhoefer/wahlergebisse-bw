@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
+	import * as m from '#lib/paraglide/messages.js';
 
 	export interface SearchHit {
 		id: string;
@@ -9,13 +9,21 @@
 	}
 
 	interface Props {
-		/** Instant, client-side matches (places). */
-		findPlaces: (q: string) => SearchHit[];
-		/** Server-side matches (elected candidates), fetched debounced from 3 characters on. */
+		/** Instant, client-side matches (places); none if omitted. */
+		findPlaces?: (q: string) => SearchHit[];
+		/** Server-side matches (people), fetched debounced from 3 characters on. */
 		findPeople: (q: string) => Promise<SearchHit[]>;
+		placeholder?: string;
+		/** Heading of the people group (default: elected candidates). */
+		peopleLabel?: string;
 	}
 
-	let { findPlaces, findPeople }: Props = $props();
+	let {
+		findPlaces = () => [],
+		findPeople,
+		placeholder = m.map_search_placeholder(),
+		peopleLabel = m.map_search_group_people()
+	}: Props = $props();
 
 	const uid = $props.id();
 	let query = $state('');
@@ -79,7 +87,7 @@
 		role="combobox"
 		autocomplete="off"
 		spellcheck="false"
-		placeholder={m.map_search_placeholder()}
+		{placeholder}
 		aria-label={m.map_search_label()}
 		aria-expanded={showList}
 		aria-controls="{uid}-list"
@@ -97,7 +105,7 @@
 					<li class="group map-lbl" role="presentation">{m.map_search_group_places()}</li>
 				{/if}
 				{#if i === places.length}
-					<li class="group map-lbl" role="presentation">{m.map_search_group_people()}</li>
+					<li class="group map-lbl" role="presentation">{peopleLabel}</li>
 				{/if}
 				<!-- mousedown (not click) so it fires before the input's blur closes the list. -->
 				<li
@@ -126,7 +134,7 @@
 <style>
 	.search {
 		position: relative;
-		padding: 12px 20px;
+		padding: 10px 20px;
 		border-bottom: 1px solid var(--map-border-soft);
 	}
 	.input {

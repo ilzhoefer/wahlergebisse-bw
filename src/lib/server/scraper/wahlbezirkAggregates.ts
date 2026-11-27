@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	pollingStations,
@@ -9,7 +9,7 @@ import {
 	party,
 	electionResultAggregateMetaPs,
 	electionResultAggregatePartyPs
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 
 type Db = typeof DbType;
@@ -78,7 +78,7 @@ export async function updateWahlbezirkAggregates(
 				return urn === undefined ? [] : [[urn, w] as [number, number]];
 			});
 			if (psId === undefined || targets.length === 0) {
-				log(`${rs}: Briefwahlbezirk ${key} nicht zuordenbar, ohne Verteilung`);
+				log(`${rs}: Briefwahlbezirk ${key} nicht zuordenbar, ohne Verteilung`, undefined, 'warn');
 				continue;
 			}
 			// No Wahlschein holders at all (can't happen with real data) → an even split.

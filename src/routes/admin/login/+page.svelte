@@ -2,8 +2,8 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
 	import { resolve } from '$app/paths';
-	import * as m from '$lib/paraglide/messages';
-	import '$lib/components/map/theme.css';
+	import * as m from '#lib/paraglide/messages.js';
+	import '#lib/components/map/theme.css';
 
 	let { form }: { form: ActionData } = $props();
 </script>
@@ -33,6 +33,8 @@
 		</label>
 		{#if form?.error === 'wrong_password'}
 			<p class="err">{m.admin_login_error_wrong_password()}</p>
+		{:else if form?.error === 'too_many_attempts'}
+			<p class="err">{m.admin_login_error_too_many_attempts()}</p>
 		{/if}
 		<button type="submit" class="primary">{m.admin_login_submit()}</button>
 		<a class="back" href={resolve('/')}>{m.nav_back_to_map()}</a>

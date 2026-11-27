@@ -3,7 +3,7 @@
  * same external API and the same DB, so only one background admin task should run at a time per
  * server instance. Deliberately not per-task-kind so neither module needs to import the other.
  */
-import { clearQueryCache } from '$lib/server/queryCache';
+import { clearQueryCache } from '#lib/server/queryCache.ts';
 
 let running = false;
 

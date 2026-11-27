@@ -1,0 +1,2 @@
+ALTER TABLE "election_candidate" DROP CONSTRAINT "unique_election_candidate";--> statement-breakpoint
+ALTER TABLE "election_candidate" ADD CONSTRAINT "unique_election_candidate" UNIQUE NULLS NOT DISTINCT("rs","election_id","party_id","name","district_id");

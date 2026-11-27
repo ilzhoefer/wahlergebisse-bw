@@ -1,8 +1,10 @@
-import { db } from '$lib/server/db';
-import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
+import { db } from '#lib/server/db/index.ts';
+import { getElectionTypes, getAllElectionDates } from '#lib/server/map/queries.ts';
+import { mapShareMeta } from '#lib/server/map/shareMeta.ts';
+import { readShareParams } from '#lib/map/shareUrl.ts';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ url }) => {
 	const [electionTypes, allDates] = await Promise.all([
 		getElectionTypes(db),
 		getAllElectionDates(db)
@@ -16,11 +18,14 @@ export const load: PageServerLoad = async () => {
 		datesByType.set(row.electionType, list);
 	}
 
+	const types = electionTypes.filter(
+		(t): t is { electionType: number; electionDescription: string } =>
+			t.electionType !== null && t.electionDescription !== null
+	);
+	const byType = Object.fromEntries(datesByType);
 	return {
-		electionTypes: electionTypes.filter(
-			(t): t is { electionType: number; electionDescription: string } =>
-				t.electionType !== null && t.electionDescription !== null
-		),
-		datesByType: Object.fromEntries(datesByType)
+		electionTypes: types,
+		datesByType: byType,
+		meta: await mapShareMeta(db, readShareParams(url.searchParams), types, byType)
 	};
 };

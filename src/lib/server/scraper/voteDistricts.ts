@@ -1,5 +1,5 @@
-import type { db as DbType } from '$lib/server/db';
-import { electionVoteDistrictMapping } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { electionVoteDistrictMapping } from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 
 type Db = typeof DbType;
@@ -28,7 +28,11 @@ export async function importVoteDistrictMapping(
 	log: Logger
 ) {
 	if (rows.length === 0) {
-		log(`Keine Wahlkreis-Gemeinden-Zuordnung für ${date} vorhanden, überspringe`);
+		log(
+			`Keine Wahlkreis-Gemeinden-Zuordnung für ${date} vorhanden, überspringe`,
+			undefined,
+			'warn'
+		);
 		return;
 	}
 	// Idempotent per (rs, electionType, date, psId=null) — a re-run of the same date/type never

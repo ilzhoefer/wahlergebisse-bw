@@ -2,69 +2,114 @@
 	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
-	import MapView, { type RegionItem } from '$lib/components/MapView.svelte';
-	import Toolbar, { type Tab, type SelectOption } from '$lib/components/map/Toolbar.svelte';
+	import MapView, { type RegionItem } from '#lib/components/MapView.svelte';
+	import Toolbar, {
+		type Tab,
+		type ModeItem,
+		type SelectOption
+	} from '#lib/components/map/Toolbar.svelte';
 	import ResultPanel, {
 		type PanelRow,
 		type PeopleGroup
-	} from '$lib/components/map/ResultPanel.svelte';
-	import SearchBox, { type SearchHit } from '$lib/components/map/SearchBox.svelte';
-	import { searchPlaces, type Place } from '$lib/map/search';
-	import { makeDots, niceDotValue, type DotArea } from '$lib/map/dots';
-	import type { CandidateHit } from '$lib/generated-client/client';
-	import HoverCard from '$lib/components/map/HoverCard.svelte';
-	import Legend from '$lib/components/map/Legend.svelte';
-	import BreadcrumbPill from '$lib/components/map/BreadcrumbPill.svelte';
-	import ModeBadge from '$lib/components/map/ModeBadge.svelte';
-	import StatusLine from '$lib/components/map/StatusLine.svelte';
-	import '$lib/components/map/theme.css';
+	} from '#lib/components/map/ResultPanel.svelte';
+	import SearchBox, { type SearchHit } from '#lib/components/map/SearchBox.svelte';
+	import { searchPlaces, type Place } from '#lib/map/search.ts';
+	import { makeDots, niceDotValue, type DotArea } from '#lib/map/dots.ts';
+	import {
+		sumBreakdowns,
+		votersOf,
+		fmtVoteDiff,
+		rankedRow,
+		fmtDiff,
+		fmtPct,
+		fmtNum,
+		barWidth,
+		toRows,
+		toSingleRow
+	} from '#lib/map/breakdown.ts';
+	import { VISUAL_MODES, visualModeLabel, visualModeHint } from '#lib/map/visualModes.ts';
+	import type { CandidateHit } from '#lib/generated-client/client.ts';
+	import HoverCard from '#lib/components/map/HoverCard.svelte';
+	import Legend from '#lib/components/map/Legend.svelte';
+	import BreadcrumbPill from '#lib/components/map/BreadcrumbPill.svelte';
+	import ModeBadge from '#lib/components/map/ModeBadge.svelte';
+	import StatusLine from '#lib/components/map/StatusLine.svelte';
+	import PageMeta from '#lib/components/PageMeta.svelte';
+	import '#lib/components/map/theme.css';
 	import {
 		GEO_URL,
 		wahlbezirkeUrl,
 		wahlbezirkGemeinden,
 		wahlbezirkPostalEstimated
-	} from '$lib/map/geoUrls';
+	} from '#lib/map/geoUrls.ts';
 	import {
+		lastMapView,
 		readShareParams,
 		writeShareParams,
 		levelOfRs,
+		type ShareState,
 		type ShareEbene,
 		type VisualMode
-	} from '$lib/map/shareUrl';
+	} from '#lib/map/shareUrl.ts';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
-	import { rsPrefix, STUTTGART_RS, KREISFREIE_STADT_RS, NO_ELECTION_RS } from '$lib/map/rs';
-	import { LAND_ROOT, hasChildren, childLevel, type MapLevel, type PathEntry } from '$lib/map/path';
-	import { turnoutColorScale, partyColorScale, diffColorScale, paleColor } from '$lib/map/colors';
-	import type { MapMode, MapInformationMode, RegionBreakdown } from '$lib/server/map/queries';
-	import { client } from '$lib/generated-client/client';
-	import * as m from '$lib/paraglide/messages';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/env';
+	import { rsPrefix, STUTTGART_RS, KREISFREIE_STADT_RS, NO_ELECTION_RS } from '#lib/map/rs.ts';
+	import {
+		LAND_ROOT,
+		hasChildren,
+		childLevel,
+		type MapLevel,
+		type PathEntry
+	} from '#lib/map/path.ts';
+	import {
+		turnoutColorScale,
+		partyColorScale,
+		diffColorScale,
+		paleColor
+	} from '#lib/map/colors.ts';
+	import type { MapMode, MapInformationMode, RegionBreakdown } from '#lib/server/map/queries.ts';
+	import { client } from '#lib/generated-client/client.ts';
+	import type { LiveStatus } from './api/live/+server';
+	import { formatBerlin } from '#lib/berlinTime.ts';
+	import * as m from '#lib/paraglide/messages.js';
+	import { formatDate } from '#lib/formatDate.ts';
 
 	let { data } = $props();
 
 	// ---- Election / date / vote-type selectors -----------------------------------------------
 
 	/** State from a shared link (see $lib/map/shareUrl) — applied once on load; the focused region is
-	 * restored asynchronously in `restoreSharedFocus` since it needs region names from the geo files. */
-	const shared = readShareParams(page.url.searchParams);
+	 * restored asynchronously in `restoreSharedFocus` since it needs region names from the geo files.
+	 * Read from `location` in the browser: the URL sync below uses shallow routing, so after the back
+	 * button returns here from another page SvelteKit loads the page's *original* URL (`page.url`)
+	 * while the address bar shows the view the user left. */
+	const shared = readShareParams(
+		browser ? new URLSearchParams(location.search) : page.url.searchParams
+	);
+	/** Map only (iframe on another site): no toolbar, no panel, a link back to the full view. */
+	const embed = shared.embed === true;
 
-	let selectedElectionType = $state<number>(0);
 	// Start on the shared link's election, else the most recent one: the type with the newest date
 	// (ties — several types voted the same day — keep `electionTypes` order). The date effect below
-	// then keeps the shared date if valid, else picks that type's newest date.
-	{
-		const byType = data.datesByType as Record<number, string[]>;
-		const newest = (t: number) => (byType[t] ?? []).reduce((a, b) => (b > a ? b : a), '');
-		selectedElectionType =
-			data.electionTypes.find((t) => t.electionType === shared.wahl)?.electionType ??
-			data.electionTypes.reduce<number | undefined>(
-				(best, t) =>
-					best === undefined || newest(t.electionType) > newest(best) ? t.electionType : best,
-				undefined
-			) ??
-			0;
-	}
+	// then keeps the shared date if valid, else picks that type's newest date. Seeded once from the
+	// page data (untrack): afterwards the selection is the user's.
+	let selectedElectionType = $state<number>(
+		untrack(() => {
+			const byType = data.datesByType as Record<number, string[]>;
+			const newest = (t: number) => (byType[t] ?? []).reduce((a, b) => (b > a ? b : a), '');
+			return (
+				data.electionTypes.find((t) => t.electionType === shared.wahl)?.electionType ??
+				data.electionTypes.reduce<number | undefined>(
+					(best, t) =>
+						best === undefined || newest(t.electionType) > newest(best) ? t.electionType : best,
+					undefined
+				) ??
+				0
+			);
+		})
+	);
 
 	// Most recent first — matches the click-dummy's own ELECTIONS[].dates convention and its
 	// onElection handler, which resets to `dates[0]` expecting that to be the newest.
@@ -73,6 +118,7 @@
 			...(((data.datesByType as Record<number, string[]>)[selectedElectionType] ?? []) as string[])
 		].sort((a, b) => b.localeCompare(a))
 	);
+
 	let selectedDate = $state<string>(shared.datum ?? '');
 	$effect(() => {
 		if (!datesForType.includes(selectedDate)) selectedDate = datesForType[0] ?? '';
@@ -84,6 +130,7 @@
 	const hasTwoVotes = $derived(
 		selectedElectionType === 2 || (selectedElectionType === 3 && selectedDate >= '2026')
 	);
+
 	let selectedVoteType = $state<'0' | '1'>(shared.stimme ?? '0');
 	// Single-vote Landtagswahl (2021 and earlier): its one vote is stored as votetype 0.
 	$effect(() => {
@@ -97,27 +144,25 @@
 	const usesParty = $derived(selectedVisualMode === 'Hochburg' || splitting || changing);
 	$effect(() => {
 		if (!selectedDate) return;
-		if ((splitting && !hasTwoVotes) || (changing && datesForType.length < 2))
+		if ((splitting && !hasTwoVotes) || (changing && compareDates.length === 0))
 			selectedVisualMode = 'Stärkste Partei';
 	});
 
-	/** Veränderung: the earlier (or, failing that, any other) date of the same election type. */
+	/** Veränderung: an earlier date of the same election type — the baseline is always the older
+	 * election, so every comparison reads "then → now". */
 	let selectedCompareDate = $state<string>(shared.vergleich ?? '');
 	/** Left panel: vote counts instead of shares ("Stimmen" / "Anteil" switch, or click a value). */
 	let absoluteValues = $state(shared.werte === 'absolut');
-	const compareDates = $derived(datesForType.filter((d) => d !== selectedDate));
+	const compareDates = $derived(datesForType.filter((d) => d < selectedDate));
 	$effect(() => {
-		if (!compareDates.includes(selectedCompareDate))
-			selectedCompareDate = compareDates.find((d) => d < selectedDate) ?? compareDates[0] ?? '';
+		if (!compareDates.includes(selectedCompareDate)) selectedCompareDate = compareDates[0] ?? '';
 	});
 
 	const currentElectionDescription = $derived(
 		data.electionTypes.find((t) => t.electionType === selectedElectionType)?.electionDescription ??
 			''
 	);
-	const formattedSelectedDate = $derived(
-		selectedDate ? new Date(selectedDate).toLocaleDateString('de-DE') : ''
-	);
+	const formattedSelectedDate = $derived(selectedDate ? formatDate(selectedDate) : '');
 	const electionLabelText = $derived(`${currentElectionDescription} ${formattedSelectedDate}`);
 
 	function onElectionChange(value: string) {
@@ -140,7 +185,7 @@
 		data.electionTypes.map((t) => ({ value: String(t.electionType), label: t.electionDescription }))
 	);
 	const dateOptions = $derived<SelectOption[]>(
-		datesForType.map((d) => ({ value: d, label: new Date(d).toLocaleDateString('de-DE') }))
+		datesForType.map((d) => ({ value: d, label: formatDate(d) }))
 	);
 	const stimmeTabs = $derived<Tab[] | null>(
 		// Stimmensplitting compares both votes, so there's no single Stimme to pick.
@@ -149,6 +194,7 @@
 					{
 						key: 'e',
 						label: m.map_erststimmen(),
+						short: m.map_erststimmen_short(),
 						active: selectedVoteType === '0',
 						onClick: () => {
 							selectedVoteType = '0';
@@ -158,6 +204,7 @@
 					{
 						key: 'z',
 						label: m.map_zweitstimmen(),
+						short: m.map_zweitstimmen_short(),
 						active: selectedVoteType === '1',
 						onClick: () => {
 							selectedVoteType = '1';
@@ -170,52 +217,23 @@
 
 	// ---- Colouring mode + Hochburg party ------------------------------------------------------
 
-	// Internal values stay the German domain vocabulary used throughout the backend/API — only the
-	// displayed label is translated (see visualModeLabel below). "2. Stärkste Partei" is kept as a
-	// fourth option beyond the click-dummy's three (confirmed with the user — see the plan file).
-	const VISUAL_MODES: VisualMode[] = [
-		'Stärkste Partei',
-		'2. Stärkste Partei',
-		'Wahlbeteiligung',
-		'Hochburg',
-		'Stimmensplitting',
-		'Veränderung',
-		'Punkte'
-	];
-
-	function visualModeLabel(mode: VisualMode): string {
-		switch (mode) {
-			case 'Stärkste Partei':
-				return m.map_info_staerkste_partei();
-			case '2. Stärkste Partei':
-				return m.map_info_zweite_staerkste_partei();
-			case 'Wahlbeteiligung':
-				return m.map_info_wahlbeteiligung();
-			case 'Hochburg':
-				return m.map_info_hochburg();
-			case 'Stimmensplitting':
-				return m.map_info_stimmensplitting();
-			case 'Veränderung':
-				return m.map_info_veraenderung();
-			case 'Punkte':
-				return m.map_info_punkte();
-		}
-	}
-
-	const modusTabs = $derived<Tab[]>(
-		VISUAL_MODES.filter(
-			(mode) =>
+	const modes = $derived<ModeItem[]>(
+		VISUAL_MODES.map((mode) => {
+			const available =
 				(mode !== 'Stimmensplitting' || hasTwoVotes) &&
-				(mode !== 'Veränderung' || datesForType.length > 1)
-		).map((mode) => ({
-			key: mode,
-			label: visualModeLabel(mode),
-			active: selectedVisualMode === mode,
-			onClick: () => {
-				selectedVisualMode = mode;
-				hoveredProps = undefined;
-			}
-		}))
+				(mode !== 'Veränderung' || compareDates.length > 0);
+			return {
+				key: mode,
+				label: visualModeLabel(mode),
+				hint: visualModeHint(mode, available),
+				disabled: !available,
+				active: selectedVisualMode === mode,
+				onClick: () => {
+					selectedVisualMode = mode;
+					hoveredProps = undefined;
+				}
+			};
+		})
 	);
 
 	let parties = $state<{ nameShort: string; partyFamilyId: number }[]>([]);
@@ -241,11 +259,13 @@
 	 * `selectedParty` (no party is called like these). */
 	const CHANGE_METRICS = ['Wahlbeteiligung', 'Stärkste Partei', '2. Stärkste Partei'] as const;
 	type ChangeMetric = (typeof CHANGE_METRICS)[number];
+
 	const changeMetric = $derived(
 		changing && (CHANGE_METRICS as readonly string[]).includes(selectedParty)
 			? (selectedParty as ChangeMetric)
 			: null
 	);
+
 	// Leaving Veränderung with a metric selected: back to a real party.
 	$effect(() => {
 		if (!changing && (CHANGE_METRICS as readonly string[]).includes(selectedParty))
@@ -266,9 +286,7 @@
 		hoveredProps = undefined;
 	}
 	const compareOptions = $derived<SelectOption[] | null>(
-		changing
-			? compareDates.map((d) => ({ value: d, label: new Date(d).toLocaleDateString('de-DE') }))
-			: null
+		changing ? compareDates.map((d) => ({ value: d, label: formatDate(d) })) : null
 	);
 	function onCompareChange(value: string) {
 		selectedCompareDate = value;
@@ -603,7 +621,7 @@
 	// Wahlkreis is an electoral-district view with no place in the rs hierarchy above — reachable only
 	// for Bundestags-/Landtagswahl, as one of the Ebene select's options (see `ebeneOptions`) rather
 	// than a separate toggle (confirmed with the user).
-	let wahlkreisActive = $state(shared.ebene === 'Wahlkreis' && isBundestagOrLandtag);
+	let wahlkreisActive = $state(untrack(() => shared.ebene === 'Wahlkreis' && isBundestagOrLandtag));
 	/** The clicked Wahlkreis (keyed by `ref`), shown in the left panel instead of `focused` while the
 	 * Wahlkreis view is active. Kept apart from `focused`/`expanded` since a Wahlkreis isn't part of
 	 * the rs hierarchy; cleared whenever the election, Ebene or view is reset (refs differ between
@@ -714,7 +732,7 @@
 		return searchPlaces(searchablePlaces, q, 6).map((p) => ({
 			id: `p-${p.rs}`,
 			primary: p.name,
-			secondary: `${levelSingular(p.level)} · ${p.parent}`,
+			secondary: `${levelSingular(p.level)} · ${p.parent.replace(/^Regierungsbezirk /, m.map_search_rb_prefix() + ' ')}`,
 			pick: () => void focusRs(p.rs)
 		}));
 	}
@@ -762,7 +780,7 @@
 
 	$effect(() => {
 		if (!urlSyncReady) return;
-		const qs = writeShareParams({
+		const state: ShareState = {
 			wahl: selectedElectionType || undefined,
 			datum: selectedDate || undefined,
 			stimme: hasTwoVotes && !splitting ? selectedVoteType : undefined,
@@ -778,14 +796,75 @@
 			gebiet: !wahlkreisActive && focused.rs !== null ? focused.rs : undefined,
 			wb: !wahlkreisActive && focused.level === 'Wahlbezirk' ? focused.stationKey : undefined,
 			wk: panelWk?.ref
-		});
+		};
+		const qs = writeShareParams({ ...state, embed: embed || undefined });
 		untrack(() => {
+			viewQs = writeShareParams(state);
+			lastMapView.qs = viewQs;
 			const search = qs ? `?${qs}` : '';
+
 			if (search !== page.url.search)
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- path IS resolve('/'); the rule just can't see through the appended query string
-				replaceState(`${resolve('/')}${search}`, page.state);
+				goto(`${resolve('/')}${search}`, { shallow: true, replace: true, state: page.state });
 		});
 	});
+
+	/** The current view's query string without `embed` — for the embed code and the embed's link
+	 * back to the full map. */
+	let viewQs = $state('');
+	const viewHref = $derived(`${resolve('/')}${viewQs ? `?${viewQs}` : ''}`);
+	const embedCode = $derived(
+		`<iframe src="${page.url.origin}${resolve('/')}?${viewQs ? `${viewQs}&` : ''}embed=1" ` +
+			`title="${m.map_brand_name()} ${m.map_brand_region()}" width="100%" height="600" ` +
+			`style="border:0" loading="lazy"></iframe>`
+	);
+
+	// ---- Election night ------------------------------------------------------------------------
+	// While a crawl of the shown election runs (or the admin schedule covers now), poll its status;
+	// once a newer run has finished, offer a reload — the whole view is in the URL, so nothing is lost.
+	// Embeds reload on their own, since nobody is there to click.
+
+	const LIVE_POLL_MS = 60_000;
+	let live = $state<LiveStatus | null>(null);
+	let liveFirstUpdate = $state<string | null | undefined>(undefined);
+	$effect(() => {
+		const et = selectedElectionType;
+		const d = selectedDate;
+		live = null;
+		liveFirstUpdate = undefined;
+		if (!et || !d) return;
+		let stopped = false;
+		const poll = async () => {
+			const res = await fetch(`/api/live?${new URLSearchParams({ wahl: String(et), datum: d })}`);
+			if (stopped || !res.ok) return;
+			const status = (await res.json()) as LiveStatus;
+			if (liveFirstUpdate === undefined) liveFirstUpdate = status.updatedAt;
+			live = status;
+			if (embed && status.updatedAt !== liveFirstUpdate) location.reload();
+		};
+		void poll();
+		const timer = setInterval(() => {
+			if (live?.live) void poll();
+		}, LIVE_POLL_MS);
+		return () => {
+			stopped = true;
+			clearInterval(timer);
+		};
+	});
+	const liveText = $derived(
+		live
+			? [
+					m.live_counting({ n: fmtNum(live.gemeinden), total: fmtNum(live.total) }),
+					live.updatedAt ? m.live_as_of({ time: formatBerlin(new Date(live.updatedAt)) }) : null
+				]
+					.filter(Boolean)
+					.join(' · ')
+			: ''
+	);
+
+	const liveNewer = $derived(
+		live !== null && liveFirstUpdate !== undefined && live.updatedAt !== liveFirstUpdate
+	);
 
 	function levelSingular(level: MapLevel): string {
 		switch (level) {
@@ -828,13 +907,21 @@
 
 	// ---- Geometry loading ----------------------------------------------------------------------
 
+	// Holds the pending promise, not the result: the map's first render asks for the same file from two
+	// places at once, and caching only the result downloaded it twice.
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain imperative cache, never read reactively/from the template
-	const geoCache = new Map<string, FeatureCollection>();
-	async function loadGeo(url: string): Promise<FeatureCollection> {
-		const cached = geoCache.get(url);
-		if (cached) return cached;
-		const geo = (await fetch(url).then((r) => r.json())) as FeatureCollection;
-		geoCache.set(url, geo);
+	const geoCache = new Map<string, Promise<FeatureCollection>>();
+	function loadGeo(url: string): Promise<FeatureCollection> {
+		let geo = geoCache.get(url);
+		if (!geo) {
+			geo = fetch(url).then((r) => {
+				if (!r.ok) throw new Error(`${url}: ${r.status}`);
+				return r.json() as Promise<FeatureCollection>;
+			});
+			geoCache.set(url, geo);
+			// A failed load must not stay cached, or the map could never retry it.
+			geo.catch(() => geoCache.delete(url));
+		}
 		return geo;
 	}
 
@@ -867,15 +954,23 @@
 		const exp = expanded;
 		const elig = eligibleGemeindeRs;
 		const bezirkCities = bezirkGemeinden;
+		// The geo files load asynchronously: a run that finishes after a newer one started must not
+		// overwrite it (on a shared link, the initial Land view's first file load used to land after
+		// the restored focus and reset the map to the whole Land while the panel kept the focus).
+		let superseded = false;
+		const cancel = () => {
+			superseded = true;
+		};
 
 		if (wk) {
 			const url = et === 3 ? GEO_URL.wahlkreisLandtag : GEO_URL.wahlkreisBundestag;
 			loadGeo(url).then((geo) => {
+				if (superseded) return;
 				displayGeojson = geo;
 				keyProperty = 'ref';
 				sourceKey = `wahlkreis:${et}`;
 			});
-			return;
+			return cancel;
 		}
 
 		const rbExpansions = exp.filter((n) => n.level === 'Regierungsbezirk');
@@ -890,6 +985,7 @@
 
 		// Which grains appear at all: everything at `base`, plus the children of expanded regions.
 		const showKreise = base === 'Kreis' || (base === 'Regierungsbezirk' && rbExpansions.length > 0);
+
 		const showGemeinden = base === 'Gemeinde' || (showKreise && kreisExpansions.length > 0);
 
 		Promise.all([
@@ -898,6 +994,7 @@
 			showGemeinden ? loadGeo(GEO_URL.gemeinde) : null,
 			wbUrl ? loadGeo(wbUrl) : null
 		]).then(([rbGeo, kreisGeo, gemeindeGeo, wbGeo]) => {
+			if (superseded) return;
 			const combined: Feature[] = [];
 
 			const expandedRbPrefixes = new Set(rbExpansions.map((n) => rsPrefix(n.rs!, 2)));
@@ -916,6 +1013,7 @@
 					...kreisGeo.features
 						.filter((f) => {
 							const rs = Number(f.properties?.rs);
+
 							return (
 								(base === 'Kreis' || expandedRbPrefixes.has(rsPrefix(rs, 2))) &&
 								!expandedKreisPrefixes.has(rsPrefix(rs, 4))
@@ -930,10 +1028,10 @@
 					...gemeindeGeo.features
 						.filter((f) => {
 							const rs = Number(f.properties?.rs);
+
 							return (
 								(base === 'Gemeinde' || expandedKreisPrefixes.has(rsPrefix(rs, 4))) &&
-								!bezirkExpanded.has(rs) &&
-								// Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
+								!bezirkExpanded.has(rs) && // Regionalwahl only covers Region Stuttgart — see `elig`'s doc comment above.
 								(elig === null || elig.has(rs))
 							);
 						})
@@ -945,8 +1043,7 @@
 				combined.push(
 					...wbGeo.features
 						.filter((f) => bezirkExpanded.has(gemeindeOf(f)))
-						.map((f) => tagGrain(f, 'Wahlbezirk'))
-						// Synthetic `rs`, so Wahlbezirk features can share the same rs-keyed source as
+						.map((f) => tagGrain(f, 'Wahlbezirk')) // Synthetic `rs`, so Wahlbezirk features can share the same rs-keyed source as
 						// everything else instead of needing MapView to juggle a second keyProperty.
 						.map((f) => ({
 							...f,
@@ -968,6 +1065,7 @@
 			keyProperty = 'rs';
 			sourceKey = `mosaic:${base}:${exp.map((n) => `${n.level}${n.rs}`).join(',')}`;
 		});
+		return cancel;
 	});
 
 	/** The finest layer for whatever's currently focused — its children if it has any (already part
@@ -1015,7 +1113,16 @@
 			)
 		};
 	});
-	const fitGeojson = $derived(scopedGeojson);
+	/** The camera follows the focus; in the Wahlkreis view that's the selected Wahlkreis (the counts
+	 * still use `scopedGeojson`, i.e. all of them). */
+	const fitGeojson = $derived.by((): FeatureCollection => {
+		if (!panelWk) return scopedGeojson;
+		const ref = panelWk.ref;
+		return {
+			type: 'FeatureCollection',
+			features: displayGeojson.features.filter((f) => String(f.properties?.ref) === ref)
+		};
+	});
 
 	/** Every Regierungsbezirk's rs, loaded once — independent of `expanded`/`displayGeojson`, since the
 	 * Land-wide sum below needs all four regardless of which (if any) are currently expanded elsewhere
@@ -1035,14 +1142,17 @@
 		if (wahlkreisActive) return ['Wahlkreis'];
 		const grains: MapMode[] = [];
 		if (baseLevel === 'Regierungsbezirk') grains.push('Regierungsbezirk');
+
 		const kreise =
 			baseLevel === 'Kreis' ||
 			(baseLevel === 'Regierungsbezirk' && expanded.some((n) => n.level === 'Regierungsbezirk'));
+
 		if (kreise) grains.push('Kreis');
 		if (baseLevel === 'Gemeinde' || (kreise && expanded.some((n) => n.level === 'Kreis')))
 			grains.push('Gemeinde');
 		if (expanded.some((n) => n.level === 'Gemeinde' && n.rs !== null && bezirkGemeinden.has(n.rs)))
 			grains.push('Wahlbezirk');
+
 		return grains;
 	});
 
@@ -1156,10 +1266,13 @@
 					})
 				)
 			);
+		// A newer run (e.g. the restored focus of a shared link) may finish first; see the mosaic effect.
+		let superseded = false;
 		untrack(() =>
 			Promise.all([fetchGrains(date), compareDate ? fetchGrains(compareDate) : null]).then(
 				([results, before]) => {
 					untrack(() => {
+						if (superseded) return;
 						let rawItems = results.flatMap((r) => r.items) as unknown as RegionItem[];
 						const oldItems = before
 							? new Map(
@@ -1270,6 +1383,9 @@
 				}
 			)
 		);
+		return () => {
+			superseded = true;
+		};
 	});
 
 	// ---- Full per-party breakdowns (left panel + hover card) -----------------------------------
@@ -1336,6 +1452,7 @@
 		if (foc.level === 'Land' && allRbRs.length > 0) {
 			const rb = perGrain.find((p) => p.mode === 'Regierungsbezirk');
 			const rbList = allRbRs.map(String);
+
 			if (rb) rb.rsList = [...new Set([...(rb.rsList ?? []), ...rbList])];
 			else perGrain.push({ mode: 'Regierungsbezirk', rsList: rbList });
 		}
@@ -1344,6 +1461,7 @@
 		if (dotRs.length > 0) {
 			const gem = perGrain.find((p) => p.mode === 'Gemeinde');
 			const list = dotRs.map(String);
+
 			if (gem) gem.rsList = [...new Set([...(gem.rsList ?? []), ...list])];
 			else perGrain.push({ mode: 'Gemeinde', rsList: list });
 		}
@@ -1393,45 +1511,6 @@
 				);
 		});
 	});
-
-	/** Weighted sum of several regions' breakdowns into one combined total — used for the Land scope,
-	 * which has no row of its own in the aggregate tables (see getRegionBreakdowns' doc comment).
-	 * Vote shares are recomputed from summed raw vote counts (not averaged percentages) and turnout is
-	 * eligible-voter-weighted — both necessary since the four Regierungsbezirke differ hugely in size. */
-	function sumBreakdowns(list: RegionBreakdown[]): RegionBreakdown {
-		let eligibleSum = 0;
-		let votersWeighted = 0;
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain local accumulator, built and consumed entirely within this one call
-		const partyTotals = new Map<string, { color: string | null; voteCount: number }>();
-		for (const b of list) {
-			if (b.eligible != null) {
-				eligibleSum += b.eligible;
-				if (b.turnout != null) votersWeighted += (b.turnout / 100) * b.eligible;
-			}
-			for (const r of b.rows) {
-				if (!r.partyName) continue;
-				const cur = partyTotals.get(r.partyName) ?? { color: r.color, voteCount: 0 };
-				cur.voteCount += r.voteCount ?? 0;
-				if (!cur.color) cur.color = r.color;
-				partyTotals.set(r.partyName, cur);
-			}
-		}
-		const totalVotes = Array.from(partyTotals.values()).reduce((s, p) => s + p.voteCount, 0);
-		const rows = Array.from(partyTotals, ([partyName, p]) => ({
-			partyName,
-			color: p.color,
-			voteCount: p.voteCount,
-			votePercent: totalVotes > 0 ? (p.voteCount / totalVotes) * 100 : null,
-			seats: null
-		})).sort((a, b) => (b.votePercent ?? -Infinity) - (a.votePercent ?? -Infinity));
-		return {
-			key: 'LAND',
-			turnout: eligibleSum > 0 ? (votersWeighted / eligibleSum) * 100 : null,
-			eligible: eligibleSum || null,
-			seatTotal: null, // no election in this app allocates seats state-wide
-			rows
-		};
-	}
 
 	function landSum(cache: SvelteMap<string, RegionBreakdown>) {
 		if (focused.level !== 'Land') return null;
@@ -1506,6 +1585,7 @@
 	const panelKey = $derived(
 		focused.level === 'Wahlbezirk' ? (focused.stationKey ?? '') : String(focused.rs)
 	);
+
 	const panelBreakdown = $derived(
 		panelWk
 			? breakdownCache.get(panelWk.ref)
@@ -1513,8 +1593,8 @@
 				? landBreakdown
 				: breakdownCache.get(panelKey)
 	);
-	// ---- Bundestag/Landtag mandates per Wahlkreis (official, see server/map/mandates.ts) ----------
 
+	// ---- Bundestag/Landtag mandates per Wahlkreis (official, see server/map/mandates.ts) ----------
 	type Mandates = {
 		direct: { name: string | null; party: string; percent: number | null; seat: boolean } | null;
 		list: { name: string; party: string; listPlace: number | null }[];
@@ -1689,21 +1769,6 @@
 			bVotes: rowB.voteCount
 		};
 	}
-	/** Voters (turnout × eligible) — the absolute counterpart of a turnout share. */
-	function votersOf(b: RegionBreakdown | null | undefined): number | null {
-		return b?.turnout == null || b.eligible == null ? null : (b.turnout / 100) * b.eligible;
-	}
-	/** Signed vote-count difference, e.g. "+1.234". */
-	function fmtVoteDiff(v: number | null | undefined): string {
-		return v == null ? '–' : (v > 0 ? '+' : '') + fmtNum(v);
-	}
-	/** Strongest (rank 0) or second-strongest (rank 1) party of a breakdown — rows are sorted by share. */
-	function rankedRow(b: RegionBreakdown | null | undefined, rank: number) {
-		return b?.rows[rank]?.votePercent != null ? b.rows[rank] : undefined;
-	}
-	function fmtDiff(v: number): string {
-		return m.map_split_diff_pts({ diff: (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') });
-	}
 	/** The pair as two bar rows (party colour), shared by hover card and panel: Erst then Zweit, or
 	 * chronologically (comparison year, then this year). */
 	function pairRows(s: NonNullable<ReturnType<typeof pairOf>>, absolute = false) {
@@ -1800,57 +1865,6 @@
 	const hoveredKey = $derived(hoveredProps ? String(hoveredProps[keyProperty]) : null);
 	const hoverBreakdown = $derived(hoveredKey ? breakdownCache.get(hoveredKey) : undefined);
 
-	function fmtPct(v: number | null | undefined): string {
-		return v == null ? '–' : v.toFixed(1).replace('.', ',') + ' %';
-	}
-	function fmtNum(v: number | null | undefined): string {
-		return v == null ? '–' : Math.round(v).toLocaleString('de-DE');
-	}
-	/** "CDU / Dr. Max Mustermann" — Erststimmen, where only one candidate of the party ran in the
-	 * area (the server sets `candidate` only then). */
-	function withCandidate(r: RegionBreakdown['rows'][number]): string {
-		if (!r.candidate) return r.partyName ?? '';
-		// Bundestag/Landtag "Sonstige" holds only independents (every party has its own family), so a
-		// single person there ran without a party.
-		const party = r.partyName === 'Sonstige' ? m.map_independent_candidate() : r.partyName;
-		return `${party ?? ''} / ${r.candidate}`;
-	}
-	/** `absolute`: vote counts instead of shares (left panel's "Stimmen" setting; the hover card keeps
-	 * shares). Bars stay share-based either way — same proportions within one area. */
-	/** Bar length in % of the track — true to scale, no minimum (a zero is an empty bar). */
-	function barWidth(percent: number): number {
-		return Math.max(0, Math.min(100, percent));
-	}
-	function toRows(b: RegionBreakdown | null | undefined, limit: number | null, absolute = false) {
-		if (!b || b.rows.length === 0) return [];
-		const max = Math.max(...b.rows.map((r) => r.votePercent ?? 0), 0.0001);
-		const rows = limit === null ? b.rows : b.rows.slice(0, limit);
-		return rows.map((r) => ({
-			key: r.partyName ?? 'unknown',
-			color: r.color,
-			name: withCandidate(r),
-			pct: absolute ? fmtNum(r.voteCount) : fmtPct(r.votePercent),
-			seats: r.seats != null ? String(r.seats) : null,
-			widthPercent: barWidth(((r.votePercent ?? 0) / max) * 100)
-		}));
-	}
-	/** The one row for the party currently driving the Hochburg colouring — a top-5-by-share list isn't
-	 * the point in this mode, the selected party's own number here is. */
-	function toSingleRow(b: RegionBreakdown, partyName: string, absolute = false) {
-		const row = b.rows.find((r) => r.partyName === partyName);
-		if (!row) return [];
-		return [
-			{
-				key: row.partyName ?? 'unknown',
-				color: row.color,
-				name: withCandidate(row),
-				pct: absolute ? fmtNum(row.voteCount) : fmtPct(row.votePercent),
-				seats: row.seats != null ? String(row.seats) : null,
-				widthPercent: barWidth(row.votePercent ?? 0)
-			}
-		];
-	}
-
 	// The hovered feature carries its own `__grain` (tagged when the mosaic was built) — using that
 	// instead of `displayLevel` matters now that siblings at other grains are hoverable too (e.g.
 	// hovering one of the other three Regierungsbezirke while `displayLevel` is 'Kreis').
@@ -1934,6 +1948,12 @@
 				: m.map_hover_tiefste_ebene();
 		const name = String(hoveredProps.label ?? hoveredProps.name ?? hoveredProps.AWBEZ_T ?? '');
 		const level = wahlkreisActive ? m.map_mode_wahlkreis() : grain ? levelSingular(grain) : '';
+		// "Stimmen" setting: voters instead of the turnout share.
+		const turnoutLabel = absoluteValues ? m.map_stat_waehlende() : m.map_info_wahlbeteiligung();
+		const turnoutValue = absoluteValues
+			? fmtNum(votersOf(hoverBreakdown))
+			: fmtPct(hoverBreakdown.turnout);
+		const changeLabel = m.map_change_label({ party: selectedPartyLabel, year: compareYear });
 		const noPairHint = splitting
 			? m.map_split_no_candidate()
 			: grain === 'Wahlbezirk'
@@ -1960,32 +1980,37 @@
 			return {
 				name,
 				level,
-				turnoutLabel: m.map_change_label_short({ year: compareYear }),
-				turnoutValue:
-					!was || !now
-						? '–'
-						: was.partyName === now.partyName
-							? m.map_change_same()
-							: m.map_change_flipped(),
+				turnoutLabel,
+				turnoutValue,
+				metric: {
+					label: changeLabel,
+					value:
+						!was || !now
+							? '–'
+							: was.partyName === now.partyName
+								? m.map_change_same()
+								: m.map_change_flipped()
+				},
 				rows,
 				hint: rows.length ? drillHint : noPairHint
 			};
 		}
 		if (splitting || changing) {
-			// Headline stat becomes the difference in points; rows show both shares.
+			// The difference in points as the mode row; rows show both shares.
 			const s = pairOf(hoverBreakdown, secondCache.get(hoveredKey!));
 			return {
 				name,
 				level,
-				// Party-less so it fits on one line beside the value in the 244px card.
-				turnoutLabel: splitting
-					? m.map_split_diff_label_short()
-					: m.map_change_label_short({ year: compareYear }),
-				turnoutValue: !s
-					? '–'
-					: absoluteValues
-						? fmtVoteDiff(s.aVotes == null || s.bVotes == null ? null : s.aVotes - s.bVotes)
-						: fmtDiff(s.diff),
+				turnoutLabel,
+				turnoutValue,
+				metric: {
+					label: splitting ? m.map_hover_split_metric({ party: selectedParty }) : changeLabel,
+					value: !s
+						? '–'
+						: absoluteValues
+							? fmtVoteDiff(s.aVotes == null || s.bVotes == null ? null : s.aVotes - s.bVotes)
+							: fmtDiff(s.diff)
+				},
 				rows: s ? pairRows(s, absoluteValues) : [],
 				hint: s ? drillHint : noPairHint
 			};
@@ -1993,11 +2018,19 @@
 		return {
 			name,
 			level,
-			// "Stimmen" setting: voters instead of the turnout share.
-			turnoutLabel: absoluteValues ? m.map_stat_waehlende() : m.map_info_wahlbeteiligung(),
-			turnoutValue: absoluteValues
-				? fmtNum(votersOf(hoverBreakdown))
-				: fmtPct(hoverBreakdown.turnout),
+			turnoutLabel,
+			turnoutValue,
+			metric:
+				selectedVisualMode === 'Wahlbeteiligung'
+					? { label: m.map_info_wahlbeteiligung(), value: fmtPct(hoverBreakdown.turnout) }
+					: selectedVisualMode === 'Hochburg'
+						? {
+								label: selectedParty,
+								value: fmtPct(
+									hoverBreakdown.rows.find((r) => r.partyName === selectedParty)?.votePercent
+								)
+							}
+						: null,
 			rows,
 			hint: drillHint
 		};
@@ -2012,6 +2045,7 @@
 				? (focused.stationKey ?? '')
 				: String(focused.rs)
 	);
+
 	const panelSub = $derived(
 		(panelParentEntry ? panelParentEntry.name + ' · ' : '') + electionLabelText
 	);
@@ -2052,7 +2086,9 @@
 				? m.map_mode_wahlkreis()
 				: leaf
 					? ''
-					: levelPlural(displayLevel)
+					: displayLevel === 'Regierungsbezirk'
+						? m.map_unit_bezirke()
+						: levelPlural(displayLevel)
 	);
 	const panelUnitValue = $derived(
 		panelBreakdown?.seatTotal != null
@@ -2101,6 +2137,7 @@
 			)
 		)
 	);
+
 	function toPanelRow(r: ReturnType<typeof toRows>[number]): PanelRow {
 		const open = candidatesAvailable && candidateParty === r.key;
 		const row = {
@@ -2246,6 +2283,7 @@
 	 * and the city never published the assignment (see stuttgart-districts/2019-05-26.json), so each
 	 * Wahlbezirk shows urn votes only. */
 	const STUTTGART_URN_ONLY_DATES = new Set(['2019-05-26', '2016-03-13']);
+
 	const urnOnlyNote = $derived(
 		STUTTGART_URN_ONLY_DATES.has(selectedDate) &&
 			!panelWk &&
@@ -2254,6 +2292,7 @@
 			? m.map_panel_stuttgart_urn_only_note()
 			: null
 	);
+
 	const postalEstimatedNote = $derived(
 		wahlbezirkPostalEstimated(selectedDate) &&
 			!panelWk &&
@@ -2264,12 +2303,12 @@
 				: m.map_panel_postal_estimated_note()
 			: null
 	);
+
 	const panelFootnote = $derived(
 		panelWk || leaf ? m.map_panel_footnote_leaf() : m.map_panel_footnote_drill()
 	);
 
 	// ---- Map-area chrome ----------------------------------------------------------------------
-
 	const modeBadgeText = $derived(
 		wahlkreisActive
 			? m.map_mode_wahlkreis()
@@ -2318,8 +2357,9 @@
 					: m.map_legend_note_zweitstimme()
 				: ''
 			: legendMode === 'diff'
-				? '' // the end labels already say "Pkt."; leaves room for the title
-				: '%'
+				? ''
+				: // the end labels already say "Pkt."; leaves room for the title
+					'%'
 	);
 	// The backend's `regionData` results cover every region state-wide per grain (e.g. all ~44 Kreise,
 	// not just the current Regierungsbezirk's 12) — the legend should only name parties actually shown
@@ -2382,77 +2422,105 @@
 	});
 </script>
 
-<div class="map-root app">
-	<Toolbar
-		{electionOptions}
-		selectedElectionType={String(selectedElectionType)}
-		{onElectionChange}
-		{dateOptions}
-		{selectedDate}
-		{onDateChange}
-		{stimmeTabs}
-		{ebeneOptions}
-		selectedEbene={selectedEbeneValue}
-		{onEbeneChange}
-		{modusTabs}
-		{hochburgPartyOptions}
-		selectedHbParty={selectedParty}
-		hbPartyColor={legend?.color ?? '#9c4a2f'}
-		{onHbPartyChange}
-		{compareOptions}
-		selectedCompare={selectedCompareDate}
-		{onCompareChange}
-		onReset={resetView}
-	/>
+<PageMeta {...data.meta} />
+
+<!-- Over the map on desktop; a strip above it on phones, where the map's top is crowded. Only one
+     of the two is displayed at a time (CSS), so only one is announced. -->
+{#snippet liveBanner(placement: 'live-overlay' | 'live-strip')}
+	<div class="live {placement}" role="status">
+		{#if live?.live}
+			<span class="live-dot" aria-hidden="true"></span>
+			<span>{liveText}</span>
+		{/if}
+		{#if liveNewer}
+			<button type="button" onclick={() => location.reload()}>{m.live_reload()}</button>
+		{/if}
+	</div>
+{/snippet}
+
+<div class="map-root app" class:embed>
+	{#if !embed}
+		<Toolbar
+			{electionOptions}
+			selectedElectionType={String(selectedElectionType)}
+			{onElectionChange}
+			{dateOptions}
+			{selectedDate}
+			{onDateChange}
+			{stimmeTabs}
+			{ebeneOptions}
+			selectedEbene={selectedEbeneValue}
+			{onEbeneChange}
+			{modes}
+			onReset={resetView}
+		/>
+	{/if}
+
+	{#if live?.live || liveNewer}{@render liveBanner('live-strip')}{/if}
 
 	<div class="body">
-		<ResultPanel
-			levelLabel={panelWk ? m.map_mode_wahlkreis() : levelSingular(focused.level)}
-			code={panelWk ? panelWk.ref : panelCode}
-			canGoUp={panelWk ? true : canGoUp}
-			parentName={panelWk ? LAND_ROOT.name : (panelParentEntry?.name ?? '')}
-			onGoUp={panelWk ? () => (selectedWahlkreis = null) : goUp}
-			name={panelWk ? panelWk.name : focused.name}
-			sub={panelWk ? electionLabelText : panelSub}
-			turnoutLabel={m.map_info_wahlbeteiligung()}
-			turnoutValue={fmtPct(panelBreakdown?.turnout)}
-			eligibleLabel={m.map_stat_wahlberechtigt()}
-			eligibleValue={fmtNum(panelBreakdown?.eligible)}
-			unitLabel={panelUnitLabel}
-			unitValue={panelUnitValue}
-			{rowsHeadingLeft}
-			{rowsHeadingRight}
-			rows={panelRows}
-			footnote={panelFootnote}
-			peopleGroups={mandateGroups}
-			absolute={absoluteValues}
-			onToggleAbsolute={() => (absoluteValues = !absoluteValues)}
-			notes={[
-				missingNote,
-				jointListNote,
-				urnOnlyNote,
-				postalEstimatedNote,
-				panelBreakdown?.postalElsewhere ? m.map_panel_postal_elsewhere_note() : null
-			].filter((n) => n !== null)}
-			explanation={splitting
-				? m.map_split_explanation()
-				: changeMetric === 'Stärkste Partei' || changeMetric === '2. Stärkste Partei'
-					? m.map_change_explanation_winner({ metric: selectedPartyLabel, year: compareYear })
-					: changing
-						? m.map_change_explanation({ year: compareYear })
-						: dotMode && dotData
-							? m.map_dots_explanation({ n: fmtNum(dotData.perDot) })
-							: null}
-			seats={panelBreakdown?.seatTotal
-				? panelBreakdown.rows.map((r) => ({
-						name: r.partyName,
-						color: r.color,
-						seats: r.seats ?? 0
-					}))
-				: null}
-		>
-			<SearchBox {findPlaces} {findPeople} />
-		</ResultPanel>
+		{#if !embed}
+			<ResultPanel
+				levelLabel={panelWk ? m.map_mode_wahlkreis() : levelSingular(focused.level)}
+				code={panelWk ? panelWk.ref : panelCode}
+				canGoUp={panelWk ? true : canGoUp}
+				parentName={panelWk ? LAND_ROOT.name : (panelParentEntry?.name ?? '')}
+				onGoUp={panelWk ? () => (selectedWahlkreis = null) : goUp}
+				name={panelWk ? panelWk.name : focused.name}
+				sub={panelWk ? electionLabelText : panelSub}
+				turnoutLabel={m.map_info_wahlbeteiligung()}
+				turnoutValue={fmtPct(panelBreakdown?.turnout)}
+				eligibleLabel={m.map_stat_berechtigt()}
+				eligibleValue={fmtNum(panelBreakdown?.eligible)}
+				unitLabel={panelUnitLabel}
+				unitValue={panelUnitValue}
+				{rowsHeadingLeft}
+				{rowsHeadingRight}
+				rows={panelRows}
+				footnote={panelFootnote}
+				peopleGroups={mandateGroups}
+				absolute={absoluteValues}
+				{embedCode}
+				detailLink={!panelWk && focused.level === 'Gemeinde' && focused.rs !== null
+					? {
+							href: resolve('/gemeinde/[rs]', { rs: String(focused.rs) }),
+							label: m.map_gemeinde_page_link({ name: focused.name })
+						}
+					: null}
+				analysisLink={selectedElectionType === 6 && selectedDate
+					? {
+							href: `${resolve('/listenspringer')}?datum=${selectedDate}`,
+							label: m.map_listjump_link()
+						}
+					: null}
+				onToggleAbsolute={() => (absoluteValues = !absoluteValues)}
+				notes={[
+					missingNote,
+					jointListNote,
+					urnOnlyNote,
+					postalEstimatedNote,
+					panelBreakdown?.postalElsewhere ? m.map_panel_postal_elsewhere_note() : null
+				].filter((n) => n !== null)}
+				explanation={splitting
+					? m.map_split_explanation()
+					: changeMetric === 'Stärkste Partei' || changeMetric === '2. Stärkste Partei'
+						? m.map_change_explanation_winner({ metric: selectedPartyLabel, year: compareYear })
+						: changing
+							? m.map_change_explanation({ year: compareYear })
+							: dotMode && dotData
+								? m.map_dots_explanation({ n: fmtNum(dotData.perDot) })
+								: null}
+				seats={panelBreakdown?.seatTotal
+					? panelBreakdown.rows.map((r) => ({
+							name: r.partyName,
+							color: r.color,
+							seats: r.seats ?? 0
+						}))
+					: null}
+			>
+				<SearchBox {findPlaces} {findPeople} />
+			</ResultPanel>
+		{/if}
 
 		<div class="map-area" bind:this={mapAreaEl}>
 			<MapView
@@ -2479,7 +2547,16 @@
 				/>
 			{/if}
 
-			<ModeBadge text={modeBadgeText} />
+			<ModeBadge
+				text={modeBadgeText}
+				partyOptions={hochburgPartyOptions}
+				{selectedParty}
+				partyColor={changeMetric ? '#9c4a2f' : (legend?.color ?? '#9c4a2f')}
+				onPartyChange={onHbPartyChange}
+				{compareOptions}
+				selectedCompare={selectedCompareDate}
+				{onCompareChange}
+			/>
 
 			{#if dotMode && dotData}
 				<Legend
@@ -2509,6 +2586,16 @@
 
 			<StatusLine text={statusLineText} />
 
+			{#if live?.live || liveNewer}{@render liveBanner('live-overlay')}{/if}
+
+			{#if embed}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- viewHref is resolve('/') plus the view's query string -->
+				<a class="embed-link" href={viewHref} target="_blank" rel="noopener">
+					{m.map_brand_name()}
+					{m.map_brand_region()} ↗
+				</a>
+			{/if}
+
 			<HoverCard
 				point={hoverPoint}
 				containerWidth={mapWidth}
@@ -2522,7 +2609,7 @@
 <style>
 	.app {
 		height: 100vh;
-		width: 100vw;
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -2538,5 +2625,110 @@
 		position: relative;
 		overflow: hidden;
 		background: var(--map-bg-surface-muted);
+	}
+	.live {
+		position: absolute;
+		left: 50%;
+		top: 60px; /* below the breadcrumb/mode-badge row; the bottom belongs to the legend */
+		transform: translateX(-50%);
+		z-index: 3;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		max-width: calc(100% - 24px);
+		padding: 7px 12px;
+		border-radius: 18px;
+		background: var(--map-bg-surface);
+		border: 1px solid var(--map-border-strong);
+		box-shadow: var(--map-shadow-card);
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--map-ink);
+	}
+	.live-strip {
+		display: none;
+	}
+	.live-dot {
+		flex: none;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--map-accent);
+		animation: live-pulse 1.6s ease-in-out infinite;
+	}
+	@keyframes live-pulse {
+		50% {
+			opacity: 0.3;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+		}
+	}
+	.live button {
+		flex: none;
+		white-space: nowrap;
+		font: 600 12px var(--map-font-body);
+		padding: 4px 10px;
+		border-radius: 12px;
+		border: none;
+		background: var(--map-ink);
+		color: var(--map-on-dark);
+		cursor: pointer;
+	}
+	.embed-link {
+		position: absolute;
+		left: 12px;
+		bottom: 34px;
+		z-index: 2;
+		padding: 6px 10px;
+		border-radius: 6px;
+		border: 1px solid var(--map-border-strong);
+		background: var(--map-bg-surface);
+		box-shadow: var(--map-shadow-card);
+		color: var(--map-ink);
+		font-size: 12px;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	@media (max-width: 759px) {
+		/* Map on top, panel below at full width; the page scrolls instead of clipping. */
+		.app {
+			height: auto;
+			min-height: 100vh;
+			overflow: visible;
+		}
+		.body {
+			flex-direction: column;
+		}
+		.map-area {
+			flex: none;
+			/* explicit height, not just min-height: MapView's h-full needs a definite parent height */
+			height: 58vh;
+			min-height: 58vh;
+		}
+		.app.embed {
+			height: 100vh;
+		}
+		.app.embed .map-area {
+			height: 100vh;
+		}
+		.embed-link {
+			bottom: auto;
+			top: 52px;
+		}
+		.live-overlay {
+			display: none;
+		}
+		.live-strip {
+			display: flex;
+			position: static;
+			transform: none;
+			max-width: none;
+			border-radius: 0;
+			border-width: 0 0 1px;
+			box-shadow: none;
+		}
 	}
 </style>

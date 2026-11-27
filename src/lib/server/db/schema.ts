@@ -10,11 +10,13 @@ import {
 	timestamp,
 	foreignKey,
 	unique,
-	index
+	index,
+	jsonb
 } from 'drizzle-orm/pg-core';
+import type { CityStatus, CrawlLogEntry } from '../scraper/client';
 
 /**
- * Domain notes (ported from SQL/createdb.sql, which documents but no longer defines the schema):
+ * Domain notes (ported from the retired SQL/createdb.sql, see git history):
  * - `rs` (Regionalschlüssel) is the 12-digit regional key identifying a municipality; the primary
  *   join key almost everywhere.
  * - `ags` (Amtlicher Gemeindeschlüssel) is an 8-digit key derived from `rs`, used only for building
@@ -386,7 +388,9 @@ export const electionElectedCandidates = pgTable(
 			table.electionId,
 			table.partyId,
 			table.name
-		)
+		),
+		// Trigram index for the `name ILIKE '%…%'` search (needs the pg_trgm extension).
+		index('idx_election_elected_candidates_name_trgm').using('gin', table.name.op('gin_trgm_ops'))
 	]
 );
 
@@ -394,6 +398,56 @@ export const electionElectedCandidates = pgTable(
 // their identifying key is always populated by update_aggregate_party (new_data_functions.R) — a
 // rollup row is meaningless without knowing which region/district, election, date and vote type it's
 // for. Adding NOT NULL here (required for primaryKey()) reflects that real invariant, not a new one.
+
+/**
+ * Precomputed per-candidate totals in one Gemeinde: votes summed over its stations, and for list
+ * elections (Gemeinderats-/Kreistagswahl) the place on the ballot list and whether they won a seat.
+ * Rebuilt after each crawl (`updateCandidates`, `updateErststimmeCandidates`); feeds the candidate
+ * pages and the Listenspringer analysis. A Kreistag or Bundestag/Landtag candidate has one row per
+ * Gemeinde of their Wahlkreis.
+ */
+export const electionCandidate = pgTable(
+	'election_candidate',
+	{
+		id: serial('id').primaryKey(),
+		rs: bigint('rs', { mode: 'number' })
+			.notNull()
+			.references(() => cities.rs),
+		electionType: integer('election_type')
+			.notNull()
+			.references(() => electionType.electionType),
+		date: date('date', { mode: 'string' }).notNull(),
+		electionId: integer('election_id').notNull(),
+		partyId: integer('party_id').notNull(),
+		/** The list's name on the ballot (election_party.name). */
+		listName: text('list_name'),
+		name: text('name').notNull(),
+		/** Lower-cased name tokens without titles, sorted — "Dr. Max Mustermann" and "Mustermann, Max"
+		 * both become "max mustermann" (same rule as nameKey in map/queries.ts). */
+		nameKey: text('name_key').notNull(),
+		/** 1-based place on the ballot list — komm.one lists candidates in ballot order. Null for
+		 * Bundestag/Landtag Erststimme candidates, who stand alone in their Wahlkreis. */
+		position: integer('position'),
+		/** Bundestag/Landtag: the Wahlkreis (a Gemeinde split across several has a row per Wahlkreis). */
+		districtId: integer('district_id'),
+		votes: integer('votes').notNull(),
+		/** null where the source lists no elected members for this Gemeinde and election. */
+		elected: boolean('elected'),
+		/** The list is in alphabetical order, not a ranking — ballot position means nothing there. */
+		listAlphabetical: boolean('list_alphabetical').notNull().default(false)
+	},
+	(table) => [
+		// A split Gemeinde can have two Wahlkreise' candidates under one label; district null (list
+		// elections) counts as equal.
+		unique('unique_election_candidate')
+			.on(table.rs, table.electionId, table.partyId, table.name, table.districtId)
+			.nullsNotDistinct(),
+		index('idx_election_candidate_name_key').on(table.nameKey),
+		// Trigram index for the person search's `name ILIKE '%…%'` (needs the pg_trgm extension).
+		index('idx_election_candidate_name_trgm').using('gin', table.name.op('gin_trgm_ops')),
+		index('idx_election_candidate_election').on(table.electionType, table.date, table.rs)
+	]
+);
 
 /** Precomputed rollup of results for each party across a region (municipality, district...). */
 export const electionResultAggregatePartyRegion = pgTable(
@@ -420,7 +474,9 @@ export const electionResultAggregatePartyRegion = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		// The map filters by election + date; the unique key above leads with other columns.
+		index('idx_election_result_aggregate_party_region_election').on(table.electionType, table.date)
 	]
 );
 
@@ -448,7 +504,8 @@ export const electionResultAggregateMetaRegion = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		index('idx_election_result_aggregate_meta_region_election').on(table.electionType, table.date)
 	]
 );
 
@@ -485,7 +542,8 @@ export const electionResultAggregatePartyPs = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		index('idx_election_result_aggregate_party_ps_election').on(table.electionType, table.date)
 	]
 );
 
@@ -517,7 +575,8 @@ export const electionResultAggregateMetaPs = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
-		)
+		),
+		index('idx_election_result_aggregate_meta_ps_election').on(table.electionType, table.date)
 	]
 );
 
@@ -546,6 +605,10 @@ export const electionResultAggregatePartyDistrict = pgTable(
 			table.electionType,
 			table.date,
 			table.votetypeId
+		),
+		index('idx_election_result_aggregate_party_district_election').on(
+			table.electionType,
+			table.date
 		)
 	]
 );
@@ -652,9 +715,28 @@ export const crawlRun = pgTable('crawl_run', {
 	/** 'running' | 'done' | 'error' */
 	status: text('status').notNull(),
 	currentStep: text('current_step'),
-	/** Newline-joined progress log, latest entries only (truncated to a reasonable size). */
-	log: text('log'),
+	/** Progress log entries, latest only (truncated to a reasonable size). */
+	log: jsonb('log').$type<CrawlLogEntry[]>(),
+	/** `rs -> status` once the run has ended, so the admin map can show it after a reload. */
+	cityStatus: jsonb('city_status').$type<Record<number, CityStatus>>(),
 	error: text('error'),
 	startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
 	finishedAt: timestamp('finished_at', { withTimezone: true })
+});
+
+/**
+ * The one scheduled crawl (election night): while `active` and now is within [startsAt, endsAt], the
+ * scheduler (src/lib/server/scheduler.ts) re-runs the crawl for this election `intervalMinutes` after
+ * the previous run ended. At most one row — the admin page edits it in place.
+ */
+export const crawlSchedule = pgTable('crawl_schedule', {
+	id: integer('id').primaryKey(),
+	electionType: integer('election_type')
+		.notNull()
+		.references(() => electionType.electionType),
+	date: date('date', { mode: 'string' }).notNull(),
+	intervalMinutes: integer('interval_minutes').notNull(),
+	startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+	endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+	active: boolean('active').notNull()
 });

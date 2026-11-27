@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { requireAdmin } from '$lib/server/auth/session';
-import { getCurrentState, subscribeToDateDiscovery } from '$lib/server/date-discovery';
+import { requireAdmin } from '#lib/server/auth/session.ts';
+import { getCurrentState, subscribeToDateDiscovery } from '#lib/server/date-discovery/index.ts';
 
 export const GET: RequestHandler = ({ locals, request }) => {
 	requireAdmin(locals);

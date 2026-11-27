@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
-	import ProtectedEmail from '$lib/components/ProtectedEmail.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import ProtectedEmail from '#lib/components/ProtectedEmail.svelte';
 
 	let { data } = $props();
 	const operator = $derived(data.operator);
@@ -11,7 +11,7 @@
 <h1>{m.impressum_title()}</h1>
 
 <h2>{m.impressum_provider()}</h2>
-<p>
+<p class="address">
 	{operator.name}
 	{#each operator.address as line (line)}<br />{line}{/each}
 </p>
@@ -20,7 +20,7 @@
 <p>{m.impressum_email()}: <ProtectedEmail encoded={operator.emailBase64} /></p>
 
 <h2>{m.impressum_responsible()}</h2>
-<p>
+<p class="address">
 	{operator.name}
 	{#each operator.address as line (line)}<br />{line}{/each}
 </p>

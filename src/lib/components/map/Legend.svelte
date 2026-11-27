@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { diffGradientCss } from '$lib/map/colors';
+	import { diffGradientCss } from '#lib/map/colors.ts';
 
 	interface PartyEntry {
 		name: string;
@@ -121,6 +121,15 @@
 		z-index: 3;
 		box-sizing: border-box;
 	}
+	@media (max-width: 759px) {
+		/* On phones the map attribution spans the whole bottom edge (two lines): sit above it. */
+		.legend {
+			bottom: 62px;
+			right: 10px;
+			width: 186px;
+			padding: 9px 11px;
+		}
+	}
 	.header {
 		display: flex;
 		align-items: baseline;
@@ -148,6 +157,11 @@
 		border-radius: 2px;
 		flex: none;
 		border: 0.5px solid var(--map-swatch-border);
+	}
+	/* Match the map's fill-opacity (MapView.svelte) so legend colours look like the map. */
+	.swatch,
+	.gradient {
+		opacity: 0.7;
 	}
 	.gradient-wrap {
 		position: relative;

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
-	import { seatLayout, spectrumRank } from '$lib/map/seatLayout';
+	import * as m from '#lib/paraglide/messages.js';
+	import { seatLayout, spectrumRank } from '#lib/map/seatLayout.ts';
 
 	export interface SeatParty {
 		name: string | null;

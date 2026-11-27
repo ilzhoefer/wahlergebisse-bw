@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	electionsVotetypes,
@@ -7,7 +7,7 @@ import {
 	electionResult,
 	electionResultPs,
 	electionParty
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import {
 	BASE,
 	padAgs,
@@ -273,14 +273,18 @@ export async function getResultsCity(
 				);
 
 			if (!relevantElection) {
-				log(`${cityLabel}: keine passende Wahl gefunden, überspringe`, {
-					level: 'city',
-					index: ++completed,
-					total: cityList.length,
-					label: cityLabel,
-					rs: city.rs,
-					cityStatus: 'skipped'
-				});
+				log(
+					`${cityLabel}: keine passende Wahl gefunden, überspringe`,
+					{
+						level: 'city',
+						index: ++completed,
+						total: cityList.length,
+						label: cityLabel,
+						rs: city.rs,
+						cityStatus: 'skipped'
+					},
+					'warn'
+				);
 				return;
 			}
 
@@ -389,7 +393,7 @@ export async function getResultsCity(
 					});
 
 					if ('error' in result) {
-						log(result.error);
+						log(result.error, undefined, 'warn');
 						continue;
 					}
 
@@ -492,5 +496,59 @@ export async function neutralizeCentralCountPlaceholders(
 	`);
 	if (updated.length) {
 		log(`${updated.length} Platzhalter-Wahlbezirke (zentrale Auszählung) neutralisiert`);
+	}
+}
+
+/**
+ * A Gemeinde split across Wahlkreise has one Erststimme ballot per Wahlkreis, each numbered on its
+ * own, but `election_party` keeps one row per party_id (from the first station). Where the ballots
+ * differ, the same party_id means different parties in the two Wahlkreise (Stuttgart, Bundestag
+ * 2021: 11 is MLPD in Stuttgart I and dieBasis in Stuttgart II), so every join on party_id put the
+ * other Wahlkreis's votes under the wrong party. This renumbers such result rows to the party_id of
+ * the party their own label ("Nachname, Partei") names, adding an `election_party` row for a party
+ * that is only on the other ballot. Labels without ", " (party-only open-data imports) are left alone.
+ */
+export async function unifyPartyIds(db: Db, date: string, electionTypeId: number, log: Logger) {
+	const scope = sql`
+		FROM ${electionResult} r
+		JOIN ${elections} e ON e.election_id = r.election_id AND e.rs = r.rs
+			AND e.date = ${date} AND e.election_type = ${electionTypeId}
+		JOIN ${electionParty} ep ON ep.rs = r.rs AND ep.election_id = r.election_id
+			AND ep.votetype_id = r.votetype_id AND ep.party_id = r.party_id
+		WHERE r.candidate_name LIKE '%, %' AND ep.name LIKE '%, %'
+			AND regexp_replace(r.candidate_name, '^.*, ', '') <> regexp_replace(ep.name, '^.*, ', '')`;
+
+	await db.execute(sql`
+		WITH missing AS (
+			SELECT r.rs, r.election_id, r.votetype_id,
+				regexp_replace(r.candidate_name, '^.*, ', '') AS party, min(r.candidate_name) AS name
+			${scope}
+				AND NOT EXISTS (
+					SELECT 1 FROM ${electionParty} o
+					WHERE o.rs = r.rs AND o.election_id = r.election_id AND o.votetype_id = r.votetype_id
+						AND regexp_replace(o.name, '^.*, ', '') = regexp_replace(r.candidate_name, '^.*, ', ''))
+			GROUP BY 1, 2, 3, 4
+		)
+		INSERT INTO ${electionParty} (rs, election_id, votetype_id, party_id, name)
+		SELECT m.rs, m.election_id, m.votetype_id,
+			(SELECT max(party_id) FROM ${electionParty} o WHERE o.rs = m.rs
+				AND o.election_id = m.election_id AND o.votetype_id = m.votetype_id)
+				+ row_number() OVER (PARTITION BY m.rs, m.election_id, m.votetype_id ORDER BY m.party),
+			m.name
+		FROM missing m
+	`);
+
+	const updated = await db.execute(sql`
+		UPDATE ${electionResult} u SET party_id = (
+			SELECT min(o.party_id) FROM ${electionParty} o
+			WHERE o.rs = u.rs AND o.election_id = u.election_id AND o.votetype_id = u.votetype_id
+				AND regexp_replace(o.name, '^.*, ', '') = regexp_replace(u.candidate_name, '^.*, ', ''))
+		WHERE u.id IN (SELECT r.id ${scope})
+		RETURNING u.id
+	`);
+	if (updated.length) {
+		log(
+			`${updated.length} Ergebniszeilen auf die Partei-Nummer ihres Wahlkreis-Stimmzettels umgestellt`
+		);
 	}
 }

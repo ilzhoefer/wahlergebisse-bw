@@ -7,9 +7,9 @@
  * Everything is optional; unknown or malformed values are dropped, never thrown on, since links get
  * hand-edited and outlive the data they were made for.
  */
-import type { MapInformationMode } from '$lib/server/map/queries';
-import type { MapLevel } from '$lib/map/path';
-import { KREISFREIE_STADT_RS } from '$lib/map/rs';
+import type { MapInformationMode } from '#lib/server/map/queries.ts';
+import type { MapLevel } from '#lib/map/path.ts';
+import { KREISFREIE_STADT_RS } from '#lib/map/rs.ts';
 
 export type ShareEbene = 'Regierungsbezirk' | 'Kreis' | 'Gemeinde' | 'Wahlkreis';
 /** The map's colouring modes: the server's, plus two the client builds itself (the server never
@@ -33,6 +33,8 @@ export interface ShareState {
 	wb?: string;
 	/** Selected Wahlkreis `ref` (only with ebene=Wahlkreis). */
 	wk?: string;
+	/** Map only, without toolbar and panel — for iframes on other sites. */
+	embed?: true;
 }
 
 const MODE_SLUGS: [string, VisualMode][] = [
@@ -46,7 +48,7 @@ const MODE_SLUGS: [string, VisualMode][] = [
 ];
 const EBENEN: ShareEbene[] = ['Regierungsbezirk', 'Kreis', 'Gemeinde', 'Wahlkreis'];
 
-export function readShareParams(p: URLSearchParams): ShareState {
+export function readShareParams(p: Pick<URLSearchParams, 'get'>): ShareState {
 	const s: ShareState = {};
 	const wahl = Number(p.get('wahl'));
 	if (Number.isInteger(wahl) && wahl > 0) s.wahl = wahl;
@@ -70,8 +72,14 @@ export function readShareParams(p: URLSearchParams): ShareState {
 	if (wb && /^\d[\d.]*-[\d.-]+$/.test(wb)) s.wb = wb;
 	const wk = p.get('wk');
 	if (wk && /^\d+$/.test(wk)) s.wk = wk;
+	if (p.get('embed') === '1') s.embed = true;
 	return s;
 }
+
+/** The map's current view (query string without `embed`), kept in client memory so the secondary
+ * pages' "Zur Karte" link returns to it instead of the default view. Empty on the server and after
+ * a full page load of a secondary page. */
+export const lastMapView = { qs: '' };
 
 export function writeShareParams(s: ShareState): string {
 	const p = new URLSearchParams();
@@ -87,6 +95,7 @@ export function writeShareParams(s: ShareState): string {
 	if (s.gebiet !== undefined) p.set('gebiet', String(s.gebiet));
 	if (s.wb) p.set('wb', s.wb);
 	if (s.wk) p.set('wk', s.wk);
+	if (s.embed) p.set('embed', '1');
 	return p.toString();
 }
 

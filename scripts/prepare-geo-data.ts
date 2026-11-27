@@ -1,6 +1,6 @@
 /**
  * One-off (re-run when the source GeoJSON changes) preprocessing of the boundary files inherited
- * from the R/Shiny app (Docker/shiny/data/*.geojson) into small, WGS84, per-admin-level files the
+ * from the retired R/Shiny app (scripts/source-data/*.geojson) into small, WGS84, per-admin-level files the
  * map view can fetch directly. See CLAUDE.md / the Phase 1 plan for why this is needed:
  * - Landtag_BW.geojson is in EPSG:31467 (Gauss-Krüger), everything else is WGS84 — must reproject.
  * - Baden_Wuerttemberg_small.geojson (~18MB) mixes three admin levels in one file — split by level
@@ -19,7 +19,7 @@ import mapshaper from 'mapshaper';
 import { fitToOutline, simplify, type GeoJSON } from './geo-utils';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SRC = path.resolve(__dirname, '../Docker/shiny/data');
+const SRC = path.resolve(__dirname, 'source-data');
 const OUT = path.resolve(__dirname, '../src/lib/geo');
 mkdirSync(OUT, { recursive: true });
 
@@ -47,7 +47,10 @@ function reprojectGeometry(
 }
 
 function reprojectFeatureCollection(geojson: GeoJSON, fromProj: string): GeoJSON {
-	const project = (xy: [number, number]) => proj4(fromProj, proj4.WGS84, xy);
+	// Rounded to 6 decimals (~0.1 m) like mapshaper's output elsewhere: proj4's full doubles doubled
+	// the file size for nothing.
+	const project = (xy: [number, number]) =>
+		proj4(fromProj, proj4.WGS84, xy).map((v) => Math.round(v * 1e6) / 1e6) as [number, number];
 	return {
 		...geojson,
 		features: geojson.features.map((f) => ({
@@ -175,7 +178,8 @@ async function main() {
 	const landtag = reprojectFeatureCollection(
 		await simplify(
 			readGeoJSON('Landtag_BW.geojson'),
-			15,
+			// The source is coarse already (~165 KiB gzipped at full detail), so nothing is dropped.
+			100,
 			'interval=50 -clean gap-fill-area=1000000'
 		),
 		EPSG_31467
@@ -211,7 +215,11 @@ async function main() {
 	const stuttgartOutline = admin.gemeinde.features.find((f) => f.properties.rs === 81110000000)!;
 	for (const [file, date] of stuttgartByDate) {
 		const geo = readGeoJSON(file);
-		const simplified = fitToOutline(await simplify(geo, 30), stuttgartOutline);
+		// Snap within ~1 m (the interval is in degrees here): the city digitizes each Bezirk on its own, so
+		// neighbouring borders almost but not quite coincide, every near-miss became an arc endpoint
+		// `-simplify` must keep, and 2024/2025 went through at ~98% of their vertices. Not `-clean`: it
+		// drops whole self-intersecting Bezirke (2024: 002-02, 002-07).
+		const simplified = fitToOutline(await simplify(geo, 30, 'interval=0.00001'), stuttgartOutline);
 		write(
 			`stuttgart-bezirke-${date}.json`,
 			pickProperties(simplified, ['AWBEZ_T', 'name'], { STBNAM_T: 'name' })

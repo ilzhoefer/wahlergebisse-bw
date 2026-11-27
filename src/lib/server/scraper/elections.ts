@@ -1,11 +1,11 @@
 import { eq, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
+import type { db as DbType } from '#lib/server/db/index.ts';
 import {
 	elections,
 	electionsVotetypes,
 	electionType,
 	pollingStations
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 import {
 	BASE,
 	padAgs,

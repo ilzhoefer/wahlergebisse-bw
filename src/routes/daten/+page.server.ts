@@ -1,7 +1,8 @@
-import { db } from '$lib/server/db';
-import { getElectionTypes, getAllElectionDates } from '$lib/server/map/queries';
-import { getCities } from '$lib/server/csv-export/queries';
+import { db } from '#lib/server/db/index.ts';
+import { getElectionTypes, getAllElectionDates } from '#lib/server/map/queries.ts';
+import { getCities } from '#lib/server/csv-export/queries.ts';
 import type { PageServerLoad } from './$types';
+import { formatDate } from '#lib/formatDate.ts';
 
 export const load: PageServerLoad = async () => {
 	const [electionTypes, allDates, cities] = await Promise.all([
@@ -24,7 +25,7 @@ export const load: PageServerLoad = async () => {
 				electionType: d.electionType,
 				date: d.date,
 				description,
-				label: `${description} ${new Date(d.date).toLocaleDateString('de-DE')}`,
+				label: `${description} ${formatDate(d.date)}`,
 				// Matches the legacy app's conditionalPanel string check for whether the "pro Kandidat:in"
 				// toggle is offered — election descriptions containing "Gemeinde" or "Kreis".
 				supportsPersonToggle: /Gemeinde|Kreis/.test(description)

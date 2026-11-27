@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as m from '$lib/paraglide/messages';
-	import ProtectedEmail from '$lib/components/ProtectedEmail.svelte';
+	import * as m from '#lib/paraglide/messages.js';
+	import ProtectedEmail from '#lib/components/ProtectedEmail.svelte';
 
 	let { data } = $props();
 	const operator = $derived(data.operator);
@@ -16,7 +16,7 @@
 
 <h2>{m.datenschutz_controller_title()}</h2>
 <p>{m.datenschutz_controller()}</p>
-<p>
+<p class="address">
 	{operator.name}
 	{#each operator.address as line (line)}<br />{line}{/each}
 	<br /><ProtectedEmail encoded={operator.emailBase64} />
@@ -37,9 +37,9 @@
 <h2>{m.datenschutz_osm_title()}</h2>
 <p>{m.datenschutz_osm()}</p>
 <p>
-	<a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener" target="_blank"
-		>{m.datenschutz_osm_link()}</a
-	>
+	<a href="https://osmfoundation.org/wiki/Privacy_Policy" rel="noopener" target="_blank">
+		{m.datenschutz_osm_link()}
+	</a>
 </p>
 
 <h2>{m.datenschutz_fonts_title()}</h2>

@@ -1,0 +1,16 @@
+# Only what `bun install` and `bun run build` need goes into the build context.
+.git
+.github
+.claude
+.vscode
+node_modules
+build
+.svelte-kit
+src/lib/paraglide
+graphify-out
+# Local secrets must never end up in an image layer or the build cache.
+.env
+.env.*
+!.env.example
+# Raw inputs of the prepare-* scripts; their output in src/lib/geo is what the build uses.
+scripts/source-data

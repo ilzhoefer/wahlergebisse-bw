@@ -12,7 +12,7 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { bbox, pointOnFeature } from '@turf/turf';
 	import type { Feature, FeatureCollection, Point } from 'geojson';
-	import { stripeImage } from '$lib/map/colors';
+	import { stripeImage } from '#lib/map/colors.ts';
 
 	// MapLibre locates its tile-processing worker via a URL relative to its own bundled chunk at
 	// runtime (import.meta.url + './maplibre-gl-worker.mjs') — Vite doesn't statically detect that
@@ -129,7 +129,14 @@
 			type: 'FeatureCollection',
 			features: fc.features.map((f): Feature<Point> => ({
 				type: 'Feature',
-				properties: f.properties,
+				properties: {
+					...f.properties,
+					// Map text only: "Regierungsbezirk Stuttgart" → "Stuttgart", "Landkreis Calw" → "Calw".
+					// A feature's own `label` (e.g. Wahlbezirk "Möhringen 012-03") wins over labelProperty.
+					_labelText: String(
+						f.properties?.label ?? f.properties?.[labelProperty ?? ''] ?? ''
+					).replace(/^(Regierungsbezirk|Landkreis) /, '')
+				},
 				geometry: pointOnFeature(f).geometry
 			}))
 		};
@@ -138,19 +145,10 @@
 	onMount(() => {
 		map = new MapLibreMap({
 			container,
-			style: {
-				version: 8,
-				sources: {
-					osm: {
-						type: 'raster',
-						tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-						tileSize: 256,
-						attribution:
-							'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-					}
-				},
-				layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
-			},
+			// Vector basemap: re-renders crisply at every fractional zoom instead of
+			// blurring/fading raster tiles in and out while scrolling. Also supplies the glyphs the label
+			// layer's 'Noto Sans Regular' needs.
+			style: 'https://tiles.openfreemap.org/styles/positron',
 			center: [9.18, 48.7],
 			zoom: 7,
 			scrollZoom: interactive,
@@ -240,7 +238,7 @@
 			source: SOURCE_ID,
 			paint: {
 				'fill-color': ['coalesce', ['feature-state', 'color'], 'rgba(0,0,0,0)'],
-				'fill-opacity': 0.9,
+				'fill-opacity': 0.7,
 				// Adjacent polygons are triangulated independently; each one's anti-aliased edge blends
 				// toward the basemap right at the shared boundary, and where two edges don't land on
 				// exactly the same pixels this leaves a thin sliver of basemap showing through. Disabling
@@ -274,7 +272,7 @@
 					13.5,
 					stripeId(192)
 				],
-				'fill-opacity': 0.9,
+				'fill-opacity': 0.7,
 				'fill-antialias': false
 			}
 		});
@@ -318,8 +316,7 @@
 				type: 'symbol',
 				source: LABEL_SOURCE_ID,
 				layout: {
-					// A feature's own `label` (e.g. Wahlbezirk "Möhringen 012-03") wins over labelProperty.
-					'text-field': ['coalesce', ['get', 'label'], ['get', labelProperty]],
+					'text-field': ['get', '_labelText'],
 					'text-font': ['Noto Sans Regular'],
 					'text-size': 11.5,
 					'text-allow-overlap': false

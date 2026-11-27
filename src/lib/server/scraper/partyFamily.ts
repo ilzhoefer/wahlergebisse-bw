@@ -1,6 +1,6 @@
 import { and, eq, ilike, like, or, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { elections, electionParty, electionPartyFamily, party } from '$lib/server/db/schema';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { elections, electionParty, electionPartyFamily, party } from '#lib/server/db/schema.ts';
 import type { Logger } from './client';
 
 type Db = typeof DbType;
@@ -8,7 +8,7 @@ type Db = typeof DbType;
 /** Catch-all families (see party-families.csv) for ballot lines no real family matches: local voter
  * groups in local elections, everything else (tiny parties, independent candidates) otherwise. Never
  * matched by name — only assigned to what's left over. */
-const WAEHLERVEREINIGUNGEN_FAMILY = 90;
+export const WAEHLERVEREINIGUNGEN_FAMILY = 90;
 const SONSTIGE_FAMILY = 91;
 /** Regionalwahl, Kreistagswahl, Gemeinderatswahl — where unmatched lists are local voter groups. */
 const LOCAL_ELECTION_TYPES = new Set([4, 5, 6]);

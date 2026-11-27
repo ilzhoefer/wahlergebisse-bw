@@ -1,8 +1,8 @@
 import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
-import type { db as DbType } from '$lib/server/db';
-import { KREISFREIE_STADT_RS } from '$lib/map/rs';
-import { mixColors } from '$lib/map/colors';
-import { postalElsewhereRs } from '$lib/server/scraper/kreisOpenData';
+import type { db as DbType } from '#lib/server/db/index.ts';
+import { KREISFREIE_STADT_RS } from '#lib/map/rs.ts';
+import { mixColors } from '#lib/map/colors.ts';
+import { postalElsewhereRs } from '#lib/server/scraper/kreisOpenData.ts';
 import {
 	elections,
 	electionType,
@@ -19,7 +19,7 @@ import {
 	electionParty,
 	electionPartyFamily,
 	pollingStations
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.ts';
 
 type Db = typeof DbType;
 
@@ -1214,7 +1214,7 @@ export interface CandidateResult {
 }
 
 /** "Mustermann, Max" (elected-members table) and "Dr. Max Mustermann" (results) → same key. */
-function nameKey(name: string): string {
+export function nameKey(name: string): string {
 	return name
 		.toLowerCase()
 		.split(/[\s,]+/)

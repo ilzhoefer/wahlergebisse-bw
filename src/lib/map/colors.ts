@@ -80,6 +80,21 @@ function adjustLightness(hex: string, amount: number): string {
 	return rgbToHex(...hslToRgb(h, s, Math.max(0, Math.min(1, newL))));
 }
 
+/** A party colour made legible as a 2px line/dot on the light surface: very light ones (FDP
+ * yellow, Tierschutz grey) are darkened until they stand out; everything else is unchanged. */
+export function lineColor(hex: string): string {
+	const lum = (c: string) => {
+		const [r, g, b] = hexToRgb(c).map((v) => {
+			const x = v / 255;
+			return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+		});
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	};
+	let c = hex;
+	for (let i = 0; i < 6 && lum(c) > 0.45; i++) c = adjustLightness(c, -0.15);
+	return c;
+}
+
 /** Average of several hex colours — a joint list's colour from its partners' (e.g. Volt + ÖDP). */
 export function mixColors(hexes: string[]): string {
 	if (hexes.length === 0) return '#cfc8ba';
@@ -94,13 +109,14 @@ export function paleColor(hex: string): string {
 }
 
 /** Square RGBA tile of 45° stripes alternating `a` and `b` (hex), for a MapLibre `fill-pattern`.
- * The stripe period divides the tile size, so tiles repeat seamlessly. */
+ * `b` gets the wider band (2:1) — callers pass the currently stronger party as `b` so it reads as
+ * the dominant colour. The stripe period divides the tile size, so tiles repeat seamlessly. */
 export function stripeImage(a: string, b: string, size = 20) {
 	const [ca, cb] = [hexToRgb(a), hexToRgb(b)];
 	const data = new Uint8Array(size * size * 4);
 	for (let y = 0; y < size; y++)
 		for (let x = 0; x < size; x++) {
-			const [r, g, bl] = (x + y) % size < size / 2 ? ca : cb;
+			const [r, g, bl] = (x + y) % size < size / 3 ? ca : cb;
 			data.set([r, g, bl, 255], (y * size + x) * 4);
 		}
 	return { width: size, height: size, data };
