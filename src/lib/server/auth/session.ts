@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { error, type RequestEvent } from '@sveltejs/kit';
 import { SESSION_SECRET, ADMIN_PASSWORD } from '$app/env/private';
 
@@ -29,15 +29,19 @@ export function verifySessionToken(token: string | undefined): boolean {
 }
 
 /**
- * Constant-time password check. Hashing both sides to a fixed-length digest first (rather than
- * comparing the raw strings) avoids leaking the candidate's length via an early bail-out before
- * timingSafeEqual — which requires equal-length inputs to run at all.
+ * Constant-time password check. Both sides go through scrypt to a fixed-length key first, so
+ * timingSafeEqual (which needs equal-length inputs) can't leak the candidate's length, and a slow key
+ * derivation rather than a plain digest compares them (CodeQL js/insufficient-password-hash). The
+ * password is never stored; the admin side is derived once per process with a random salt.
  */
+const salt = randomBytes(16);
+let adminKey: Buffer | null = null;
+const derive = (password: string) => scryptSync(password, salt, 32);
+
 export function checkPassword(candidate: string): boolean {
 	if (!ADMIN_PASSWORD) throw new Error('ADMIN_PASSWORD is not set');
-	const a = createHash('sha256').update(candidate).digest();
-	const b = createHash('sha256').update(ADMIN_PASSWORD).digest();
-	return timingSafeEqual(a, b);
+	adminKey ??= derive(ADMIN_PASSWORD);
+	return timingSafeEqual(derive(candidate), adminKey);
 }
 
 /** Throws a 401 unless the request's hooks.server.ts-populated locals mark it as an admin session. */
