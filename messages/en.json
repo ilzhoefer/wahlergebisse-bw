@@ -522,5 +522,6 @@
 	"export_sources_reuse": "When reusing the data, please credit the sources.",
 	"export_no_results": "There are no results for this election.",
 	"export_busy": "Several exports are running right now. Please try again in a minute.",
+	"rate_limited": "Too many requests in a short time. Please wait a moment and try again.",
 	"daten_direct_link": "All Gemeinden of this election as ZIP (fixed link, also for scripts)"
 }

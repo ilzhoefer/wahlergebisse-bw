@@ -226,8 +226,12 @@ Operating notes:
 - Admin sessions are stateless signed cookies valid for 24 hours. There is no session store, so the
   only way to log every session out at once (e.g. after a leaked password) is to change
   `SESSION_SECRET` and restart.
-- At most three CSV/ZIP exports stream at once; further requests get a 503 with `Retry-After`. For
-  per-client limits on `/graphql` and `/daten/export`, put a rate limit in front at the reverse proxy.
+- At most three CSV/ZIP exports stream at once; further requests get a 503 with `Retry-After`.
+- Per-client rate limits (429 with `Retry-After`): `/graphql` 120 requests at once then 2/s,
+  `/daten/export` 10 then 1/minute, `/api/kandidaten` 30 then 1/s. They need the real client IP:
+  behind a reverse proxy set `ADDRESS_HEADER` (e.g. `X-Forwarded-For`, plus `XFF_DEPTH` for more
+  than one proxy). Requests from private addresses, which is what the proxy looks like without it,
+  are never limited, so a missing `ADDRESS_HEADER` can't throttle all visitors together.
 
 A database crawled before the candidate pages existed needs two one-off backfills:
 `bun run scripts/build-candidates.ts` (per-candidate table for Gemeinderat/Kreistag) and

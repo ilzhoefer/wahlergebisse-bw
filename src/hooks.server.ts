@@ -14,6 +14,8 @@ import { SESSION_COOKIE_NAME, verifySessionToken } from '#lib/server/auth/sessio
 import { db } from '#lib/server/db/index.ts';
 import { crawlRun } from '#lib/server/db/schema.ts';
 import { startScheduler } from '#lib/server/scheduler.ts';
+import { createLimiter, isPrivateAddress } from '#lib/server/rateLimit.ts';
+import * as m from '#lib/paraglide/messages.js';
 
 // A crawl runs in-process, so any `running` row at startup belongs to a process that died mid-run —
 // without this the admin page would show it as live forever.
@@ -99,7 +101,40 @@ const handleCompression: Handle = async ({ event, resolve }) => {
 	});
 };
 
-export const handle: Handle = sequence(handleCompression, handleAuth, handleParaglide);
+/** Per-client limits on the public endpoints that cost database time: [path test, limiter]. Bursts are
+ * generous because offices, schools and mobile carriers put many people behind one address. */
+const LIMITS: [(path: string) => boolean, ReturnType<typeof createLimiter>][] = [
+	[(p) => p === '/graphql', createLimiter(120, 2)],
+	[(p) => p.startsWith('/daten/export'), createLimiter(10, 1 / 60)],
+	[(p) => p === '/api/kandidaten', createLimiter(30, 1)]
+];
+const handleRateLimit: Handle = ({ event, resolve }) => {
+	const path = event.url.pathname;
+	const limit = LIMITS.find(([matches]) => matches(path));
+	if (!limit) return resolve(event);
+	let ip: string;
+	try {
+		ip = event.getClientAddress();
+	} catch {
+		return resolve(event);
+	}
+	// A private address is the reverse proxy's when ADDRESS_HEADER isn't set (see isPrivateAddress).
+	if (isPrivateAddress(ip)) return resolve(event);
+	const wait = limit[1].take(ip);
+	if (wait === 0) return resolve(event);
+	return Response.json(
+		{ message: m.rate_limited() },
+		{ status: 429, headers: { 'Retry-After': String(wait) } }
+	);
+};
+
+// After handleParaglide, so the 429 message is in the visitor's language.
+export const handle: Handle = sequence(
+	handleCompression,
+	handleAuth,
+	handleParaglide,
+	handleRateLimit
+);
 
 // The default handler only prints `error.stack`, which is silently "undefined" for thrown non-Error
 // values — logging the raw value too makes those cases diagnosable instead of a bare "undefined".
